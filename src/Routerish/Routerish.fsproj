@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Parsing.fs" />
+    <Compile Include="UrlTemplate.fs" />
+    <Compile Include="UrlParser.fs" />
+    <Compile Include="RouteMatcher.fs" />
+    <Compile Include="Router.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.0.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.4" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.0.4" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Elmish.UrlParser" Version="1.0.2" />
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.10.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.10.0" />
+    <PackageReference Include="IcedTasks" Version="0.8.2" />
+
+    <PackageReference Include="NXUI" Version="11.0.0" />
+    <PackageReference Include="NXUI.Desktop" Version="11.0.0" />
+    <PackageReference Include="NXUI.FSharp" Version="11.0.0" />
+    <PackageReference Include="FSharp.Control.Reactive" Version="5.0.5" />
+    <PackageReference Include="TheBlunt" Version="1.0.1" />
+  </ItemGroup>
+
+</Project>
