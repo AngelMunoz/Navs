@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Parsing.fsi" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="UrlTemplate.fsi" />
+    <Compile Include="UrlTemplate.fs" />
+    <Compile Include="UrlParser.fsi" />
+    <Compile Include="UrlParser.fs" />
+    <Compile Include="RouteMatcher.fsi" />
+    <Compile Include="RouteMatcher.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+  </ItemGroup>
+
+</Project>

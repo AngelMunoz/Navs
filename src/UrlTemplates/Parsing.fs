@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module Routerish.Parser.Common
+module internal UrlTemplates.Parser.Common
 
 open FParsec
 

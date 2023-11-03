@@ -1,7 +1,7 @@
-namespace Routerish.UrlTemplate
+namespace UrlTemplates.UrlTemplate
 
 open FParsec
-open Routerish.Parser
+open UrlTemplates.Parser
 open FsToolkit.ErrorHandling
 
 [<Struct>]

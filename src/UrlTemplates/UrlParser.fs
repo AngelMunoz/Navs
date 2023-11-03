@@ -1,8 +1,8 @@
-namespace Routerish.UrlParser
+namespace UrlTemplates.UrlParser
 
 open System
 open FParsec
-open Routerish.Parser
+open UrlTemplates.Parser
 open FsToolkit.ErrorHandling
 
 [<Struct>]
@@ -75,17 +75,17 @@ module UrlParser =
       |> preturn
     )
 
-  let FromUri (uri: Uri) =
+  let ofUri (uri: Uri) =
     let uri =
       if uri.IsAbsoluteUri then
         uri
       else
         Uri(
-          Uri("http://localhost.com"),
-          Uri(uri.OriginalString, UriKind.Relative)
+          Uri("url+templates://"),
+          Uri($"{uri.PathAndQuery}{uri.Fragment}", UriKind.Relative)
         )
 
-    $"{uri.PathAndQuery[1..]}{uri.Fragment}"
+    $"{uri.PathAndQuery}{uri.Fragment}"
 
   let ofString (url: string) =
     match run parse url with

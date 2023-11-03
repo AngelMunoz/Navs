@@ -1,11 +1,12 @@
-namespace Routerish.RouteMatcher
+namespace UrlTemplates.RouteMatcher
 
 open System
+open System.Collections.Generic
 
 open FsToolkit.ErrorHandling
 
-open Routerish.UrlTemplate
-open Routerish.UrlParser
+open UrlTemplates.UrlTemplate
+open UrlTemplates.UrlParser
 
 type QueryParamError =
   | MissingRequired of string
@@ -22,6 +23,12 @@ type MatchingError =
   | UnparsableParam of name: string * expectedType: TypedParam * value: string
   | QueryParamError of QueryParamError
 
+type StringMatchError =
+  | TemplateParsingError of string
+  | UrlParsingError of string
+  | MatchingError of MatchingError
+
+
 type UrlMatch = {
   Params: Map<string, obj>
   QueryParams: Map<string, obj>
@@ -30,7 +37,6 @@ type UrlMatch = {
 
 [<RequireQualifiedAccess>]
 module RouteMatcher =
-  open System.Collections.Generic
 
   let getKeySize (map: QueryKey list) =
     map
@@ -114,46 +120,45 @@ module RouteMatcher =
     else
       Error(errors |> List.ofSeq)
 
-  let fillQueryParams
-    (templated: QueryKey list)
-    (url: Map<string, QueryValue>)
-    (bag: Map<string, obj>)
-    =
-    let extractRequired name (value: string voption) tipe map = result {
-      let! value =
-        match value with
-        | ValueSome value -> Ok value
-        | ValueNone -> Error(MissingRequired(name))
+  let extractRequired name (value: string voption) tipe map = result {
+    let! value =
+      match value with
+      | ValueSome value -> Ok value
+      | ValueNone -> Error(MissingRequired(name))
 
+    let! parsedValue =
+      tryParseValue tipe value
+      |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
+
+    return map |> Map.add name parsedValue
+  }
+
+  let extractOptional name (value: string voption) tipe map = result {
+    match value with
+    | ValueNone -> return map
+    | ValueSome value ->
       let! parsedValue =
         tryParseValue tipe value
         |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
 
       return map |> Map.add name parsedValue
-    }
+  }
 
-    let extractOptional name (value: string voption) tipe map = result {
-      match value with
-      | ValueNone -> return map
-      | ValueSome value ->
-        let! parsedValue =
-          tryParseValue tipe value
-          |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
+  let extractListValues name tipe values (map: Map<string, obj>) =
+    match
+      values
+      |> List.traverseResultA(fun value ->
+        tryParseValue tipe value |> Result.mapError(fun _ -> name, tipe, value)
+      )
+    with
+    | Ok values -> Ok(map |> Map.add name values)
+    | Error errs -> errs |> UnparsableQueryItems |> Error
 
-        return map |> Map.add name parsedValue
-    }
-
-    let extractListValues name tipe values (map: Map<string, obj>) =
-      match
-        values
-        |> List.traverseResultA(fun value ->
-          tryParseValue tipe value
-          |> Result.mapError(fun _ -> name, tipe, value)
-        )
-      with
-      | Ok values -> Ok(map |> Map.add name values)
-      | Error errs -> errs |> UnparsableQueryItems |> Error
-
+  let fillQueryParams
+    (templated: QueryKey list)
+    (url: Map<string, QueryValue>)
+    (bag: Map<string, obj>)
+    =
     templated
     |> List.fold
       (fun current next -> result {
@@ -177,7 +182,20 @@ module RouteMatcher =
       })
       (Ok bag)
 
-  let matchUrl (template: UrlTemplate) (url: UrlInfo) = validation {
+  let inline getMissingQueryParams url key =
+    match key with
+    | Required(name, _) ->
+      match url.Query |> Map.tryFind name with
+      | None -> Some name
+      | Some _ -> None
+    | Optional(_, _) -> None
+
+  let collectMissingQueryParams (template: UrlTemplate) url _ =
+    template.Query
+    |> List.choose(getMissingQueryParams url)
+    |> MissingQueryParams
+
+  let matchTemplate (template: UrlTemplate) (url: UrlInfo) = validation {
     let requiredKeysSize, _ = getKeySize template.Query
     let urlKeySize = url.Query |> Map.keys |> Seq.length
 
@@ -188,19 +206,7 @@ module RouteMatcher =
     do!
       urlKeySize >= requiredKeysSize
       |> Result.requireTrue ""
-      |> Result.mapError(fun _ ->
-
-        template.Query
-        |> List.choose(fun key ->
-          match key with
-          | Required(name, _) ->
-            match url.Query |> Map.tryFind name with
-            | None -> Some name
-            | Some _ -> None
-          | Optional(name, _) -> None
-        )
-        |> MissingQueryParams
-      )
+      |> Result.mapError(collectMissingQueryParams template url)
 
     let! urlParams = fillParamBag template.Segments url.Segments Map.empty
 
@@ -213,4 +219,21 @@ module RouteMatcher =
       QueryParams = queryParamsBag
       Hash = url.Hash
     }
+  }
+
+  let matchStrings template url = validation {
+    let! template =
+      UrlTemplate.ofString template |> Result.mapError TemplateParsingError
+
+    and! url = UrlParser.ofString url |> Result.mapError UrlParsingError
+
+    let! value = matchTemplate template url |> Validation.mapError MatchingError
+    return template, url, value
+  }
+
+  let matchUrl template url = validation {
+    let! url = UrlParser.ofString url |> Result.mapError UrlParsingError
+
+    let! value = matchTemplate template url |> Validation.mapError MatchingError
+    return url, value
   }
