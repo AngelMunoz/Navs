@@ -5,14 +5,14 @@ open IcedTasks
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
+open Avalonia.Data
 
 open NXUI.Desktop
 open NXUI.FSharp.Extensions
 
 open FsToolkit.ErrorHandling
 
-open Routerish.Router
-open Avalonia.Data
+open Navs
 
 
 let inline navigateBack (router: Router<_>) _ _ =
