@@ -1,4 +1,4 @@
-namespace Routerish.Router
+namespace Navs
 
 open System
 open System.Collections.Generic
@@ -7,9 +7,9 @@ open System.Threading
 open FSharp.Control.Reactive
 open System.Reactive.Subjects
 
-open Routerish.RouteMatcher
-open Routerish.UrlTemplate
-open Routerish.UrlParser
+open UrlTemplates.RouteMatcher
+open UrlTemplates.UrlTemplate
+open UrlTemplates.UrlParser
 
 open IcedTasks
 open FsToolkit.ErrorHandling
@@ -68,7 +68,9 @@ module Navigation =
     =
     routes
     |> List.tryPick(fun definition ->
-      match RouteMatcher.matchUrl definition.RouteTemplate parsedRoute with
+      match
+        RouteMatcher.matchTemplate definition.RouteTemplate parsedRoute
+      with
       | Ok urlMatch ->
         Some(
           {

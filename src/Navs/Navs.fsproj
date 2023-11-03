@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Router.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.10.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.10.0" />
+    <PackageReference Include="FSharp.Control.Reactive" Version="5.0.5" />
+    <PackageReference Include="IcedTasks" Version="0.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UrlTemplates\UrlTemplates.fsproj" />
+  </ItemGroup>
+</Project>
