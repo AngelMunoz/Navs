@@ -1,7 +1,6 @@
 namespace Navs
 
 open System
-open System.Collections.Generic
 open System.Threading
 
 open FSharp.Control.Reactive
@@ -13,36 +12,6 @@ open UrlTemplates.UrlParser
 
 open IcedTasks
 open FsToolkit.ErrorHandling
-
-type RouteContext = {
-  Route: string
-  UrlMatch: UrlMatch
-  UrlInfo: UrlInfo
-}
-
-type RouteGuard = RouteContext -> CancellableValueTask<bool>
-type GetView<'View> = RouteContext -> CancellableValueTask<'View>
-
-type RouteDefinition<'View> = {
-  Path: string
-  View: GetView<'View>
-  CanActivate: RouteGuard list
-  CanDeactivate: RouteGuard list
-}
-
-type DefinedRoute<'View> = {
-  RouteTemplate: UrlTemplate
-  Definition: RouteDefinition<'View>
-}
-
-type NavigationError =
-  | InvalidRouteFormat of string
-  | ViewActivationError of exn
-  | NotFound of string
-  | FailedToDeactivate
-  | FailedToActivate
-  | FailedToMoveBack
-  | FailedToMoveForward
 
 module Mapper =
 
@@ -57,7 +26,6 @@ module Mapper =
 
   let mapDefinitions (definitions: RouteDefinition<'View> list) =
     definitions |> List.traverseResultM mapDefinitionToDefined
-
 
 module Navigation =
 
@@ -104,53 +72,13 @@ module Navigation =
     | Error e -> return Error e
   }
 
-type HistoryManager<'RouteEntry>(?historySize: int) =
-  let historySize = defaultArg historySize 10
-
-  let history = LinkedList<'RouteEntry>()
-  let forwardHistory = LinkedList<'RouteEntry>()
-
-  member val Current =
-    history.Last
-    |> ValueOption.ofNull
-    |> ValueOption.map(fun value -> value.Value) with get
-
-  member val CanGoBack = history.Count > 1 with get
-  member val CanGoForward = forwardHistory.Count > 0 with get
-
-  member _.SetCurrent(route: 'RouteEntry) =
-    if history.Count >= historySize then
-      history.RemoveFirst() |> ignore
-
-    history.AddLast(route) |> ignore
-    forwardHistory.Clear()
-
-  member _.Next() =
-    if forwardHistory.Count <= 0 then
-      ValueNone
-    else
-      let next = forwardHistory.Last.Value
-      history.AddLast(next) |> ignore
-      forwardHistory.RemoveLast()
-
-      if history.Count >= historySize then
-        history.RemoveFirst()
-
-      ValueSome next
-
-  member _.Previous() =
-    if history.Count <= 0 then
-      ValueNone
-    else
-      let previous = history.Last.Value
-      forwardHistory.AddLast(previous) |> ignore
-      history.RemoveLast()
-
-      ValueSome previous
-
-
-type Router<'View>(routes: DefinedRoute<'View> list) =
-  let history = HistoryManager<DefinedRoute<'View> * RouteContext>()
+type Router<'View>
+  (
+    routes: DefinedRoute<'View> list,
+    ?history: IHistoryManager<DefinedRoute<'View> * RouteContext>
+  ) =
+  let history =
+    defaultArg history (HistoryManager<DefinedRoute<'View> * RouteContext>())
 
   let route = Subject.behavior routes.Head
 
@@ -293,17 +221,20 @@ type Router<'View>(routes: DefinedRoute<'View> list) =
 module Route =
 
   type DefinitionPart<'View> =
+    | Name of string
     | Path of string
     | View of GetView<'View>
     | CanActivate of RouteGuard list
     | CanDeactivate of RouteGuard list
 
   type RouteDefinitionError =
+    | MissingName
     | MissingPath
     | MissingView
     | InvalidRouteFormat of string
 
-  let route<'View> () : DefinitionPart<'View> list = [
+  let route<'View> (name: string) : DefinitionPart<'View> list = [
+    Name name
     CanActivate []
     CanDeactivate []
   ]
@@ -346,6 +277,15 @@ module Route =
       )
       |> Result.requireSome MissingPath
 
+    let! name =
+      routeInfo
+      |> List.tryPick(fun part ->
+        match part with
+        | Name name -> Some name
+        | _ -> None
+      )
+      |> Result.requireSome MissingName
+
     do!
       UrlTemplate.ofString path
       |> Result.mapError InvalidRouteFormat
@@ -377,6 +317,7 @@ module Route =
       )
 
     return {
+      Name = name
       Path = path
       View = view
       CanActivate = canActivate

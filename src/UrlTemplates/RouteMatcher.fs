@@ -30,8 +30,8 @@ type StringMatchError =
 
 
 type UrlMatch = {
-  Params: Map<string, obj>
-  QueryParams: Map<string, obj>
+  Params: Dictionary<string, obj>
+  QueryParams: Dictionary<string, obj>
   Hash: string voption
 }
 
@@ -77,11 +77,7 @@ module RouteMatcher =
       | false, _ -> return! Error "Could not parse decimal"
   }
 
-  let fillParamBag
-    (fromTemplate: TemplateSegment list)
-    (fromUrl: string list)
-    map
-    =
+  let fillParamBag (fromTemplate: TemplateSegment list) (fromUrl: string list) =
     let addToBag
       (templated: TemplateSegment)
       (url: string)
@@ -104,7 +100,7 @@ module RouteMatcher =
           return ()
       }
 
-    let bag = Dictionary<string, obj>(map :> IDictionary<string, obj>)
+    let bag = Dictionary<string, obj>()
     let errors = ResizeArray()
 
     for index in 0 .. (fromTemplate.Length - 1) do
@@ -116,49 +112,66 @@ module RouteMatcher =
       | Error err -> errors.Add err
 
     if errors.Count <= 0 then
-      bag |> Seq.map (|KeyValue|) |> Map.ofSeq |> Ok
+      bag |> Ok
     else
       Error(errors |> List.ofSeq)
 
-  let extractRequired name (value: string voption) tipe map = result {
-    let! value =
-      match value with
-      | ValueSome value -> Ok value
-      | ValueNone -> Error(MissingRequired(name))
+  let extractRequired
+    name
+    (value: string voption)
+    tipe
+    (map: Dictionary<_, _>)
+    =
+    result {
+      let! value =
+        match value with
+        | ValueSome value -> Ok value
+        | ValueNone -> Error(MissingRequired(name))
 
-    let! parsedValue =
-      tryParseValue tipe value
-      |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
-
-    return map |> Map.add name parsedValue
-  }
-
-  let extractOptional name (value: string voption) tipe map = result {
-    match value with
-    | ValueNone -> return map
-    | ValueSome value ->
       let! parsedValue =
         tryParseValue tipe value
         |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
 
-      return map |> Map.add name parsedValue
-  }
+      map.Add(name, parsedValue)
+      return map
+    }
 
-  let extractListValues name tipe values (map: Map<string, obj>) =
+  let extractOptional
+    name
+    (value: string voption)
+    tipe
+    (map: Dictionary<string, obj>)
+    =
+    result {
+      match value with
+      | ValueNone -> return map
+      | ValueSome value ->
+        let! parsedValue =
+          tryParseValue tipe value
+          |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
+
+        map.Add(name, parsedValue)
+        return map
+    }
+
+  let extractListValues name tipe values (map: Dictionary<string, obj>) =
     match
       values
       |> List.traverseResultA(fun value ->
         tryParseValue tipe value |> Result.mapError(fun _ -> name, tipe, value)
       )
     with
-    | Ok values -> Ok(map |> Map.add name values)
+    | Ok values ->
+      map.Add(name, values)
+      Ok map
     | Error errs -> errs |> UnparsableQueryItems |> Error
 
   let fillQueryParams
     (templated: QueryKey list)
-    (url: Map<string, QueryValue>)
-    (bag: Map<string, obj>)
+    (url: Dictionary<string, QueryValue>)
     =
+    let bag = Dictionary<string, obj>()
+
     templated
     |> List.fold
       (fun current next -> result {
@@ -166,18 +179,18 @@ module RouteMatcher =
 
         match next with
         | Required(name, tipe) ->
-          match url |> Map.tryFind name with
-          | None -> return! Error(MissingRequired(name))
-          | Some(String value) ->
+          match url.TryGetValue name with
+          | false, _ -> return! Error(MissingRequired(name))
+          | true, String value ->
             return! extractRequired name value tipe current
-          | Some(StringValues values) ->
+          | true, StringValues values ->
             return! extractListValues name tipe values current
         | Optional(name, tipe) ->
-          match url |> Map.tryFind name with
-          | None -> return current
-          | Some(String value) ->
+          match url.TryGetValue name with
+          | false, _ -> return current
+          | true, String value ->
             return! extractOptional name value tipe current
-          | Some(StringValues values) ->
+          | true, StringValues values ->
             return! extractListValues name tipe values current
       })
       (Ok bag)
@@ -185,9 +198,9 @@ module RouteMatcher =
   let inline getMissingQueryParams url key =
     match key with
     | Required(name, _) ->
-      match url.Query |> Map.tryFind name with
-      | None -> Some name
-      | Some _ -> None
+      match url.Query.TryGetValue name with
+      | false, _ -> Some name
+      | true, _ -> None
     | Optional(_, _) -> None
 
   let collectMissingQueryParams (template: UrlTemplate) url _ =
@@ -197,7 +210,7 @@ module RouteMatcher =
 
   let matchTemplate (template: UrlTemplate) (url: UrlInfo) = validation {
     let requiredKeysSize, _ = getKeySize template.Query
-    let urlKeySize = url.Query |> Map.keys |> Seq.length
+    let urlKeySize = url.Query.Keys.Count
 
     do!
       template.Segments.Length = url.Segments.Length
@@ -208,10 +221,10 @@ module RouteMatcher =
       |> Result.requireTrue ""
       |> Result.mapError(collectMissingQueryParams template url)
 
-    let! urlParams = fillParamBag template.Segments url.Segments Map.empty
+    let! urlParams = fillParamBag template.Segments url.Segments
 
     and! queryParamsBag =
-      fillQueryParams template.Query url.Query Map.empty
+      fillQueryParams template.Query url.Query
       |> Result.mapError QueryParamError
 
     return {

@@ -6,7 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Router.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="History.fs" />
+    <Compile Include="RouterB.fs" />
+    <Compile Include="RouterA.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />

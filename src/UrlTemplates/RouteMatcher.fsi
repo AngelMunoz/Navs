@@ -1,5 +1,6 @@
 namespace UrlTemplates.RouteMatcher
 
+open System.Collections.Generic
 open FsToolkit.ErrorHandling
 
 open UrlTemplates.UrlTemplate
@@ -23,8 +24,8 @@ type StringMatchError =
   | MatchingError of MatchingError
 
 type UrlMatch =
-  { Params: Map<string, obj>
-    QueryParams: Map<string, obj>
+  { Params: Dictionary<string, obj>
+    QueryParams: Dictionary<string, obj>
     Hash: string voption }
 
 [<RequireQualifiedAccess>]

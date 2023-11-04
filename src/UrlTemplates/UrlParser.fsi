@@ -1,6 +1,7 @@
 namespace UrlTemplates.UrlParser
 
 open System
+open System.Collections.Generic
 
 [<Struct>]
 type QueryValue =
@@ -10,12 +11,12 @@ type QueryValue =
 [<Struct>]
 type UrlComponent =
   | Segment of segment: string
-  | Query of query: Map<string, QueryValue>
+  | Query of query: Dictionary<string, QueryValue>
   | Hash of hash: string
 
 type UrlInfo =
   { Segments: string list
-    Query: Map<string, QueryValue>
+    Query: Dictionary<string, QueryValue>
     Hash: string voption }
 
 [<RequireQualifiedAccess>]

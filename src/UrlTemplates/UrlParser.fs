@@ -4,6 +4,7 @@ open System
 open FParsec
 open UrlTemplates.Parser
 open FsToolkit.ErrorHandling
+open System.Collections.Generic
 
 [<Struct>]
 type QueryValue =
@@ -13,12 +14,12 @@ type QueryValue =
 [<Struct>]
 type UrlComponent =
   | Segment of segment: string
-  | Query of query: Map<string, QueryValue>
+  | Query of query: Dictionary<string, QueryValue>
   | Hash of hash: string
 
 type UrlInfo = {
   Segments: string list
-  Query: Map<string, QueryValue>
+  Query: Dictionary<string, QueryValue>
   Hash: string voption
 }
 
@@ -43,21 +44,32 @@ module UrlParser =
     let addOrUpdate (nextValue: string option) existing =
       match existing with
       | Some(String a) ->
-        Some(
-          StringValues [
-            nextValue |> Option.defaultValue ""
-            a |> ValueOption.defaultValue ""
-          ]
-        )
-      | Some(StringValues values) ->
-        Some(StringValues((nextValue |> Option.defaultValue "") :: values))
-      | None -> Some(String(nextValue |> ValueOption.ofOption))
 
-    let tupleListToMap current (nextKey: string, nextValue: string option) =
-      Map.change nextKey (addOrUpdate nextValue) current
+        StringValues [
+          nextValue |> Option.defaultValue ""
+          a |> ValueOption.defaultValue ""
+        ]
+
+      | Some(StringValues values) ->
+        StringValues((nextValue |> Option.defaultValue "") :: values)
+      | None -> String(nextValue |> ValueOption.ofOption)
+
+    let tupleListToMap
+      (current: Dictionary<string, QueryValue>)
+      (nextKey: string, nextValue: string option)
+      =
+      match current.TryGetValue nextKey with
+      | true, existing ->
+        current[nextKey] <- addOrUpdate nextValue (Some existing)
+        current
+      | false, _ ->
+        current[nextKey] <- addOrUpdate nextValue None
+        current
 
     sepEndBy queryKv Common.QuerySeparator
-    >>= (fun values -> values |> List.fold tupleListToMap Map.empty |> preturn)
+    >>= (fun values ->
+      values |> List.fold tupleListToMap (Dictionary<_, _>()) |> preturn
+    )
 
   let parse =
     segments
@@ -65,7 +77,7 @@ module UrlParser =
     .>>. opt(Common.HashMarker >>. hash)
     .>> eof
     >>= (fun ((segments, query), hash) ->
-      let query = query |> Option.defaultValue Map.empty
+      let query = query |> Option.defaultValue(Dictionary())
 
       {
         Segments = segments
