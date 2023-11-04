@@ -156,4 +156,4 @@ let routes = [
 
 let tree = RouteTree.ofList routes
 
-printfn "%A" (tree |> Seq.map(fun (KeyValue(k, v)) -> k) |> Seq.toList)
+printfn "%A" tree (* (tree |> Seq.map(fun (KeyValue(k, _)) -> k)) *)

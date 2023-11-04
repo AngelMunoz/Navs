@@ -1,5 +1,6 @@
 namespace Navs
 
+open System.Collections.Generic
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlTemplate
 open UrlTemplates.UrlParser
@@ -44,37 +45,51 @@ module Experiments =
 
   [<NoComparison; NoEquality>]
   type RouteDefinition<'View> = {
-    Path: string
+    Pattern: string
     GetContent: GetContent<'View>
     Children: RouteDefinition<'View> list
     CanActivate: RouteGuard list
     CanDeactivate: RouteGuard list
   }
 
+  [<NoComparison; NoEquality>]
+  type RouteTrack<'View> = {
+    PatternPath: string
+    Definition: RouteDefinition<'View>
+    ParentDefinition: RouteTrack<'View> option
+  }
+
   module RouteTree =
-    open System.Collections.Generic
 
-    let ofList
-      (routes: RouteDefinition<'View> list)
-      : Dictionary<string, RouteDefinition<'View>> =
+    let ofList (routes: RouteDefinition<'View> list) =
       // create a map contatenating the paths of the children routes
-      let map = Dictionary<string, RouteDefinition<'View>>()
+      let map = Dictionary<string, RouteTrack<'View>>()
 
-      let rec loop parentPath children =
-        for route in children do
-          let path = sprintf "%s/%s" parentPath route.Path
-          map.Add(path, route)
-          loop path route.Children
+      let rec loop parent children =
+        let parentPath =
+          match parent with
+          | Some parent -> parent.PatternPath
+          | None -> ""
 
-      loop "" routes
+        for child in children do
+          let path = sprintf "%s/%s" parentPath child.Pattern
+
+          let track = {
+            PatternPath = path
+            Definition = child
+            ParentDefinition = parent
+          }
+
+          map.Add(path, track)
+
+          loop (Some track) child.Children
+
+      loop None routes
       map
-
-
-
 
   module Route =
     let inline define (path, [<InlineIfLambda>] getContent) = {
-      Path = path
+      Pattern = path
       GetContent = getContent
       Children = []
       CanActivate = []
