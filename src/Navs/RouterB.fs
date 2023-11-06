@@ -121,7 +121,7 @@ type Router<'View>(routes: RouteTrack<'View> list) =
     let job = cancellableTaskResult {
       let! token = CancellableTaskResult.getCancellationToken()
 
-      let! activeGraph, urlParam, routeContext =
+      let! activeRouteNodes, urlParam, routeContext =
         RouteInfo.getActiveRouteInfo routes url
 
       let nextContext: RouteContext = {
@@ -130,7 +130,7 @@ type Router<'View>(routes: RouteTrack<'View> list) =
         UrlMatch = routeContext.UrlMatch
       }
 
-      let guards = RouteInfo.extractGuards activeGraph
+      let guards = RouteInfo.extractGuards activeRouteNodes
 
       do!
         guards.canDeactivate
@@ -152,7 +152,7 @@ type Router<'View>(routes: RouteTrack<'View> list) =
       // Ideally from here on I'll try to add/remove view instances from a backing clist
       // also I need to check if the dynamic segments (route params) have changed to
       // invalidate views and re-resolve them
-      match activeGraph |> List.tryLast with
+      match activeRouteNodes |> List.tryLast with
       | Some last ->
         match last.Definition.GetContent with
         | Resolve resolve ->
@@ -165,6 +165,7 @@ type Router<'View>(routes: RouteTrack<'View> list) =
 
       | None ->
         // TODO: Set NotFound content here
+        transact(fun _ -> content.Value <- ValueNone)
 
         return ()
     }
