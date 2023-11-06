@@ -120,10 +120,13 @@ open Navs
 //     1
 
 open Navs.Experiments
+open Navs.RouterB
+open FSharp.Data.Adaptive
 
 
 let routes = [
-  Route.define(
+  Route.defineResolve(
+    "home",
     ":id<guid>",
     fun context -> cancellableValueTask {
       return
@@ -132,28 +135,39 @@ let routes = [
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define(
-    "users",
-    fun _ -> cancellableValueTask { return TextBlock().text("Users") }
-  )
+  Route.define("users", "users", TextBlock().text("Users"))
   |> Route.child(
-    Route.define(
-      ":id<guid>",
-      fun _ -> cancellableValueTask { return TextBlock().text("User") }
+    Route.defineResolve(
+      "user-detail",
+      ":id<int>",
+      fun context -> cancellableValueTask {
+        return
+          match context.UrlMatch.Params.TryGetValue "id" with
+          | true, id -> TextBlock().text(sprintf "User %A" id)
+          | false, _ -> TextBlock().text("User but No Id")
+      }
     )
     |> Route.child(
-      Route.define(
-        "profile",
-        fun _ -> cancellableValueTask { return TextBlock().text("Profile") }
-      )
+      Route.define("user-profile", "profile", TextBlock().text("Profile"))
     )
   )
-  Route.define(
-    "books",
-    fun _ -> cancellableValueTask { return TextBlock().text("Books") }
-  )
+  Route.define("books", "books", TextBlock().text("Books"))
 ]
 
-let tree = RouteTree.ofList routes
+let ha = routes |> RouteTrack.ofDefinitions
 
-printfn "%A" tree (* (tree |> Seq.map(fun (KeyValue(k, _)) -> k)) *)
+
+let r = Router<_>(ha)
+
+r.Content.AddCallback(fun (a: TextBlock voption) ->
+  match a with
+  | ValueSome a -> printfn "%A" a.Text
+  | ValueNone -> printfn "None"
+)
+|> ignore
+
+r.Navigate("/users").GetAwaiter().GetResult() |> printfn "%A"
+r.Navigate("/users/123").GetAwaiter().GetResult() |> printfn "%A"
+r.Navigate("/users/123/profile").GetAwaiter().GetResult() |> printfn "%A"
+r.Navigate("/users/123").GetAwaiter().GetResult() |> printfn "%A"
+r.Navigate("/users").GetAwaiter().GetResult() |> printfn "%A"

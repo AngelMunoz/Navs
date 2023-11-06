@@ -41,10 +41,14 @@ type NavigationError =
 
 module Experiments =
 
-  type GetContent<'View> = RouteContext -> CancellableValueTask<'View>
+  [<Struct>]
+  type GetContent<'View> =
+    | Resolve of resolve: (RouteContext -> CancellableValueTask<'View>)
+    | Content of content: 'View
 
   [<NoComparison; NoEquality>]
   type RouteDefinition<'View> = {
+    Name: string
     Pattern: string
     GetContent: GetContent<'View>
     Children: RouteDefinition<'View> list
@@ -56,41 +60,94 @@ module Experiments =
   type RouteTrack<'View> = {
     PatternPath: string
     Definition: RouteDefinition<'View>
-    ParentDefinition: RouteTrack<'View> option
+    ParentTrack: RouteTrack<'View> voption
   }
 
-  module RouteTree =
+  module RouteTrack =
+    open FSharp.Data.Adaptive
 
-    let ofList (routes: RouteDefinition<'View> list) =
-      // create a map contatenating the paths of the children routes
-      let map = Dictionary<string, RouteTrack<'View>>()
+    let ofDefinitions (routes: RouteDefinition<'View> list) =
 
-      let rec loop parent children =
-        let parentPath =
+      let rec loop currentPattern parent parentTrack children bag =
+        let pattern =
           match parent with
-          | Some parent -> parent.PatternPath
-          | None -> ""
+          | ValueSome parent -> $"{currentPattern}/{parent.Pattern}"
+          | ValueNone -> currentPattern
 
-        for child in children do
-          let path = sprintf "%s/%s" parentPath child.Pattern
+        children
+        |> List.fold
+          (fun bag child ->
+            let childPattern = $"{pattern}/{child.Pattern}"
 
-          let track = {
-            PatternPath = path
-            Definition = child
-            ParentDefinition = parent
-          }
+            let track = {
+              PatternPath = childPattern
+              Definition = child
+              ParentTrack = parentTrack
+            }
 
-          map.Add(path, track)
+            loop
+              pattern
+              (ValueSome child)
+              (ValueSome track)
+              child.Children
+              (track :: bag)
+          )
+          bag
 
-          loop (Some track) child.Children
 
-      loop None routes
-      map
+      loop "" ValueNone ValueNone routes List.empty
+
+    let flatReverse (track: RouteTrack<'View>) =
+      let rec loop (track: RouteTrack<'View>) bag =
+        match track.ParentTrack with
+        | ValueSome parent -> loop parent (track :: bag)
+        | ValueNone -> track :: bag
+
+      loop track List.empty
+
+
+  // let ofList (routes: RouteDefinition<'View> list) =
+
+  //   // create a map contatenating the paths of the children routes
+  //   let map = Dictionary<string, RouteTrack<'View>>()
+
+  //   let rec loop parent children =
+  //     let parentPath =
+  //       match parent with
+  //       | ValueSome parent -> parent.PatternPath
+  //       | ValueNone -> ""
+
+  //     for child in children do
+  //       let path = sprintf "%s/%s" parentPath child.Pattern
+
+  //       let track = {
+  //         PatternPath = path
+  //         Definition = child
+  //         ParentDefinition = parent
+  //       }
+
+  //       map.Add(path, track)
+
+  //       loop (ValueSome track) child.Children
+
+  //   loop ValueNone routes
+  //   map
 
   module Route =
-    let inline define (path, [<InlineIfLambda>] getContent) = {
+
+    let inline define (name, path, view) = {
+      Name = name
       Pattern = path
-      GetContent = getContent
+      GetContent = Content view
+      Children = []
+      CanActivate = []
+      CanDeactivate = []
+    }
+
+    let inline defineResolve (name, path, [<InlineIfLambda>] getContent) = {
+      Name = name
+      Pattern = path
+      GetContent = Resolve getContent
       Children = []
       CanActivate = []
       CanDeactivate = []

@@ -12,6 +12,7 @@
     <Compile Include="RouterA.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
     <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
     <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.10.0" />
     <PackageReference Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.10.0" />
