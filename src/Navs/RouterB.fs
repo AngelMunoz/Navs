@@ -115,49 +115,58 @@ type Router<'View>(routes: RouteTrack<'View> list) =
   let content = cval ValueNone
   member _.Content: 'View voption aval = content
 
-  member _.Navigate(url: string, ?cancellationToken: CancellationToken) = taskResult {
+  member _.Navigate(url: string, ?cancellationToken: CancellationToken) =
     let token = defaultArg cancellationToken CancellationToken.None
 
-    let! activeGraph, urlParam, routeContext =
-      RouteInfo.getActiveRouteInfo routes url
+    let job = cancellableTaskResult {
+      let! token = CancellableTaskResult.getCancellationToken()
 
-    let nextContext: RouteContext = {
-      Route = url
-      UrlInfo = routeContext.UrlInfo
-      UrlMatch = routeContext.UrlMatch
+      let! activeGraph, urlParam, routeContext =
+        RouteInfo.getActiveRouteInfo routes url
+
+      let nextContext: RouteContext = {
+        Route = url
+        UrlInfo = routeContext.UrlInfo
+        UrlMatch = routeContext.UrlMatch
+      }
+
+      let guards = RouteInfo.extractGuards activeGraph
+
+      do!
+        guards.canDeactivate
+        |> List.traverseTaskResultM(fun guard ->
+          (guard nextContext token).AsTask()
+          |> TaskResult.requireTrue "Can't deactivate"
+        )
+        |> TaskResult.ignore
+
+      do!
+        guards.canActivate
+        |> List.traverseTaskResultM(fun guard ->
+          (guard nextContext token).AsTask()
+          |> TaskResult.requireTrue "Can't activate"
+        )
+        |> TaskResult.ignore
+
+      // This is currently resolving the *childest* (sorry) route in the hierarchy
+      // Ideally from here on I'll try to add/remove view instances from a backing clist
+      // also I need to check if the dynamic segments (route params) have changed to
+      // invalidate views and re-resolve them
+      match activeGraph |> List.tryLast with
+      | Some last ->
+        match last.Definition.GetContent with
+        | Resolve resolve ->
+          let! view = resolve nextContext token
+          transact(fun _ -> content.Value <- (ValueSome view))
+          return ()
+        | Content view ->
+          transact(fun _ -> content.Value <- (ValueSome view))
+          return ()
+
+      | None ->
+        // TODO: Set NotFound content here
+
+        return ()
     }
 
-    let guards = RouteInfo.extractGuards activeGraph
-
-    do!
-      guards.canDeactivate
-      |> List.traverseTaskResultM(fun guard ->
-        (guard nextContext token).AsTask()
-        |> TaskResult.requireTrue "Can't deactivate"
-      )
-      |> TaskResult.ignore
-
-    do!
-      guards.canActivate
-      |> List.traverseTaskResultM(fun guard ->
-        (guard nextContext token).AsTask()
-        |> TaskResult.requireTrue "Can't activate"
-      )
-      |> TaskResult.ignore
-
-    match activeGraph |> List.tryLast with
-    | Some last ->
-      match last.Definition.GetContent with
-      | Resolve resolve ->
-        let! view = resolve nextContext token
-        transact(fun _ -> content.Value <- (ValueSome view))
-        return ()
-      | Content view ->
-        transact(fun _ -> content.Value <- (ValueSome view))
-        return ()
-
-    | None ->
-      // TODO: Set NotFound content here
-
-      return ()
-  }
+    job token
