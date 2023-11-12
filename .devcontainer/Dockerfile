@@ -1,7 +1,9 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 
-RUN curl -fsSL https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh && chmod +x dotnet-install.sh
+RUN curl -fsSL https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh | bash /dev/stdin -c 8.0 --install-dir /home/vscode/.dotnet
 
-RUN ./dotnet-install.sh -c 8.0
+ENV DOTNET_ROOT=/home/vscode/.dotnet
+ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 
-RUN echo "export DOTNET_ROOT=/root/.dotnet" >> ~/.bashrc &&  echo "export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools" >> ~/.bashrc
+RUN echo "export DOTNET_ROOT=$HOME/.dotnet" >> $HOME/.profile \
+    && echo "export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools" >> $HOME/.profile
