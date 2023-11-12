@@ -217,7 +217,7 @@ module RouteMatcher =
       |> Result.requireTrue SegmentLengthMismatch
 
     do!
-      urlKeySize >= requiredKeysSize
+      urlKeySize > requiredKeysSize
       |> Result.requireTrue ""
       |> Result.mapError(collectMissingQueryParams template url)
 
