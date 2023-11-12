@@ -5,5 +5,4 @@ RUN curl -fsSL https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-in
 ENV DOTNET_ROOT=/home/vscode/.dotnet
 ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 
-RUN echo "export DOTNET_ROOT=$HOME/.dotnet" >> $HOME/.profile \
-    && echo "export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools" >> $HOME/.profile
+RUN chown -R vscode:vscode $DOTNET_ROOT
