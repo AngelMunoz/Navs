@@ -1,6 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/base:alpine-3.18
-
-RUN apk add curl
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 
 RUN curl -fsSL https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh && chmod +x dotnet-install.sh
 
