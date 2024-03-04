@@ -96,3 +96,8 @@ type Route =
       definition with
           CanDeactivate = guard :: definition.CanDeactivate
     }
+
+  static member inline cache strategy definition : RouteDefinition<_> = {
+    definition with
+        CacheStrategy = strategy
+  }

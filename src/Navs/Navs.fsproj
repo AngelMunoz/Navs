@@ -1,15 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="History.fs" />
     <Compile Include="Router.fs" />
     <Compile Include="DSL.fs" />
+    <Compile Include="DSL.Interop.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
@@ -17,7 +16,6 @@
     <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.15.1" />
     <PackageReference Include="IcedTasks" Version="0.11.3" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\UrlTemplates\UrlTemplates.fsproj" />
   </ItemGroup>
