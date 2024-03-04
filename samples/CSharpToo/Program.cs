@@ -4,11 +4,14 @@ using Navs.Router;
 
 using Route = Navs.Interop.Route;
 
-NXUI.Desktop.NXUI.Run(GetWindow, "NXUI Routered!", args);
+AppBuilder
+  .Configure<Application>()
+  .UsePlatformDetect()
+  .UseFluentTheme()
+  .WithApplicationName("NXUI With Router!")
+  .StartWithClassicDesktopLifetime(GetWindow, args);
 
-static IEnumerable<RouteDefinition<Control>> GetRoutes()
-{
-  return [
+static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
      Route.Define<Control>("home", "/", ctx => new TextBlock().Text("Hello World!")),
      Route.Define<Control>("about", "/about", ctx => new TextBlock().Text("About")),
      Route.Define<Control>("by-name", "/by-name/:id<guid>", async ctx => {
@@ -18,7 +21,6 @@ static IEnumerable<RouteDefinition<Control>> GetRoutes()
         return new TextBlock().Text($"By Name: {id as Guid?}");
      })
   ];
-}
 
 static Window GetWindow()
 {
