@@ -3,6 +3,7 @@ namespace Navs.Router
 open System
 open System.Collections.Generic
 open System.Threading
+open System.Runtime.InteropServices
 
 open IcedTasks
 open FsToolkit.ErrorHandling
@@ -14,7 +15,7 @@ open UrlTemplates.UrlParser
 open UrlTemplates.UrlTemplate
 
 
-module Result =
+module internal Result =
   let inline requireValueSome (msg: string) (value: 'a voption) =
     match value with
     | ValueSome a -> Ok a
@@ -69,12 +70,12 @@ module RouteInfo =
     result
 
 
-  let getActiveRouteInfo (routes: RouteTrack<'View> list) (url: string) = result {
+  let getActiveRouteInfo (routes: RouteTrack<'View> seq) (url: string) = result {
     let! activeGraph, routeContext =
       voption {
         let! track, matchInfo =
           routes
-          |> List.tryPick(fun route ->
+          |> Seq.tryPick(fun route ->
             match RouteMatcher.matchStrings route.PatternPath url with
             | Ok(template, urlinfo, matchInfo) ->
               Some(
@@ -125,7 +126,7 @@ type NavigationError<'View> =
   | CantDeactivate of deactivateGuard: RouteDefinition<'View>
   | CantActivate of activateGuard: RouteDefinition<'View>
 
-module Router =
+module internal Router =
 
   let runGuards<'View>
     (onFalsePredicate: RouteDefinition<'View> -> NavigationError<'View>)
@@ -153,7 +154,7 @@ module Router =
 
   let navigate
     (
-      routes: RouteTrack<'View> list,
+      routes: RouteTrack<'View> seq,
       notFound,
       content: cval<_>,
       liveNodes: cmap<string, ActiveRouteParams list * _>
@@ -224,13 +225,12 @@ module Router =
           return routeHit
     }
 
-
 type Router<'View>
   (
-    routes: RouteTrack<'View> list,
-    ?splash: 'View,
-    ?notFound: 'View,
-    ?historyManager: IHistoryManager<RouteTrack<'View>>
+    routes: RouteTrack<'View> seq,
+    [<Optional>] ?splash: 'View,
+    [<Optional>] ?notFound: 'View,
+    [<Optional>] ?historyManager: IHistoryManager<RouteTrack<'View>>
   ) =
 
   let history: IHistoryManager<RouteTrack<'View>> =
@@ -248,22 +248,27 @@ type Router<'View>
 
   member _.AContent: 'View voption aval = content
 
-  member _.Navigate(url: string, ?cancellationToken: CancellationToken) = task {
-    let token = defaultArg cancellationToken CancellationToken.None
+  member _.Navigate
+    (
+      url: string,
+      [<Optional>] ?cancellationToken: CancellationToken
+    ) =
+    task {
+      let token = defaultArg cancellationToken CancellationToken.None
 
-    let! result = navigate url token
+      let! result = navigate url token
 
-    match result with
-    | Ok tracked ->
-      history.SetCurrent(tracked)
-      return Ok()
-    | Error e -> return Error e
-  }
+      match result with
+      | Ok tracked ->
+        history.SetCurrent(tracked)
+        return Ok()
+      | Error e -> return Error e
+    }
 
   member _.CanGoBack = history.CanGoBack
   member _.CanGoForward = history.CanGoForward
 
-  member _.Back(?cancellationToken: CancellationToken) = task {
+  member _.Back([<Optional>] ?cancellationToken: CancellationToken) = task {
     let token = defaultArg cancellationToken CancellationToken.None
 
     match history.Previous() with
@@ -276,7 +281,7 @@ type Router<'View>
     | ValueNone -> return Ok()
   }
 
-  member _.Forward(?cancellationToken: CancellationToken) = task {
+  member _.Forward([<Optional>] ?cancellationToken: CancellationToken) = task {
     let token = defaultArg cancellationToken CancellationToken.None
 
     match history.Next() with
