@@ -265,6 +265,39 @@ type Router<'View>
       | Error e -> return Error e
     }
 
+  member _.NavigateByName
+    (
+      routeName: string,
+      [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj>,
+      [<Optional>] ?cancellationToken: CancellationToken
+    ) =
+    task {
+      let token = defaultArg cancellationToken CancellationToken.None
+
+      let routeParams: IReadOnlyDictionary<string, obj> =
+        routeParams
+        // Guess what! double check for NRTs that may come from dotnet langs/types
+        |> Option.map(fun p -> p |> Option.ofNull)
+        |> Option.flatten
+        |> Option.defaultWith(fun _ -> Dictionary())
+
+      match
+        routes |> Seq.tryFind(fun route -> route.Definition.Name = routeName)
+      with
+      | Some route ->
+        match UrlTemplate.toUrl route.PatternPath routeParams with
+        | Ok url ->
+          let! result = navigate url token
+
+          match result with
+          | Ok tracked ->
+            history.SetCurrent(tracked)
+            return Ok()
+          | Error e -> return Error e
+        | Error e -> return Error(RouteNotFound(String.concat ", " e))
+      | None -> return Error(RouteNotFound routeName)
+    }
+
   member _.CanGoBack = history.CanGoBack
   member _.CanGoForward = history.CanGoForward
 
