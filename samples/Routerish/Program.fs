@@ -112,7 +112,7 @@ let navigateGuid (router: Router<_>) _ _ =
 
 
 let startApp () =
-  let router = Router(RouteTrack.ofDefinitions routes)
+  let router = Router(RouteTracks.fromDefinitions routes)
 
   let content =
     router.Content

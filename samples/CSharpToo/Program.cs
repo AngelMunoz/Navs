@@ -5,7 +5,6 @@ using Route = Navs.Interop.Route;
 
 NXUI.Desktop.NXUI.Run(GetWindow, "NXUI Routered!", args);
 
-
 static IEnumerable<RouteDefinition<Control>> GetRoutes()
 {
   return [
@@ -27,7 +26,7 @@ static async void NavigateTo(string path, Router<Control> router)
 
 static Window GetWindow()
 {
-  var routes = RouteTrack.ofDefinitions(GetRoutes());
+  var routes = RouteTracks.FromDefinitions(GetRoutes());
   var router = new Router<Control>(routes);
 
   var content = router.Content.Select(view =>
