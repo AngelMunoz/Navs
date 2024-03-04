@@ -2,10 +2,8 @@ namespace Navs
 
 open System.Collections.Generic
 open UrlTemplates.RouteMatcher
-open UrlTemplates.UrlTemplate
 open UrlTemplates.UrlParser
 
-open FsToolkit.ErrorHandling
 open IcedTasks
 
 type RouteContext = {
@@ -43,9 +41,9 @@ type RouteTrack<'View> = {
   Children: RouteTrack<'View> list
 }
 
-module RouteTrack =
+module RouteTracks =
 
-  let rec processChildren pattern parent children =
+  let rec internal processChildren pattern parent children =
     match children with
     | [] -> []
     | child :: rest ->
@@ -66,7 +64,7 @@ module RouteTrack =
       }
       :: processChildren pattern parent rest
 
-  let getDefinition
+  let internal getDefinition
     currentPattern
     (parent: RouteTrack<'View> voption)
     (track: RouteDefinition<'View>)
@@ -83,7 +81,12 @@ module RouteTrack =
 
     while queue.Count > 0 do
       let currentPattern, parent, track, siblings = queue.Dequeue()
-      let pattern = $"{currentPattern}/{track.Pattern}"
+
+      let pattern =
+        if currentPattern = "" then
+          track.Pattern
+        else
+          $"{currentPattern}/{track.Pattern}"
 
       let currentTrack = {
         PatternPath = pattern
@@ -107,7 +110,8 @@ module RouteTrack =
 
     result
 
-  let ofDefinitions (routes: RouteDefinition<'View> seq) = [
+  [<CompiledName "FromDefinitions">]
+  let fromDefinitions (routes: RouteDefinition<'View> seq) = [
     for route in routes do
       yield! getDefinition "" ValueNone route
   ]
