@@ -216,10 +216,11 @@ module RouteMatcher =
       template.Segments.Length = url.Segments.Length
       |> Result.requireTrue SegmentLengthMismatch
 
-    do!
-      urlKeySize > requiredKeysSize
-      |> Result.requireTrue ""
-      |> Result.mapError(collectMissingQueryParams template url)
+    if requiredKeysSize > 0 then
+      do!
+        urlKeySize > requiredKeysSize
+        |> Result.requireTrue ""
+        |> Result.mapError(collectMissingQueryParams template url)
 
     let! urlParams = fillParamBag template.Segments url.Segments
 

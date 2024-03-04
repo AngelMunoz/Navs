@@ -17,166 +17,101 @@ type RouteContext = {
 type RouteGuard = RouteContext -> CancellableValueTask<bool>
 type GetView<'View> = RouteContext -> CancellableValueTask<'View>
 
+
+[<Struct>]
+type CacheStrategy =
+  | NoCache
+  | Cache
+
+[<Struct>]
+type GetContent<'View> =
+  | Resolve of resolve: (RouteContext -> CancellableValueTask<'View>)
+  | Content of content: 'View
+
+[<NoComparison; NoEquality>]
 type RouteDefinition<'View> = {
   Name: string
-  Path: string
-  View: GetView<'View>
+  Pattern: string
+  GetContent: GetContent<'View>
+  Children: RouteDefinition<'View> list
   CanActivate: RouteGuard list
   CanDeactivate: RouteGuard list
+  CacheStrategy: CacheStrategy
 }
 
-type DefinedRoute<'View> = {
-  RouteTemplate: UrlTemplate
+[<NoComparison; NoEquality>]
+type RouteTrack<'View> = {
+  PatternPath: string
   Definition: RouteDefinition<'View>
+  ParentTrack: RouteTrack<'View> voption
+  Children: RouteTrack<'View> list
 }
 
-type NavigationError =
-  | InvalidRouteFormat of string
-  | ViewActivationError of exn
-  | NotFound of string
-  | FailedToDeactivate
-  | FailedToActivate
-  | FailedToMoveBack
-  | FailedToMoveForward
+module RouteTrack =
 
-module Experiments =
-
-  [<Struct>]
-  type GetContent<'View> =
-    | Resolve of resolve: (RouteContext -> CancellableValueTask<'View>)
-    | Content of content: 'View
-
-  [<NoComparison; NoEquality>]
-  type RouteDefinition<'View> = {
-    Name: string
-    Pattern: string
-    GetContent: GetContent<'View>
-    Children: RouteDefinition<'View> list
-    CanActivate: RouteGuard list
-    CanDeactivate: RouteGuard list
-  }
-
-  [<NoComparison; NoEquality>]
-  type RouteTrack<'View> = {
-    PatternPath: string
-    Definition: RouteDefinition<'View>
-    ParentTrack: RouteTrack<'View> voption
-  }
-
-  module RouteTrack =
-    open FSharp.Data.Adaptive
-
-    let ofDefinitions (routes: RouteDefinition<'View> list) =
-
-      let rec loop currentPattern parent parentTrack children bag =
-        let pattern =
-          match parent with
-          | ValueSome parent -> $"{currentPattern}/{parent.Pattern}"
-          | ValueNone -> currentPattern
-
-        children
-        |> List.fold
-          (fun bag child ->
-            let childPattern = $"{pattern}/{child.Pattern}"
-
-            let track = {
-              PatternPath = childPattern
-              Definition = child
-              ParentTrack = parentTrack
-            }
-
-            loop
-              pattern
-              (ValueSome child)
-              (ValueSome track)
-              child.Children
-              (track :: bag)
-          )
-          bag
-
-
-      loop "" ValueNone ValueNone routes List.empty
-
-    let flatReverse (track: RouteTrack<'View>) =
-      let rec loop (track: RouteTrack<'View>) bag =
-        match track.ParentTrack with
-        | ValueSome parent -> loop parent (track :: bag)
-        | ValueNone -> track :: bag
-
-      loop track List.empty
-
-
-  // let ofList (routes: RouteDefinition<'View> list) =
-
-  //   // create a map contatenating the paths of the children routes
-  //   let map = Dictionary<string, RouteTrack<'View>>()
-
-  //   let rec loop parent children =
-  //     let parentPath =
-  //       match parent with
-  //       | ValueSome parent -> parent.PatternPath
-  //       | ValueNone -> ""
-
-  //     for child in children do
-  //       let path = sprintf "%s/%s" parentPath child.Pattern
-
-  //       let track = {
-  //         PatternPath = path
-  //         Definition = child
-  //         ParentDefinition = parent
-  //       }
-
-  //       map.Add(path, track)
-
-  //       loop (ValueSome track) child.Children
-
-  //   loop ValueNone routes
-  //   map
-
-  module Route =
-
-    let inline define (name, path, view) = {
-      Name = name
-      Pattern = path
-      GetContent = Content view
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-    }
-
-    let inline defineResolve (name, path, [<InlineIfLambda>] getContent) = {
-      Name = name
-      Pattern = path
-      GetContent = Resolve getContent
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-    }
-
-    let inline child child definition : RouteDefinition<_> = {
-      definition with
-          Children = child :: definition.Children
-    }
-
-    let inline children children definition : RouteDefinition<_> = {
-      definition with
-          Children = children @ definition.Children
-    }
-
-    let inline canActivate
-      ([<InlineIfLambda>] guard)
-      definition
-      : RouteDefinition<_> =
-      {
-        definition with
-            CanActivate = guard :: definition.CanActivate
+  let rec processChildren pattern parent children =
+    match children with
+    | [] -> []
+    | child :: rest ->
+      let childTrack = {
+        PatternPath = $"{pattern}/{child.Pattern}"
+        Definition = child
+        ParentTrack = parent
+        Children = []
       }
 
-    let inline canDeactivate
-      ([<InlineIfLambda>] guard)
-      definition
-      : RouteDefinition<_> =
       {
-        definition with
-            CanDeactivate = guard :: definition.CanDeactivate
+        childTrack with
+            Children =
+              processChildren
+                $"{pattern}/{child.Pattern}"
+                (ValueSome childTrack)
+                child.Children
       }
+      :: processChildren pattern parent rest
+
+  let getDefinition
+    currentPattern
+    (parent: RouteTrack<'View> voption)
+    (track: RouteDefinition<'View>)
+    =
+    let queue =
+      Queue<string *
+      RouteTrack<'View> voption *
+      RouteDefinition<'View> *
+      RouteTrack<'View> list>()
+
+    let result = ResizeArray<RouteTrack<'View>>()
+
+    queue.Enqueue(currentPattern, parent, track, [])
+
+    while queue.Count > 0 do
+      let currentPattern, parent, track, siblings = queue.Dequeue()
+      let pattern = $"{currentPattern}/{track.Pattern}"
+
+      let currentTrack = {
+        PatternPath = pattern
+        Definition = track
+        ParentTrack = parent
+        Children = siblings
+      }
+
+      result.Add currentTrack
+
+      let childrenTracks =
+        processChildren pattern (ValueSome currentTrack) track.Children
+
+      for childTrack in childrenTracks do
+        queue.Enqueue(
+          pattern,
+          ValueSome currentTrack,
+          childTrack.Definition,
+          childTrack.Children
+        )
+
+    result
+
+  let ofDefinitions (routes: RouteDefinition<'View> seq) = [
+    for route in routes do
+      yield! getDefinition "" ValueNone route
+  ]

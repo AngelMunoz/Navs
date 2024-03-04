@@ -1,6 +1,7 @@
 namespace Navs
 
 open System.Collections.Generic
+open IcedTasks
 open FsToolkit.ErrorHandling
 
 
@@ -13,6 +14,7 @@ type IHistoryManager<'HistoryEntry> =
 
   abstract member Next: unit -> 'HistoryEntry voption
   abstract member Previous: unit -> 'HistoryEntry voption
+
 
 type HistoryManager<'HistoryEntry>(?historySize: int) =
   let historySize = defaultArg historySize 10

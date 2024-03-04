@@ -8,16 +8,14 @@
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="History.fs" />
-    <Compile Include="RouterB.fs" />
-    <Compile Include="RouterA.fs" />
+    <Compile Include="Router.fs" />
+    <Compile Include="DSL.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
-    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
-    <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.10.0" />
-    <PackageReference Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.10.0" />
-    <PackageReference Include="FSharp.Control.Reactive" Version="5.0.5" />
-    <PackageReference Include="IcedTasks" Version="0.8.2" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.15.1" />
+    <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.15.1" />
+    <PackageReference Include="IcedTasks" Version="0.11.3" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Routerish": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
