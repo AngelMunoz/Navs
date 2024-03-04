@@ -12,7 +12,11 @@ AppBuilder
   .StartWithClassicDesktopLifetime(GetWindow, args);
 
 static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
-     Route.Define<Control>("home", "/", ctx => new TextBlock().Text("Hello World!")),
+     Route.Define<Control>("home", "/", ctx => new TextBlock().Text("Hello World!"))
+      .NoCacheOnVisit()
+      .Children(
+        Route.Define<Control>("sub", "sub/route", ctx => new TextBlock().Text("Sub"))
+       ),
      Route.Define<Control>("about", "/about", ctx => new TextBlock().Text("About")),
      Route.Define<Control>("by-name", "/by-name/:id<guid>", async ctx => {
         // Simulate a fetch or something

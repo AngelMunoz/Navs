@@ -85,6 +85,8 @@ module RouteTracks =
       let pattern =
         if currentPattern = "" then
           track.Pattern
+        else if parent.IsSome && currentPattern.EndsWith('/') then
+          $"{currentPattern}{track.Pattern}"
         else
           $"{currentPattern}/{track.Pattern}"
 
