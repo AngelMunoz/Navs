@@ -105,7 +105,7 @@ module UrlTemplate =
       {
         Segments =
           match segments with
-          | [Plain ""; Plain ""] -> [Plain ""]
+          | [ Plain ""; Plain "" ] -> [ Plain "" ]
           | _ -> segments
         Query = query
         Hash = hash |> ValueOption.ofOption
@@ -117,3 +117,57 @@ module UrlTemplate =
     match run parse template with
     | Success(result, _, _) -> Result.Ok result
     | Failure(errorMsg, _, _) -> Result.Error errorMsg
+
+  let toUrl
+    (template: string)
+    (routeParams: System.Collections.Generic.IReadOnlyDictionary<string, obj>)
+    =
+    result {
+      let! parsed = ofString template |> Result.mapError(fun x -> [ x ])
+
+      let! segments =
+        parsed.Segments
+        |> List.traverseResultA(
+          function
+          | Plain value -> Result.Ok value
+          | ParamSegment(name, _) ->
+            match routeParams.TryGetValue name with
+            | true, value -> Result.Ok(value.ToString())
+            | false, _ ->
+              Result.Error $"Required route parameter %s{name} was not provided"
+        )
+        |> Result.map(fun x -> x |> String.concat "/")
+
+      let! query =
+        parsed.Query
+        |> List.traverseResultA(
+          function
+          | Required(name, _) ->
+            match routeParams.TryGetValue name with
+            | true, value -> Result.Ok($"{name}={value.ToString()}")
+            | false, _ ->
+              Result.Error $"Requred route parameter %s{name} was not provided"
+          | Optional(name, _) ->
+            match routeParams.TryGetValue name with
+            | true, value -> Result.Ok($"{name}={value.ToString()}")
+            | false, _ -> Result.Ok("")
+        )
+        |> Result.map(fun x -> x |> String.concat "&")
+
+      let hash =
+        match parsed.Hash with
+        | ValueSome value -> value
+        | ValueNone -> ""
+
+      let sb = System.Text.StringBuilder()
+
+      sb.Append segments |> ignore
+
+      if not(System.String.IsNullOrWhiteSpace query) then
+        sb.Append("?").Append query |> ignore
+
+      if not(System.String.IsNullOrWhiteSpace hash) then
+        sb.Append("#").Append hash |> ignore
+
+      return sb.ToString()
+    }

@@ -36,3 +36,8 @@ type UrlTemplate =
 module UrlTemplate =
 
   val ofString: template: string -> Result<UrlTemplate, string>
+
+  val toUrl:
+    template: string ->
+    routeParams: System.Collections.Generic.IReadOnlyDictionary<string, obj> ->
+      Result<string, string list>
