@@ -103,7 +103,10 @@ module UrlTemplate =
       let query = query |> Option.defaultValue []
 
       {
-        Segments = segments
+        Segments =
+          match segments with
+          | [Plain ""; Plain ""] -> [Plain ""]
+          | _ -> segments
         Query = query
         Hash = hash |> ValueOption.ofOption
       }

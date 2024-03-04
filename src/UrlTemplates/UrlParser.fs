@@ -80,7 +80,10 @@ module UrlParser =
       let query = query |> Option.defaultValue(Dictionary())
 
       {
-        Segments = segments
+        Segments =
+          match segments with
+          | [""; ""] -> [""]
+          | _ -> segments
         Query = query
         Hash = hash |> ValueOption.ofOption
       }
