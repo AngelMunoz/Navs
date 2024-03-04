@@ -5,8 +5,6 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9BCA35C8-193C-429C-B264-5D888B4C21FC}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Routerish", "src\Routerish\Routerish.fsproj", "{D27E46D9-82D2-44B8-B904-E299FCD6ABFD}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "UrlTemplates", "src\UrlTemplates\UrlTemplates.fsproj", "{A6C669DA-4290-4F79-B924-38BCEA94E387}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Navs", "src\Navs\Navs.fsproj", "{B7FD735D-BE0B-4926-98E7-E3326EB7896F}"
@@ -20,10 +18,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{D27E46D9-82D2-44B8-B904-E299FCD6ABFD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D27E46D9-82D2-44B8-B904-E299FCD6ABFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D27E46D9-82D2-44B8-B904-E299FCD6ABFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D27E46D9-82D2-44B8-B904-E299FCD6ABFD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A6C669DA-4290-4F79-B924-38BCEA94E387}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A6C669DA-4290-4F79-B924-38BCEA94E387}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6C669DA-4290-4F79-B924-38BCEA94E387}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -34,7 +28,6 @@ Global
 		{B7FD735D-BE0B-4926-98E7-E3326EB7896F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{D27E46D9-82D2-44B8-B904-E299FCD6ABFD} = {9BCA35C8-193C-429C-B264-5D888B4C21FC}
 		{A6C669DA-4290-4F79-B924-38BCEA94E387} = {9BCA35C8-193C-429C-B264-5D888B4C21FC}
 		{B7FD735D-BE0B-4926-98E7-E3326EB7896F} = {9BCA35C8-193C-429C-B264-5D888B4C21FC}
 	EndGlobalSection

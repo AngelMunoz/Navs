@@ -21,6 +21,6 @@
 
 
   <ItemGroup>
-    <ProjectReference Include="..\Navs\Navs.fsproj" />
+    <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
   </ItemGroup>
 </Project>
