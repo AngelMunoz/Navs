@@ -4,7 +4,6 @@ open IcedTasks
 
 open Avalonia
 open Avalonia.Controls
-open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Data
 
 open NXUI.Desktop
@@ -15,8 +14,8 @@ open Navs.Router
 
 
 let routes: RouteDefinition<Control> list = [
-  Route.defineResolve(
-    "home",
+  Route.define<Control>(
+    "guid",
     ":id<guid>",
     fun context -> task {
       return
@@ -25,9 +24,23 @@ let routes: RouteDefinition<Control> list = [
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define("users", "users", TextBlock().text("Users") :> Control)
+  Route.define<Control>(
+    "guid",
+    ":id<guid>",
+    fun context -> task {
+      return
+        match context.UrlMatch.Params.TryGetValue "id" with
+        | true, id -> TextBlock().text(sprintf "Home %A" id) :> Control
+        | false, _ -> TextBlock().text("Guid No GUID")
+    }
+  )
+  Route.define(
+    "users",
+    "users",
+    fun _ -> TextBlock().text("Users") :> Control
+  )
   |> Route.child(
-    Route.defineResolve(
+    Route.define<Control>(
       "user-detail",
       ":id<int>",
       fun context -> async {
@@ -38,7 +51,7 @@ let routes: RouteDefinition<Control> list = [
       }
     )
     |> Route.child(
-      Route.defineResolve(
+      Route.define<Control>(
         "user-profile",
         "profile",
         fun context -> task {
@@ -50,7 +63,11 @@ let routes: RouteDefinition<Control> list = [
       )
     )
   )
-  Route.define("books", "books", TextBlock().text("Books"))
+  Route.define<Control>(
+    "books",
+    "books",
+    (fun _ -> TextBlock().text("Books") :> Control)
+  )
 ]
 
 let navigateBack (router: Router<_>) _ _ =
@@ -71,7 +88,7 @@ let navigateForward (router: Router<_>) _ _ =
 
 let navigateHome (router: Router<_>) _ _ =
   vTask {
-    match! router.Navigate("") with
+    match! router.Navigate("/") with
     | Ok _ -> return ()
     | Error e -> printfn "%A" e
   }
@@ -79,7 +96,7 @@ let navigateHome (router: Router<_>) _ _ =
 
 let navigateAbout (router: Router<_>) _ _ =
   vTask {
-    match! router.Navigate("about") with
+    match! router.Navigate("/books") with
     | Ok _ -> return ()
     | Error e -> printfn "%A" e
   }
@@ -87,7 +104,7 @@ let navigateAbout (router: Router<_>) _ _ =
 
 let navigateGuid (router: Router<_>) _ _ =
   vTask {
-    match! router.Navigate($"{Guid.NewGuid()}") with
+    match! router.Navigate($"/{Guid.NewGuid()}") with
     | Ok _ -> return ()
     | Error e -> printfn "%A" e
   }
@@ -96,6 +113,14 @@ let navigateGuid (router: Router<_>) _ _ =
 
 let startApp () =
   let router = Router(RouteTrack.ofDefinitions routes)
+
+  let content =
+    router.Content
+    |> Observable.map(fun value ->
+      match value with
+      | ValueSome value -> value
+      | _ -> TextBlock().text("No Content")
+    )
 
   let shell =
     DockPanel()
@@ -109,7 +134,9 @@ let startApp () =
             Button().content("About").OnClickHandler(navigateAbout router),
             Button().content("Guid").OnClickHandler(navigateGuid router)
           ),
-        ContentControl().DockTop().content(router.Content.ToBinding(), BindingMode.OneWay)
+        ContentControl()
+          .DockTop()
+          .content(content.ToBinding(), BindingMode.OneWay)
       )
 
   Window().content(shell).minWidth(800.).minHeight(600.)
@@ -117,4 +144,9 @@ let startApp () =
 [<EntryPoint; STAThread>]
 let main argv =
 
-  NXUI.Run(startApp, "Routerish!", argv, themeVariant = Styling.ThemeVariant.Dark)
+  NXUI.Run(
+    startApp,
+    "Routerish!",
+    argv,
+    themeVariant = Styling.ThemeVariant.Dark
+  )

@@ -86,7 +86,7 @@ module RouteInfo =
                   UrlTemplate = template
                 |}
               )
-            | Error _ -> None
+            | Error whytho -> None
           )
 
         let tracks = digUpToRoot track
@@ -147,11 +147,8 @@ module Router =
         |> TaskResult.ignore
     }
 
-  let resolveViewNonCached routeHit nextContext = cancellableValueTask {
-    match routeHit.Definition.GetContent with
-    | Resolve resolve -> return! resolve nextContext
-    | Content view -> return view
-  }
+  let resolveViewNonCached routeHit nextContext =
+    routeHit.Definition.GetContent nextContext
 
 
   let navigate

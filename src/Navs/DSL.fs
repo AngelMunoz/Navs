@@ -5,60 +5,64 @@ open IcedTasks
 
 type Route =
 
-  static member inline define(name, path, view) = {
-    Name = name
-    Pattern = path
-    GetContent = Content view
-    Children = []
-    CanActivate = []
-    CanDeactivate = []
-    CacheStrategy = Cache
-  }
-
-  static member inline defineResolve
+  static member inline define<'View>
     (
       name,
       path,
-      [<InlineIfLambda>] getContent: RouteContext -> CancellableValueTask<_>
+      [<InlineIfLambda>] view: RouteContext -> 'View
     ) =
     {
       Name = name
       Pattern = path
-      GetContent = Resolve getContent
+      GetContent = fun ctx -> cancellableValueTask { return view ctx }
       Children = []
       CanActivate = []
       CanDeactivate = []
       CacheStrategy = Cache
     }
 
-  static member inline defineResolve
+  static member inline define<'View>
     (
       name,
       path,
-      [<InlineIfLambda>] getContent: RouteContext -> Task<_>
+      [<InlineIfLambda>] getContent: RouteContext -> CancellableValueTask<'View>
     ) =
     {
       Name = name
       Pattern = path
-      GetContent =
-        Resolve(fun a -> cancellableValueTask { return! getContent a })
+      GetContent = fun ctx -> getContent ctx
       Children = []
       CanActivate = []
       CanDeactivate = []
       CacheStrategy = Cache
     }
 
-  static member inline defineResolve
+  static member inline define<'View>
     (
       name,
       path,
-      [<InlineIfLambda>] getContent: RouteContext -> Async<_>
+      [<InlineIfLambda>] getContent: RouteContext -> Task<'View>
     ) =
     {
       Name = name
       Pattern = path
-      GetContent =
-        Resolve(fun a -> cancellableValueTask { return! getContent a })
+      GetContent = fun a -> cancellableValueTask { return! getContent a }
+      Children = []
+      CanActivate = []
+      CanDeactivate = []
+      CacheStrategy = Cache
+    }
+
+  static member inline define<'View>
+    (
+      name,
+      path,
+      [<InlineIfLambda>] getContent: RouteContext -> Async<'View>
+    ) =
+    {
+      Name = name
+      Pattern = path
+      GetContent = fun a -> cancellableValueTask { return! getContent a }
       Children = []
       CanActivate = []
       CanDeactivate = []

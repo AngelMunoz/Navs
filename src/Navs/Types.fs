@@ -23,21 +23,17 @@ type CacheStrategy =
   | NoCache
   | Cache
 
-[<Struct>]
-type GetContent<'View> =
-  | Resolve of resolve: (RouteContext -> CancellableValueTask<'View>)
-  | Content of content: 'View
-
 [<NoComparison; NoEquality>]
 type RouteDefinition<'View> = {
   Name: string
   Pattern: string
-  GetContent: GetContent<'View>
+  GetContent: GetView<'View>
   Children: RouteDefinition<'View> list
   CanActivate: RouteGuard list
   CanDeactivate: RouteGuard list
   CacheStrategy: CacheStrategy
 }
+
 
 [<NoComparison; NoEquality>]
 type RouteTrack<'View> = {
