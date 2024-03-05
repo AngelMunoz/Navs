@@ -82,7 +82,7 @@ module UrlParser =
       {
         Segments =
           match segments with
-          | [""; ""] -> [""]
+          | [ ""; "" ] -> [ "" ]
           | _ -> segments
         Query = query
         Hash = hash |> ValueOption.ofOption
