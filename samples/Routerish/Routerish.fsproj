@@ -16,7 +16,6 @@
     <PackageReference Include="NXUI" Version="11.0.0" />
     <PackageReference Include="NXUI.Desktop" Version="11.0.0" />
     <PackageReference Include="NXUI.FSharp" Version="11.0.0" />
-    <PackageReference Include="IcedTasks" Version="0.11.3" />
   </ItemGroup>
 
 

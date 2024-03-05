@@ -27,7 +27,6 @@ type NavigationError<'View> =
   | CantDeactivate of deactivateGuard: RouteDefinition<'View>
   | CantActivate of activateGuard: RouteDefinition<'View>
 
-
 module Result =
   let inline requireValueSome (msg: string) (value: 'a voption) =
     match value with
@@ -153,8 +152,19 @@ module Router =
         |> AsyncResult.ignore
     }
 
-  let resolveViewNonCached routeHit nextContext token =
-    routeHit.Definition.GetContent.Invoke(nextContext, token) |> Async.AwaitTask
+  let resolveViewNonCached routeHit nextContext = async {
+    let! token = Async.CancellationToken
+
+    if token.IsCancellationRequested then
+      return Error NavigationCancelled
+    else
+
+      let! result =
+        routeHit.Definition.GetContent.Invoke(nextContext, token)
+        |> Async.AwaitTask
+
+      return Ok(ValueSome result)
+  }
 
 
   let navigate
@@ -205,9 +215,9 @@ module Router =
           match routeHit.Definition.CacheStrategy with
           | NoCache -> // No caching, just resolve any time.
 
-            let! view = resolveViewNonCached routeHit nextContext token
+            let! view = resolveViewNonCached routeHit nextContext
 
-            transact(fun _ -> content.Value <- (ValueSome view))
+            transact(fun _ -> content.Value <- view)
           | Cache ->
             // Templated url hit, check the cache and update if necessary
             match liveNodes.TryGetValue routeHit.PatternPath with
@@ -216,23 +226,31 @@ module Router =
               if currentParams = oldParams then
                 transact(fun _ -> content.Value <- (ValueSome oldView))
               else
-                let! view = resolveViewNonCached routeHit nextContext token
+                let! view = resolveViewNonCached routeHit nextContext
 
-                transact(fun _ ->
-                  liveNodes.Item(routeHit.PatternPath) <- (currentParams, view)
-                  content.Value <- (ValueSome view)
-                )
+                match view with
+                | ValueSome gotView ->
+                  transact(fun _ ->
+                    liveNodes.Item(routeHit.PatternPath) <-
+                      (currentParams, gotView)
+
+                    content.Value <- view
+                  )
+                | ValueNone -> transact(fun _ -> content.Value <- view)
             | None ->
               // no cached templated url, resolve the view
-              let! view = resolveViewNonCached routeHit nextContext token
+              let! view = resolveViewNonCached routeHit nextContext
 
-              // This is the first time we hit this templated url, add it to the map
-              transact(fun _ ->
-                liveNodes.Add(routeHit.PatternPath, (currentParams, view))
-                |> ignore
+              match view with
+              | ValueNone -> transact(fun _ -> content.Value <- view)
+              | ValueSome gotView ->
+                // This is the first time we hit this templated url, add it to the map
+                transact(fun _ ->
+                  liveNodes.Add(routeHit.PatternPath, (currentParams, gotView))
+                  |> ignore
 
-                content.Value <- (ValueSome view)
-              )
+                  content.Value <- view
+                )
 
           return routeHit
     }
@@ -277,7 +295,7 @@ type Router<'View>
       | Error e -> return Error e
     }
 
-    Async.StartAsTask(work, ?cancellationToken = cancellationToken)
+    Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)
 
   member _.NavigateByName
     (
@@ -312,4 +330,4 @@ type Router<'View>
       | None -> return Error(RouteNotFound routeName)
     }
 
-    Async.StartAsTask(work, ?cancellationToken = cancellationToken)
+    Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)

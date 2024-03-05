@@ -18,9 +18,9 @@ static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
         Route.Define<Control>("sub", "sub/route", ctx => new TextBlock().Text("Sub"))
        ),
      Route.Define<Control>("about", "/about", ctx => new TextBlock().Text("About")),
-     Route.Define<Control>("by-name", "/by-name/:id<guid>", async ctx => {
+     Route.Define<Control>("by-name", "/by-name/:id<guid>", async (ctx, token) => {
         // Simulate a fetch or something
-        await Task.Delay(80);
+        await Task.Delay(80, token);
         ctx.UrlMatch.Params.TryGetValue("id", out var id);
         return new TextBlock().Text($"By Name: {id as Guid?}");
      })
