@@ -1,7 +1,8 @@
 namespace Navs
 
+open System
 open System.Threading.Tasks
-open IcedTasks
+open System.Threading
 
 type Route =
 
@@ -14,39 +15,7 @@ type Route =
     {
       Name = name
       Pattern = path
-      GetContent = fun ctx -> cancellableValueTask { return view ctx }
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
-    }
-
-  static member inline define<'View>
-    (
-      name,
-      path,
-      [<InlineIfLambda>] getContent: RouteContext -> CancellableValueTask<'View>
-    ) =
-    {
-      Name = name
-      Pattern = path
-      GetContent = fun ctx -> getContent ctx
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
-    }
-
-  static member inline define<'View>
-    (
-      name,
-      path,
-      [<InlineIfLambda>] getContent: RouteContext -> Task<'View>
-    ) =
-    {
-      Name = name
-      Pattern = path
-      GetContent = fun a -> cancellableValueTask { return! getContent a }
+      GetContent = Func<_, _, _>(fun ctx _ -> Task.FromResult(view ctx))
       Children = []
       CanActivate = []
       CanDeactivate = []
@@ -62,7 +31,27 @@ type Route =
     {
       Name = name
       Pattern = path
-      GetContent = fun a -> cancellableValueTask { return! getContent a }
+      GetContent =
+        Func<_, _, _>(fun ctx token ->
+          Async.StartAsTask(getContent ctx, cancellationToken = token)
+        )
+      Children = []
+      CanActivate = []
+      CanDeactivate = []
+      CacheStrategy = Cache
+    }
+
+  static member inline define<'View>
+    (
+      name,
+      path,
+      [<InlineIfLambda>] getContent:
+        RouteContext * CancellationToken -> Task<'View>
+    ) =
+    {
+      Name = name
+      Pattern = path
+      GetContent = Func<_, _, _>(fun ctx token -> getContent(ctx, token))
       Children = []
       CanActivate = []
       CanDeactivate = []
@@ -79,25 +68,56 @@ type Route =
         Children = children @ definition.Children
   }
 
-  static member inline canActivate
-    ([<InlineIfLambda>] guard)
-    definition
-    : RouteDefinition<_> =
-    {
-      definition with
-          CanActivate = guard :: definition.CanActivate
-    }
-
-  static member inline canDeactivate
-    ([<InlineIfLambda>] guard)
-    definition
-    : RouteDefinition<_> =
-    {
-      definition with
-          CanDeactivate = guard :: definition.CanDeactivate
-    }
-
   static member inline cache strategy definition : RouteDefinition<_> = {
     definition with
         CacheStrategy = strategy
   }
+
+module Route =
+  let inline canActivateTask
+    ([<InlineIfLambda>] guard: RouteContext * CancellationToken -> Task<bool>)
+    definition
+    : RouteDefinition<_> =
+    {
+      definition with
+          CanActivate =
+            Func<_, _, _>(fun ctx token -> guard(ctx, token))
+            :: definition.CanActivate
+    }
+
+  let inline canActivate
+    ([<InlineIfLambda>] guard: RouteContext -> Async<bool>)
+    definition
+    : RouteDefinition<_> =
+    {
+      definition with
+          CanActivate =
+            Func<_, _, _>(fun ctx token ->
+              Async.StartAsTask(guard ctx, cancellationToken = token)
+            )
+            :: definition.CanActivate
+    }
+
+  let inline canDeactivateTask
+    ([<InlineIfLambda>] guard: RouteContext * CancellationToken -> Task<bool>)
+    definition
+    : RouteDefinition<_> =
+    {
+      definition with
+          CanDeactivate =
+            Func<_, _, _>(fun ctx token -> guard(ctx, token))
+            :: definition.CanDeactivate
+    }
+
+  let inline canDeactivate
+    ([<InlineIfLambda>] guard: RouteContext -> Async<bool>)
+    definition
+    : RouteDefinition<_> =
+    {
+      definition with
+          CanDeactivate =
+            Func<_, _, _>(fun ctx token ->
+              Async.StartAsTask(guard ctx, cancellationToken = token)
+            )
+            :: definition.CanDeactivate
+    }

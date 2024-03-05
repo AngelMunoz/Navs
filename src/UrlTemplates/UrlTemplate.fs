@@ -60,12 +60,14 @@ module UrlTemplate =
       pstringCI "<decimal>" >>= (fun _ -> preturn Decimal)
 
   let typed =
-    Primitives.intParam
-    <|> Primitives.floatParam
-    <|> Primitives.boolParam
-    <|> Primitives.guidParam
-    <|> Primitives.longParam
-    <|> Primitives.decimalParam
+    choice [
+      Primitives.intParam
+      Primitives.floatParam
+      Primitives.boolParam
+      Primitives.guidParam
+      Primitives.longParam
+      Primitives.decimalParam
+    ]
 
   let required = pchar '!'
 

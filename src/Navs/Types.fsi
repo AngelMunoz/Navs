@@ -1,18 +1,19 @@
 namespace Navs
 
-open System.Collections.Generic
+open System
+open System.Threading
+open System.Threading.Tasks
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
 
-open IcedTasks
 
 type RouteContext =
   { Route: string
     UrlMatch: UrlMatch
     UrlInfo: UrlInfo }
 
-type RouteGuard = RouteContext -> CancellableValueTask<bool>
-type GetView<'View> = RouteContext -> CancellableValueTask<'View>
+type RouteGuard = Func<RouteContext, CancellationToken, Task<bool>>
+type GetView<'View> = Func<RouteContext, CancellationToken, Task<'View>>
 
 [<Struct>]
 type CacheStrategy =

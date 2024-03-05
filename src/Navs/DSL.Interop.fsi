@@ -2,6 +2,7 @@ namespace Navs.Interop
 
 open System
 open System.Runtime.CompilerServices
+open System.Threading
 open System.Threading.Tasks
 
 open Navs
@@ -12,7 +13,8 @@ type Route =
     name: string * path: string * getContent: Func<RouteContext, 'View> -> RouteDefinition<'View>
 
   static member inline Define:
-    name: string * path: string * getContent: Func<RouteContext, Task<'View>> -> RouteDefinition<'View>
+    name: string * path: string * getContent: Func<RouteContext, CancellationToken, Task<'View>> ->
+      RouteDefinition<'View>
 
 [<Class; Extension>]
 type RouteDefinitionExtensions =

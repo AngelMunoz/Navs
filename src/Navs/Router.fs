@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Threading
 open System.Runtime.InteropServices
 
-open IcedTasks
 open FsToolkit.ErrorHandling
 
 open FSharp.Data.Adaptive
@@ -14,44 +13,49 @@ open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
 open UrlTemplates.UrlTemplate
 
-
-module internal Result =
-  let inline requireValueSome (msg: string) (value: 'a voption) =
-    match value with
-    | ValueSome a -> Ok a
-    | ValueNone -> Error msg
-
-[<Struct>]
+[<Struct; NoComparison>]
 type ActiveRouteParams = {
   SegmentIndex: int
   ParamName: string
   ParamValue: string
 }
 
+[<Struct; NoComparison; NoEquality>]
+type NavigationError<'View> =
+  | NavigationCancelled
+  | RouteNotFound of url: string
+  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
+  | CantActivate of activateGuard: RouteDefinition<'View>
+
+
+module Result =
+  let inline requireValueSome (msg: string) (value: 'a voption) =
+    match value with
+    | ValueSome a -> Ok a
+    | ValueNone -> Error msg
+
 module RouteInfo =
 
-
   let getParamDiff (urlInfo: UrlInfo) (tplInfo: UrlTemplate) =
-    tplInfo.Segments
-    |> List.mapi(fun index segment ->
-      result {
-        let! urlSegment =
-          urlInfo.Segments
-          |> List.tryItem index
-          |> Result.requireSome "Param segment not found in url"
-
+    if urlInfo.Segments.Length <> tplInfo.Segments.Length then
+      []
+    else
+      urlInfo.Segments
+      |> List.zip tplInfo.Segments
+      |> List.indexed
+      |> List.choose(fun (index, (segment, urlSegment)) ->
         match segment with
         | ParamSegment(name, _) ->
-          return {
-            SegmentIndex = index
-            ParamName = name
-            ParamValue = urlSegment
-          }
-        | _ -> return! Error "Not a param segment"
-      }
-      |> Result.toOption
-    )
-    |> List.choose id
+          Some(
+            {
+              SegmentIndex = index
+              ParamName = name
+              ParamValue = urlSegment
+            }
+          )
+        | _ -> None
+      )
+
 
   let digUpToRoot (track: RouteTrack<'View>) =
     let queue = Queue<RouteTrack<'View>>()
@@ -96,6 +100,7 @@ module RouteInfo =
       |> Result.requireValueSome "No matching route found"
 
     let urlParam = getParamDiff routeContext.UrlInfo routeContext.UrlTemplate
+
     return activeGraph, urlParam, routeContext
   }
 
@@ -115,53 +120,52 @@ module RouteInfo =
     )
 
     struct {|
-      canActivate = canActivate |> Seq.toList
-      canDeactivate = canDeactivate |> Seq.toList
+      canActivate = [
+        while canActivate.Count > 0 do
+          canActivate.Pop()
+      ]
+      canDeactivate = [
+        while canDeactivate.Count > 0 do
+          canDeactivate.Dequeue()
+      ]
     |}
 
-[<Struct>]
-type NavigationError<'View> =
-  | NavigationCancelled
-  | RouteNotFound of url: string
-  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
-  | CantActivate of activateGuard: RouteDefinition<'View>
-
-module internal Router =
+module Router =
 
   let runGuards<'View>
     (onFalsePredicate: RouteDefinition<'View> -> NavigationError<'View>)
     (guards: (RouteGuard * RouteDefinition<'View>) list)
     nextContext
     =
-    cancellableTask {
-      let! token = CancellableValueTask.getCancellationToken()
+    async {
+      let! token = Async.CancellationToken
 
       return!
         guards
-        |> List.traverseTaskResultM(fun (guard, definition) ->
+        |> List.traverseAsyncResultM(fun (guard, definition) ->
           if token.IsCancellationRequested then
-            TaskResult.error NavigationCancelled
+            AsyncResult.error NavigationCancelled
           else
-            (guard nextContext token).AsTask()
-            |> TaskResult.requireTrue(onFalsePredicate definition)
+            guard.Invoke(nextContext, token)
+            |> Async.AwaitTask
+            |> AsyncResult.requireTrue(onFalsePredicate definition)
         )
-        |> TaskResult.ignore
+        |> AsyncResult.ignore
     }
 
-  let resolveViewNonCached routeHit nextContext =
-    routeHit.Definition.GetContent nextContext
+  let resolveViewNonCached routeHit nextContext token =
+    routeHit.Definition.GetContent.Invoke(nextContext, token) |> Async.AwaitTask
 
 
   let navigate
     (
       routes: RouteTrack<'View> seq,
-      notFound,
+      notFound: (Func<'View>) option,
       content: cval<_>,
       liveNodes: cmap<string, ActiveRouteParams list * _>
-    )
-
-    =
-    fun url token -> taskResult {
+    ) =
+    fun url -> asyncResult {
+      let! token = Async.CancellationToken
 
       let! activeRouteNodes, currentParams, routeContext =
         RouteInfo.getActiveRouteInfo routes url
@@ -175,9 +179,9 @@ module internal Router =
 
       let guards = RouteInfo.extractGuards activeRouteNodes
 
-      do! runGuards CantDeactivate guards.canDeactivate nextContext token
+      do! runGuards CantDeactivate guards.canDeactivate nextContext
 
-      do! runGuards CantActivate guards.canActivate nextContext token
+      do! runGuards CantActivate guards.canActivate nextContext
 
 
       if token.IsCancellationRequested then
@@ -188,11 +192,19 @@ module internal Router =
         match activeRouteNodes |> Seq.tryHead with
         | None ->
           // no templated url found.
-          transact(fun _ -> content.Value <- notFound |> ValueOption.ofOption)
+          transact(fun _ ->
+            content.Value <-
+              notFound
+              |> ValueOption.ofOption
+              |> ValueOption.map(fun f -> f.Invoke())
+          )
+
           return! Error(RouteNotFound url)
         | Some routeHit ->
+
           match routeHit.Definition.CacheStrategy with
           | NoCache -> // No caching, just resolve any time.
+
             let! view = resolveViewNonCached routeHit nextContext token
 
             transact(fun _ -> content.Value <- (ValueSome view))
@@ -228,8 +240,8 @@ module internal Router =
 type Router<'View>
   (
     routes: RouteTrack<'View> seq,
-    [<Optional>] ?splash: 'View,
-    [<Optional>] ?notFound: 'View,
+    [<Optional>] ?splash: Func<'View>,
+    [<Optional>] ?notFound: Func<'View>,
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<'View>>
   ) =
 
@@ -237,7 +249,9 @@ type Router<'View>
     defaultArg historyManager (HistoryManager())
 
   let liveNodes = cmap<string, ActiveRouteParams list * 'View>()
-  let content = cval(splash |> ValueOption.ofOption)
+
+  let content =
+    cval(splash |> ValueOption.ofOption |> ValueOption.map(fun f -> f.Invoke()))
 
   let navigate = Router.navigate(routes, notFound, content, liveNodes)
 
@@ -246,17 +260,15 @@ type Router<'View>
         member _.Subscribe(observer) = content.AddCallback(observer.OnNext)
     }
 
-  member _.AContent: 'View voption aval = content
+  member _.AdaptiveContent: 'View voption aval = content
 
   member _.Navigate
     (
       url: string,
       [<Optional>] ?cancellationToken: CancellationToken
     ) =
-    task {
-      let token = defaultArg cancellationToken CancellationToken.None
-
-      let! result = navigate url token
+    let work = async {
+      let! result = navigate url
 
       match result with
       | Ok tracked ->
@@ -265,14 +277,15 @@ type Router<'View>
       | Error e -> return Error e
     }
 
+    Async.StartAsTask(work, ?cancellationToken = cancellationToken)
+
   member _.NavigateByName
     (
       routeName: string,
       [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj>,
       [<Optional>] ?cancellationToken: CancellationToken
     ) =
-    task {
-      let token = defaultArg cancellationToken CancellationToken.None
+    let work = async {
 
       let routeParams: IReadOnlyDictionary<string, obj> =
         routeParams
@@ -281,13 +294,14 @@ type Router<'View>
         |> Option.flatten
         |> Option.defaultWith(fun _ -> Dictionary())
 
+
       match
         routes |> Seq.tryFind(fun route -> route.Definition.Name = routeName)
       with
       | Some route ->
         match UrlTemplate.toUrl route.PatternPath routeParams with
         | Ok url ->
-          let! result = navigate url token
+          let! result = navigate url
 
           match result with
           | Ok tracked ->
@@ -298,31 +312,4 @@ type Router<'View>
       | None -> return Error(RouteNotFound routeName)
     }
 
-  member _.CanGoBack = history.CanGoBack
-  member _.CanGoForward = history.CanGoForward
-
-  member _.Back([<Optional>] ?cancellationToken: CancellationToken) = task {
-    let token = defaultArg cancellationToken CancellationToken.None
-
-    match history.Previous() with
-    | ValueSome tracked ->
-      let! result = navigate tracked.PatternPath token
-
-      match result with
-      | Ok _ -> return Ok()
-      | Error e -> return Error e
-    | ValueNone -> return Ok()
-  }
-
-  member _.Forward([<Optional>] ?cancellationToken: CancellationToken) = task {
-    let token = defaultArg cancellationToken CancellationToken.None
-
-    match history.Next() with
-    | ValueSome tracked ->
-      let! result = navigate tracked.PatternPath token
-
-      match result with
-      | Ok _ -> return Ok()
-      | Error e -> return Error e
-    | ValueNone -> return Ok()
-  }
+    Async.StartAsTask(work, ?cancellationToken = cancellationToken)

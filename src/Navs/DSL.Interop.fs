@@ -1,10 +1,8 @@
 namespace Navs.Interop
 
 open System
-open System.Runtime.CompilerServices
 open System.Threading.Tasks
-
-open IcedTasks
+open System.Runtime.CompilerServices
 
 open Navs
 
@@ -20,29 +18,22 @@ type Route =
       Name = name
       Pattern = path
       GetContent =
-        fun ctx -> cancellableValueTask { return getContent.Invoke(ctx) }
+        Func<_, _, _>(fun ctx _ -> Task.FromResult(getContent.Invoke(ctx)))
       Children = []
       CanActivate = []
       CanDeactivate = []
       CacheStrategy = Cache
     }
 
-  static member inline Define<'View>
-    (
-      name,
-      path,
-      getContent: Func<RouteContext, Task<'View>>
-    ) =
-    {
-      Name = name
-      Pattern = path
-      GetContent =
-        fun ctx -> cancellableValueTask { return! getContent.Invoke(ctx) }
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
-    }
+  static member inline Define<'View>(name, path, getContent: GetView<'View>) = {
+    Name = name
+    Pattern = path
+    GetContent = getContent
+    Children = []
+    CanActivate = []
+    CanDeactivate = []
+    CacheStrategy = Cache
+  }
 
 [<Extension>]
 type RouteDefinitionExtensions =
