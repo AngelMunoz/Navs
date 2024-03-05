@@ -4,10 +4,15 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Types.fsi" />
     <Compile Include="Types.fs" />
+    <Compile Include="History.fsi" />
     <Compile Include="History.fs" />
+    <Compile Include="Router.fsi" />
     <Compile Include="Router.fs" />
+    <Compile Include="DSL.fsi" />
     <Compile Include="DSL.fs" />
+    <Compile Include="DSL.Interop.fsi" />
     <Compile Include="DSL.Interop.fs" />
   </ItemGroup>
   <ItemGroup>
