@@ -33,7 +33,7 @@ type Route =
       Pattern = path
       GetContent =
         Func<_, _, _>(fun ctx token ->
-          Async.StartAsTask(getContent ctx, cancellationToken = token)
+          Async.StartImmediateAsTask(getContent ctx, cancellationToken = token)
         )
       Children = []
       CanActivate = []
@@ -93,7 +93,7 @@ module Route =
       definition with
           CanActivate =
             Func<_, _, _>(fun ctx token ->
-              Async.StartAsTask(guard ctx, cancellationToken = token)
+              Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
             )
             :: definition.CanActivate
     }
@@ -117,7 +117,7 @@ module Route =
       definition with
           CanDeactivate =
             Func<_, _, _>(fun ctx token ->
-              Async.StartAsTask(guard ctx, cancellationToken = token)
+              Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
             )
             :: definition.CanDeactivate
     }
