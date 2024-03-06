@@ -34,8 +34,6 @@ static Window GetWindow()
 {
   var router = new AvaloniaRouter(GetRoutes());
 
-  var content = router.Content.Select(view => view.IsSome ? view.Value : new TextBlock().Text("Not Found"));
-
   return new Window().Title("Hello World!").Content(
     StackPanel().Children(
       Button().Content("Home").OnClickHandler((_, _) => NavigateTo("/", router)),
@@ -46,7 +44,7 @@ static Window GetWindow()
       Button()
         .Content("Navigate By Name Missing Param")
         .OnClickHandler((_, _) => NavigateByName("by-name", router)),
-      ContentControl().Content(content.ToBinding(), BindingMode.OneWay)
+      ContentControl().Content(router.Content.ToBinding(), BindingMode.OneWay)
     )
   );
 }

@@ -10,23 +10,24 @@ open NXUI.FSharp.Extensions
 open Navs
 open Navs.Avalonia
 
-let routes: RouteDefinition<Control> list = [
+let routes = [
   Route.define(
     "guid",
     "/:id<guid>",
     fun context -> async {
       return
         match context.UrlMatch.Params.TryGetValue "id" with
-        | true, id -> TextBlock().text(sprintf "Home %A" id) :> Control
+        | true, id -> TextBlock().text($"%O{id}")
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define(
-    "books",
-    "/books",
-    (fun _ -> TextBlock().text("Books") :> Control)
-  )
+  Route.define("books", "/books", (fun _ -> TextBlock().text("Books")))
 ]
+
+let getMainContent (router: AvaloniaRouter) =
+  ContentControl()
+    .DockTop()
+    .content(router.Content.ToBinding(), BindingMode.OneWay)
 
 let navigate url (router: AvaloniaRouter) _ _ =
   task {
@@ -38,44 +39,29 @@ let navigate url (router: AvaloniaRouter) _ _ =
   }
   |> ignore
 
+let app () =
 
-let startApp () =
-  let router = AvaloniaRouter(routes)
+  let router =
+    AvaloniaRouter(routes, splash = (fun () -> TextBlock().text("Loading...")))
 
-  let content =
-    router.Content
-    |> Observable.map(fun value ->
-      match value with
-      | ValueSome value -> value
-      | _ -> TextBlock().text("No Content")
+  Window()
+    .content(
+      DockPanel()
+        .lastChildFill(true)
+        .children(
+          StackPanel()
+            .DockTop()
+            .OrientationHorizontal()
+            .spacing(8)
+            .children(
+              Button().content("Books").OnClickHandler(navigate "/books" router),
+              Button()
+                .content("Guid")
+                .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
+            ),
+          getMainContent(router)
+        )
     )
 
-  let shell =
-    DockPanel()
-      .lastChildFill(true)
-      .children(
-        StackPanel()
-          .DockTop()
-          .spacing(8)
-          .children(
-            Button().content("Books").OnClickHandler(navigate "/books" router),
-            Button()
-              .content("Guid")
-              .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
-          ),
-        ContentControl()
-          .DockTop()
-          .content(content.ToBinding(), BindingMode.OneWay)
-      )
 
-  Window().content(shell).minWidth(800.).minHeight(600.)
-
-[<EntryPoint; STAThread>]
-let main argv =
-
-  NXUI.Run(
-    startApp,
-    "Routerish!",
-    argv,
-    themeVariant = Styling.ThemeVariant.Dark
-  )
+NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore
