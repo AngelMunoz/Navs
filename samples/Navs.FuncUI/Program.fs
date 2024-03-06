@@ -10,6 +10,23 @@ open Avalonia.FuncUI.DSL
 open Navs
 open Navs.FuncUI
 open Avalonia.Themes.Fluent
+open Avalonia.FuncUI.Types
+
+let navbar (router: FuncUIRouter) : IView =
+  StackPanel.create [
+    StackPanel.dock Dock.Top
+    StackPanel.orientation Layout.Orientation.Horizontal
+    StackPanel.children [
+      Button.create [
+        Button.content "Books"
+        Button.onClick(fun _ -> router.Navigate "/books" |> ignore)
+      ]
+      Button.create [
+        Button.content "Guid"
+        Button.onClick(fun _ -> router.Navigate $"/{Guid.NewGuid()}" |> ignore)
+      ]
+    ]
+  ]
 
 let routes = [
   Route.define(
@@ -31,32 +48,14 @@ let routes = [
   )
 ]
 
-let appContent (router: FuncUIRouter) =
+let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
   Component(fun ctx ->
 
     let currentView = ctx.useRouter router
 
     DockPanel.create [
       DockPanel.lastChildFill true
-      DockPanel.children [
-        StackPanel.create [
-          StackPanel.dock Dock.Top
-          StackPanel.orientation Layout.Orientation.Horizontal
-          StackPanel.children [
-            Button.create [
-              Button.content "Books"
-              Button.onClick(fun _ -> router.Navigate "/books" |> ignore)
-            ]
-            Button.create [
-              Button.content "Guid"
-              Button.onClick(fun _ ->
-                router.Navigate $"/{Guid.NewGuid()}" |> ignore
-              )
-            ]
-          ]
-        ]
-        currentView.Current
-      ]
+      DockPanel.children [ navbar router; currentView.Current ]
     ]
   )
 
@@ -64,7 +63,7 @@ let appContent (router: FuncUIRouter) =
 type AppWindow(router: FuncUIRouter) as this =
   inherit HostWindow()
 
-  do this.Content <- appContent router
+  do this.Content <- appContent (router, navbar)
 
 
 type App() =
