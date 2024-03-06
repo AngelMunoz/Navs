@@ -5,14 +5,14 @@ open System.Threading.Tasks
 
 [<Class>]
 type Route =
-  static member inline define:
+  static member inline define<'View> :
     name: string * path: string * [<InlineIfLambda>] view: (RouteContext -> 'View) -> RouteDefinition<'View>
 
-  static member inline define:
+  static member inline define<'View> :
     name: string * path: string * [<InlineIfLambda>] getContent: (RouteContext * CancellationToken -> Task<'View>) ->
       RouteDefinition<'View>
 
-  static member inline define:
+  static member inline define<'View> :
     name: string * path: string * [<InlineIfLambda>] getContent: (RouteContext -> Async<'View>) ->
       RouteDefinition<'View>
 
