@@ -10,7 +10,6 @@ open Avalonia.Controls
 open Navs
 open Navs.Router
 
-
 type AvaloniaRouter
   (
     routes,
@@ -18,11 +17,16 @@ type AvaloniaRouter
     [<Optional>] ?notFound: Func<Control>,
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<Control>>
   ) =
-  inherit Router<Control>(RouteTracks.fromDefinitions routes)
+  inherit
+    Router<Control>(
+      RouteTracks.fromDefinitions routes,
+      ?splash = splash,
+      ?notFound = notFound,
+      ?historyManager = historyManager
+    )
 
 type Route =
 
-  [<CompiledName "Define">]
   static member inline define<'View when 'View :> Control>
     (
       name,
@@ -38,7 +42,6 @@ type Route =
       }
     )
 
-  [<CompiledName "Define">]
   static member inline define<'View when 'View :> Control>
     (
       name,
@@ -55,7 +58,6 @@ type Route =
       }
     )
 
-  [<CompiledName "Define">]
   static member inline define<'View when 'View :> Control>
     (
       name,
@@ -65,8 +67,6 @@ type Route =
     Navs.Route.define<Control>(name, path, (fun ctx -> c ctx :> Control))
 
 module Interop =
-
-  open System
 
   type Route =
     [<CompiledName "Define">]

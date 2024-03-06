@@ -1,7 +1,10 @@
 using Navs;
-using Navs.Interop;
 using Navs.Router;
 using Navs.Avalonia;
+
+// Namespaces for smooth interop
+// With the library for non-F# languages.
+using Navs.Interop;
 using Route = Navs.Avalonia.Interop.Route;
 
 AppBuilder
