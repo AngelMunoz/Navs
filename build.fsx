@@ -4,7 +4,7 @@
 open System.IO
 open Fun.Build
 
-let version = "1.0.0-beta-001"
+let version = "1.0.0-beta-002"
 
 
 let build name = stage $"Build {name}" { run $"dotnet build src/{name}" }
