@@ -28,8 +28,8 @@ type Router<'View> =
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<'View>> ->
       Router<'View>
 
-  member Content: IObservable<'View voption>
-  member AdaptiveContent: aval<'View voption>
+  member Content: IObservable<'View>
+  member AdaptiveContent: aval<'View option>
 
   member Navigate:
     url: string * [<Optional>] ?cancellationToken: CancellationToken -> Tasks.Task<Result<unit, NavigationError<'View>>>

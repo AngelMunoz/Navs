@@ -158,12 +158,14 @@ module Router =
     if token.IsCancellationRequested then
       return Error NavigationCancelled
     else
-
       let! result =
         routeHit.Definition.GetContent.Invoke(nextContext, token)
         |> Async.AwaitTask
+        |> Async.Catch
 
-      return Ok(ValueSome result)
+      match result with
+      | Choice1Of2 view -> return Ok view
+      | Choice2Of2 ex -> return Error NavigationError.NavigationCancelled
   }
 
 
@@ -203,10 +205,7 @@ module Router =
         | None ->
           // no templated url found.
           transact(fun _ ->
-            content.Value <-
-              notFound
-              |> ValueOption.ofOption
-              |> ValueOption.map(fun f -> f.Invoke())
+            content.Value <- notFound |> Option.map(fun f -> f.Invoke())
           )
 
           return! Error(RouteNotFound url)
@@ -217,40 +216,33 @@ module Router =
 
             let! view = resolveViewNonCached routeHit nextContext
 
-            transact(fun _ -> content.Value <- view)
+            transact(fun _ -> content.Value <- Some view)
           | Cache ->
             // Templated url hit, check the cache and update if necessary
             match liveNodes.TryGetValue routeHit.PatternPath with
             | Some(oldParams, oldView) ->
               // we've visited this route template before
               if currentParams = oldParams then
-                transact(fun _ -> content.Value <- (ValueSome oldView))
+                transact(fun _ -> content.Value <- (Some oldView))
               else
                 let! view = resolveViewNonCached routeHit nextContext
 
-                match view with
-                | ValueSome gotView ->
-                  transact(fun _ ->
-                    liveNodes.Item(routeHit.PatternPath) <-
-                      (currentParams, gotView)
+                transact(fun _ ->
+                  liveNodes.Item(routeHit.PatternPath) <- (currentParams, view)
 
-                    content.Value <- view
-                  )
-                | ValueNone -> transact(fun _ -> content.Value <- view)
+                  content.Value <- Some view
+                )
             | None ->
               // no cached templated url, resolve the view
               let! view = resolveViewNonCached routeHit nextContext
 
-              match view with
-              | ValueNone -> transact(fun _ -> content.Value <- view)
-              | ValueSome gotView ->
-                // This is the first time we hit this templated url, add it to the map
-                transact(fun _ ->
-                  liveNodes.Add(routeHit.PatternPath, (currentParams, gotView))
-                  |> ignore
+              // This is the first time we hit this templated url, add it to the map
+              transact(fun _ ->
+                liveNodes.Add(routeHit.PatternPath, (currentParams, view))
+                |> ignore
 
-                  content.Value <- view
-                )
+                content.Value <- Some view
+              )
 
           return routeHit
     }
@@ -268,17 +260,21 @@ type Router<'View>
 
   let liveNodes = cmap<string, ActiveRouteParams list * 'View>()
 
-  let content =
-    cval(splash |> ValueOption.ofOption |> ValueOption.map(fun f -> f.Invoke()))
+  let content = cval(splash |> Option.map(fun f -> f.Invoke()))
 
   let navigate = Router.navigate(routes, notFound, content, liveNodes)
 
-  member _.Content: 'View voption IObservable =
-    { new IObservable<'View voption> with
-        member _.Subscribe(observer) = content.AddCallback(observer.OnNext)
+  member _.Content: 'View IObservable =
+    { new IObservable<'View> with
+        member _.Subscribe(observer) =
+          content.AddCallback(fun value ->
+            match value with
+            | Some view -> observer.OnNext(view)
+            | None -> ()
+          )
     }
 
-  member _.AdaptiveContent: 'View voption aval = content
+  member _.AdaptiveContent: 'View option aval = content
 
   member _.Navigate
     (
@@ -292,7 +288,15 @@ type Router<'View>
       | Ok tracked ->
         history.SetCurrent(tracked)
         return Ok()
-      | Error e -> return Error e
+      | Error e ->
+        match e with
+        | RouteNotFound _ ->
+          transact(fun _ ->
+            content.Value <- notFound |> Option.map(fun f -> f.Invoke())
+          )
+        | _ -> ()
+
+        return Error e
     }
 
     Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)
@@ -312,6 +316,13 @@ type Router<'View>
         |> Option.flatten
         |> Option.defaultWith(fun _ -> Dictionary())
 
+      let setNotFound e =
+        match e with
+        | RouteNotFound _ ->
+          transact(fun _ ->
+            content.Value <- notFound |> Option.map(fun f -> f.Invoke())
+          )
+        | _ -> ()
 
       match
         routes |> Seq.tryFind(fun route -> route.Definition.Name = routeName)
@@ -325,9 +336,18 @@ type Router<'View>
           | Ok tracked ->
             history.SetCurrent(tracked)
             return Ok()
-          | Error e -> return Error e
-        | Error e -> return Error(RouteNotFound(String.concat ", " e))
-      | None -> return Error(RouteNotFound routeName)
+          | Error e ->
+            setNotFound e
+
+            return Error e
+        | Error e ->
+          let error = RouteNotFound(String.concat ", " e)
+          setNotFound error
+          return Error error
+      | None ->
+        let error = RouteNotFound routeName
+        setNotFound error
+        return Error error
     }
 
     Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)
