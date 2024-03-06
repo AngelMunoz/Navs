@@ -17,7 +17,7 @@ Navs is a router-like abstraction inspired by web routers such as vue-router, an
 
 It is primarily a "core" library which you would usually depend on in your own projects, as it is very generic and while F# can be very intelligent about type inference, it tends to produce quite verbose signatures. For more information visit the Navs section in these docs.
 
-- [Navs](./Navs/Index.md)
+- [Navs](./Navs.fsx)
 
 A Compelling Example:
 
@@ -176,7 +176,7 @@ This is a library for parsing URL-like strings into structured objects. It is us
 
 Currently this library is mainly aimed to be used from F# but if there's interest in using it from C# I can add some more friendly APIs.
 
-- [UrlTemplates](./UrlTemplates/index.md)
+- [UrlTemplates](./UrlTemplates.fsx)
 
 A Compelling Example:
 

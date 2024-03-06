@@ -146,12 +146,11 @@ module RouteMatcher =
       match value with
       | ValueNone -> return map
       | ValueSome value ->
-        let! parsedValue =
-          tryParseValue tipe value
-          |> Result.mapError(fun _ -> UnparsableQueryItem(name, tipe, value))
-
-        map.Add(name, parsedValue)
-        return map
+        match tryParseValue tipe value with
+        | Error _ -> return map
+        | Ok parsedValue ->
+          map.Add(name, parsedValue)
+          return map
     }
 
   let extractListValues name tipe values (map: Dictionary<string, obj>) =
