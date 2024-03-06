@@ -27,44 +27,43 @@ type AvaloniaRouter
 
 type Route =
 
-  static member inline define<'View when 'View :> Control>
+  static member define<'View when 'View :> Control>
     (
       name,
       path,
-      [<InlineIfLambdaAttribute>] c: RouteContext -> Async<'View>
+      handler: RouteContext -> Async<'View>
     ) : RouteDefinition<Control> =
     Navs.Route.define<Control>(
       name,
       path,
       fun ctx -> async {
-        let! result = c ctx
+        let! result = handler ctx
         return result :> Control
       }
     )
 
-  static member inline define<'View when 'View :> Control>
+  static member define<'View when 'View :> Control>
     (
       name,
       path,
-      [<InlineIfLambdaAttribute>] c:
-        RouteContext * CancellationToken -> Task<'View>
+      handler: RouteContext * CancellationToken -> Task<'View>
     ) : RouteDefinition<Control> =
     Navs.Route.define(
       name,
       path,
       fun (ctx, token) -> task {
-        let! result = c(ctx, token)
+        let! result = handler(ctx, token)
         return result :> Control
       }
     )
 
-  static member inline define<'View when 'View :> Control>
+  static member define<'View when 'View :> Control>
     (
       name,
       path,
-      [<InlineIfLambdaAttribute>] c: RouteContext -> 'View
+      handler: RouteContext -> 'View
     ) : RouteDefinition<Control> =
-    Navs.Route.define<Control>(name, path, (fun ctx -> c ctx :> Control))
+    Navs.Route.define<Control>(name, path, (fun ctx -> handler ctx :> Control))
 
 module Interop =
 

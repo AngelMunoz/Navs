@@ -22,15 +22,14 @@ type AvaloniaRouter =
 
 [<Class>]
 type Route =
-  static member inline define:
-    name: string * path: string * [<InlineIfLambda>] c: (RouteContext -> Async<#Control>) -> RouteDefinition<Control>
+  static member define:
+    name: string * path: string * handler: (RouteContext -> Async<#Control>) -> RouteDefinition<Control>
 
-  static member inline define:
-    name: string * path: string * [<InlineIfLambda>] c: (RouteContext * CancellationToken -> Task<#Control>) ->
+  static member define:
+    name: string * path: string * handler: (RouteContext * CancellationToken -> Task<#Control>) ->
       RouteDefinition<Control>
 
-  static member inline define:
-    name: string * path: string * [<InlineIfLambda>] c: (RouteContext -> #Control) -> RouteDefinition<Control>
+  static member define: name: string * path: string * handler: (RouteContext -> #Control) -> RouteDefinition<Control>
 
 module Interop =
 
