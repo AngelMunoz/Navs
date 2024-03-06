@@ -1,8 +1,10 @@
 namespace Navs
 
+[<Interface>]
 type IHistoryManager<'HistoryEntry> =
   abstract member CanGoBack: bool
   abstract member CanGoForward: bool
+
   abstract member SetCurrent: 'HistoryEntry -> unit
 
   abstract member Current: 'HistoryEntry voption

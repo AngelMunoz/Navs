@@ -65,7 +65,7 @@ type Route =
 
   static member inline children children definition : RouteDefinition<_> = {
     definition with
-        Children = children @ definition.Children
+        Children = [ yield! definition.Children; yield! children ]
   }
 
   static member inline cache strategy definition : RouteDefinition<_> = {

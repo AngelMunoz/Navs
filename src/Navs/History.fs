@@ -3,7 +3,7 @@ namespace Navs
 open System.Collections.Generic
 open FsToolkit.ErrorHandling
 
-
+[<Interface>]
 type IHistoryManager<'HistoryEntry> =
   abstract member CanGoBack: bool
   abstract member CanGoForward: bool
