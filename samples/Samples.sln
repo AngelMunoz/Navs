@@ -7,7 +7,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Routerish", "Routerish\Rout
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharpToo", "CSharpToo\CSharpToo.csproj", "{EEB5F596-B8B6-4A0C-B46C-F96B580E0917}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Navs.FuncUI", "Navs.FuncUI\Navs.FuncUI.fsproj", "{2054F059-6FDC-480B-A086-83BD25FDC084}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FuncUI", "FuncUI\FuncUI.fsproj", "{2054F059-6FDC-480B-A086-83BD25FDC084}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

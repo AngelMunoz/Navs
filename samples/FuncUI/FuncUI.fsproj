@@ -6,18 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Navs.FuncUI.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.0.0" />
+    <PackageReference Include="Avalonia.FuncUI" Version="1.3.0" />
     <PackageReference Include="Avalonia.Desktop" Version="11.0.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" />
-    <PackageReference Include="Avalonia.FuncUI" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
+    <ProjectReference Include="..\..\src\Navs.FuncUI\Navs.FuncUI.fsproj" />
   </ItemGroup>
 </Project>
