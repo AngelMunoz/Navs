@@ -9,13 +9,6 @@ let version = "1.0.0-beta-001"
 
 let build name = stage $"Build {name}" { run $"dotnet build src/{name}" }
 
-let test shouldRebuild = stage "Test" {
-  run(fun ctx ->
-    let arg = if shouldRebuild then "--no-build" else ""
-    ctx.RunCommand $"dotnet test {arg}"
-  )
-}
-
 let pack name = stage $"Pack {name}" {
   run $"dotnet pack src/{name} -p:Version={version} -o dist"
 }
@@ -45,10 +38,11 @@ pipeline "nuget" {
   build "UrlTemplates"
   build "Navs"
   build "Navs.Avalonia"
-  test false
+  build "Navs.FuncUI"
   pack "UrlTemplates"
   pack "Navs"
   pack "Navs.Avalonia"
+  pack "Navs.FuncUI"
   pushNugets
   runIfOnlySpecified true
 }
@@ -58,7 +52,7 @@ pipeline "build" {
   build "UrlTemplates"
   build "Navs"
   build "Navs.Avalonia"
-  test false
+  build "Navs.FuncUI"
   runIfOnlySpecified false
 }
 
@@ -66,10 +60,10 @@ pipeline "nuget:local" {
   build "UrlTemplates"
   build "Navs"
   build "Navs.Avalonia"
-  test false
   pack "UrlTemplates"
   pack "Navs"
   pack "Navs.Avalonia"
+  pack "Navs.FuncUI"
   runIfOnlySpecified true
 }
 

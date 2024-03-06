@@ -7,8 +7,9 @@ This documentation is a work in progress.
 This project contains the following libraries:
 
 - [Navs](#Navs)
-- [Navs.Avalonia](#Navs-Avalonia)
 - [UrlTemplates](#UrlTemplates)
+- [Navs.Avalonia](#Navs-Avalonia)
+- [Navs.FuncUI](#Navs-FuncUI)
 
 ### Navs
 
@@ -125,6 +126,48 @@ let app () =
 
 
 NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore
+```
+
+### Navs.FuncUI
+
+In a similar Fashion of Navs.Avalonia, this project attempts to provide a smooth API interface for [Avalonia.FuncUI](https://github.com/fsprojects/Avalonia.FuncUI/), you can find a sample in the [Samples](https://github.com/AngelMunoz/Navs/tree/main/samples) folder in the source code repository.
+
+- [Navs.FuncUI](./Navs.FuncUI/index.md)
+
+A Compelling Example:
+
+```fsharp
+
+let routes = [
+  Route.define(
+    "books",
+    "/books",
+    (fun _ -> TextBlock.create [ TextBlock.text "Books" ])
+  )
+  Route.define(
+    "guid",
+    "/:id<guid>",
+    fun context -> async {
+      return
+        TextBlock.create [
+          match context.UrlMatch.Params.TryGetValue "id" with
+          | true, id -> TextBlock.text $"Visited: {id}"
+          | false, _ -> TextBlock.text "Guid No GUID"
+        ]
+    }
+  )
+]
+
+let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
+  Component(fun ctx ->
+
+    let currentView = ctx.useRouter router
+
+    DockPanel.create [
+      DockPanel.lastChildFill true
+      DockPanel.children [ navbar router; currentView.Current ]
+    ]
+  )
 ```
 
 ### UrlTemplates
