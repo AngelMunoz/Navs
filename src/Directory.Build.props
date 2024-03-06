@@ -4,8 +4,8 @@
         <Authors>Angel Munoz and contributors</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
-        <ProjectUrl>https://github.com/AngelMunoz/Routerish</ProjectUrl>
-        <RepositoryUrl>https://github.com/AngelMunoz/Routerish.git</RepositoryUrl>
+        <ProjectUrl>https://github.com/AngelMunoz/Navs</ProjectUrl>
+        <RepositoryUrl>https://github.com/AngelMunoz/Navs.git</RepositoryUrl>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <WarnOn>3390;$(WarnOn)</WarnOn>
         <PackageReadmeFile>README.md</PackageReadmeFile>
