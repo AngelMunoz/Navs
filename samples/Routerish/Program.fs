@@ -8,10 +8,10 @@ open NXUI.Desktop
 open NXUI.FSharp.Extensions
 
 open Navs
-open Navs.Router
+open Navs.Avalonia
 
 let routes: RouteDefinition<Control> list = [
-  Route.define<Control>(
+  Route.define(
     "guid",
     "/:id<guid>",
     fun context -> async {
@@ -21,17 +21,18 @@ let routes: RouteDefinition<Control> list = [
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define<Control>(
+  Route.define(
     "books",
     "/books",
     (fun _ -> TextBlock().text("Books") :> Control)
   )
 ]
 
-let navigate url (router: Router<Control>) _ _=
+let navigate url (router: AvaloniaRouter) _ _ =
   task {
     let! result = router.Navigate(url)
-    match result  with
+
+    match result with
     | Ok _ -> ()
     | Error e -> printfn $"%A{e}"
   }
@@ -39,7 +40,7 @@ let navigate url (router: Router<Control>) _ _=
 
 
 let startApp () =
-  let router = Router(RouteTracks.fromDefinitions routes)
+  let router = AvaloniaRouter(routes)
 
   let content =
     router.Content
@@ -58,7 +59,9 @@ let startApp () =
           .spacing(8)
           .children(
             Button().content("Books").OnClickHandler(navigate "/books" router),
-            Button().content("Guid").OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
+            Button()
+              .content("Guid")
+              .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
           ),
         ContentControl()
           .DockTop()

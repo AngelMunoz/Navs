@@ -1,8 +1,8 @@
 using Navs;
 using Navs.Interop;
 using Navs.Router;
-
-using Route = Navs.Interop.Route;
+using Navs.Avalonia;
+using Route = Navs.Avalonia.Interop.Route;
 
 AppBuilder
   .Configure<Application>()
@@ -12,13 +12,14 @@ AppBuilder
   .StartWithClassicDesktopLifetime(GetWindow, args);
 
 static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
-     Route.Define<Control>("home", "/", ctx => new TextBlock().Text("Hello World!"))
+     Route.Define("home", "/", ctx => new TextBlock().Text("Hello World!"))
       .NoCacheOnVisit()
       .Children(
-        Route.Define<Control>("sub", "sub/route", ctx => new TextBlock().Text("Sub"))
+        Route.Define("sub", "sub/route", ctx => new TextBlock().Text("Sub")),
+        Route.Define("sub2", "sub/route2", ctx => new TextBlock().Text("Sub2"))
        ),
-     Route.Define<Control>("about", "/about", ctx => new TextBlock().Text("About")),
-     Route.Define<Control>("by-name", "/by-name/:id<guid>", async (ctx, token) => {
+     Route.Define("about", "/about", ctx => new TextBlock().Text("About")),
+     Route.Define("by-name", "/by-name/:id<guid>", async (ctx, token) => {
         // Simulate a fetch or something
         await Task.Delay(80, token);
         ctx.UrlMatch.Params.TryGetValue("id", out var id);
@@ -28,8 +29,7 @@ static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
 
 static Window GetWindow()
 {
-  var routes = RouteTracks.FromDefinitions(GetRoutes());
-  var router = new Router<Control>(routes);
+  var router = new AvaloniaRouter(GetRoutes());
 
   var content = router.Content.Select(view => view.IsSome ? view.Value : new TextBlock().Text("Not Found"));
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -17,5 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
+    <ProjectReference Include="..\..\src\Navs.Avalonia\Navs.Avalonia.fsproj" />
   </ItemGroup>
 </Project>

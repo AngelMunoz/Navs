@@ -7,10 +7,6 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Routerish", "Routerish\Rout
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharpToo", "CSharpToo\CSharpToo.csproj", "{EEB5F596-B8B6-4A0C-B46C-F96B580E0917}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Navs", "..\src\Navs\Navs.fsproj", "{C3751FDA-4439-49B4-BFA4-60AA6DE0E8F2}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "UrlTemplates", "..\src\UrlTemplates\UrlTemplates.fsproj", "{9386A1D5-0685-4CC1-8275-9BCFEEDFE6C5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,16 +21,11 @@ Global
 		{EEB5F596-B8B6-4A0C-B46C-F96B580E0917}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EEB5F596-B8B6-4A0C-B46C-F96B580E0917}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EEB5F596-B8B6-4A0C-B46C-F96B580E0917}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C3751FDA-4439-49B4-BFA4-60AA6DE0E8F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C3751FDA-4439-49B4-BFA4-60AA6DE0E8F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C3751FDA-4439-49B4-BFA4-60AA6DE0E8F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C3751FDA-4439-49B4-BFA4-60AA6DE0E8F2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9386A1D5-0685-4CC1-8275-9BCFEEDFE6C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9386A1D5-0685-4CC1-8275-9BCFEEDFE6C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9386A1D5-0685-4CC1-8275-9BCFEEDFE6C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9386A1D5-0685-4CC1-8275-9BCFEEDFE6C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {632BFDE6-CD8C-4174-B3EC-4ABF88BB475E}
 	EndGlobalSection
 EndGlobal
