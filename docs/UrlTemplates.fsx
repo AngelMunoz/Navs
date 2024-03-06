@@ -8,7 +8,7 @@ description: A library for creating and parsing URL templates.
 keywords: url, template, url-parsing, validation
 ---
 
-This library specializes itself in parsing URL-like strings into structured objects. It is used by [Navs](../Navs/index.md) to parse navigable URLs and URL templates to find if they match.
+This library specializes itself in parsing URL-like strings into structured objects. It is used by [Navs](./Navs.fsx) to parse navigable URLs and URL templates to find if they match.
 *)
 
 (*** hide ***)
