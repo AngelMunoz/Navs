@@ -88,7 +88,9 @@ module UrlTemplate =
 
   let queryKey =
 
-    (manyChars asciiLetter) .>>. opt typed .>>. opt required
+    (manyChars(asciiLetter <|> anyOf [ '-'; '_' ]))
+    .>>. opt typed
+    .>>. opt required
     >>= (fun ((name, tipe), required) ->
       match required with
       | Some _ -> Required(name, tipe |> Option.defaultValue String)
