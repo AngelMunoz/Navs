@@ -22,17 +22,6 @@ type ActiveRouteParams =
     ParamValue: string }
 
 /// <summary>
-/// This object contains the contextual information about why a navigation
-/// could not be performed.
-/// </summary>
-[<Struct; NoComparison; NoEquality>]
-type NavigationError<'View> =
-  | NavigationCancelled
-  | RouteNotFound of url: string
-  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
-  | CantActivate of activateGuard: RouteDefinition<'View>
-
-/// <summary>
 /// This is the orchestrating object that manages the navigation, history, rendered views
 /// and tracks which route is currently active.
 /// </summary>
@@ -46,8 +35,8 @@ type Router<'View> =
   /// <param name="historyManager">The history manager that the router will use to manage the navigation history</param>
   new:
     routes: RouteTrack<'View> seq *
-    [<Optional>] ?splash: Func<'View> *
-    [<Optional>] ?notFound: Func<'View> *
+    [<Optional>] ?splash: Func<INavigate<'View>, 'View> *
+    [<Optional>] ?notFound: Func<INavigate<'View>, 'View> *
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<'View>> ->
       Router<'View>
 
@@ -108,3 +97,5 @@ type Router<'View> =
     [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj> *
     [<Optional>] ?cancellationToken: CancellationToken ->
       Tasks.Task<Result<unit, NavigationError<'View>>>
+
+  interface INavigate<'View>

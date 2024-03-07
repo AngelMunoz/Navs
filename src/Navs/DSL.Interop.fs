@@ -18,7 +18,7 @@ type Route =
       Name = name
       Pattern = path
       GetContent =
-        Func<_, _, _>(fun ctx _ -> Task.FromResult(getContent.Invoke(ctx)))
+        Func<_, _, _, _>(fun ctx _ _ -> Task.FromResult(getContent.Invoke(ctx)))
       Children = []
       CanActivate = []
       CanDeactivate = []

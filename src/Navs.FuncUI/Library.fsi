@@ -26,8 +26,8 @@ type FuncUIRouter =
   /// <param name="historyManager">The history manager that the router will use to manage the navigation history</param>
   new:
     routes: RouteDefinition<IView> seq *
-    [<Optional>] ?splash: Func<IView> *
-    [<Optional>] ?notFound: Func<IView> *
+    [<Optional>] ?splash: Func<INavigate<IView>, IView> *
+    [<Optional>] ?notFound: Func<INavigate<IView>, IView> *
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<IView>> ->
       FuncUIRouter
 
@@ -46,7 +46,8 @@ type Route =
   /// <param name="path">A templated URL that will be used to match this route</param>
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
-  static member define: name: string * path: string * handler: (RouteContext -> Async<#IView>) -> RouteDefinition<IView>
+  static member define:
+    name: string * path: string * handler: (RouteContext * INavigate<IView> -> Async<#IView>) -> RouteDefinition<IView>
 
   /// <summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -55,11 +56,13 @@ type Route =
   /// <returns>A route definition</returns>
   /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
   static member define:
-    name: string * path: string * handler: (RouteContext * CancellationToken -> Task<#IView>) -> RouteDefinition<IView>
+    name: string * path: string * handler: (RouteContext * INavigate<IView> * CancellationToken -> Task<#IView>) ->
+      RouteDefinition<IView>
 
   ///<summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
   /// <param name="path">A templated URL that will be used to match this route</param>
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
-  static member define: name: string * path: string * handler: (RouteContext -> #IView) -> RouteDefinition<IView>
+  static member define:
+    name: string * path: string * handler: (RouteContext * INavigate<IView> -> #IView) -> RouteDefinition<IView>

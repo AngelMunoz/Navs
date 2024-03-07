@@ -13,8 +13,8 @@ open Navs.Router
 type AvaloniaRouter
   (
     routes,
-    [<Optional>] ?splash: Func<Control>,
-    [<Optional>] ?notFound: Func<Control>,
+    [<Optional>] ?splash: Func<INavigate<Control>, Control>,
+    [<Optional>] ?notFound: Func<INavigate<Control>, Control>,
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<Control>>
   ) =
   inherit
@@ -27,43 +27,48 @@ type AvaloniaRouter
 
 type Route =
 
-  static member define<'View when 'View :> Control>
+  static member define
     (
       name,
       path,
-      handler: RouteContext -> Async<'View>
+      handler: RouteContext * INavigate<Control> -> Async<#Control>
     ) : RouteDefinition<Control> =
     Navs.Route.define<Control>(
       name,
       path,
-      fun ctx -> async {
-        let! result = handler ctx
+      fun args -> async {
+        let! result = handler args
         return result :> Control
       }
     )
 
-  static member define<'View when 'View :> Control>
+  static member define
     (
       name,
       path,
-      handler: RouteContext * CancellationToken -> Task<'View>
+      handler:
+        RouteContext * INavigate<Control> * CancellationToken -> Task<#Control>
     ) : RouteDefinition<Control> =
     Navs.Route.define(
       name,
       path,
-      fun (ctx, token) -> task {
-        let! result = handler(ctx, token)
+      fun args -> task {
+        let! result = handler args
         return result :> Control
       }
     )
 
-  static member define<'View when 'View :> Control>
+  static member define
     (
       name,
       path,
-      handler: RouteContext -> 'View
+      handler: RouteContext * INavigate<Control> -> #Control
     ) : RouteDefinition<Control> =
-    Navs.Route.define<Control>(name, path, (fun ctx -> handler ctx :> Control))
+    Navs.Route.define<Control>(
+      name,
+      path,
+      fun args -> handler args :> Control
+    )
 
 module Interop =
 
@@ -73,22 +78,23 @@ module Interop =
       (
         name,
         path,
-        handler: Func<RouteContext, #Control>
+        handler: Func<RouteContext, INavigate<Control>, #Control>
       ) =
-      Navs.Route.define(name, path, (fun ctx -> handler.Invoke(ctx) :> Control))
+      Navs.Route.define(name, path, (fun ctx -> handler.Invoke ctx :> Control))
 
     [<CompiledName "Define">]
     static member inline define
       (
         name,
         path,
-        handler: Func<RouteContext, CancellationToken, Task<#Control>>
+        handler:
+          Func<RouteContext, INavigate<Control>, CancellationToken, Task<#Control>>
       ) =
       Navs.Route.define(
         name,
         path,
-        (fun (ctx, token) -> task {
-          let! value = handler.Invoke(ctx, token)
+        (fun args -> task {
+          let! value = handler.Invoke args
           return value :> Control
         })
       )

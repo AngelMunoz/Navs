@@ -3,6 +3,7 @@ namespace Navs
 open System
 open System.Threading
 open System.Threading.Tasks
+open System.Runtime.InteropServices
 open System.Collections.Generic
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
@@ -13,16 +14,25 @@ type RouteContext = {
   UrlInfo: UrlInfo
 }
 
-type RouteGuard = Func<RouteContext, CancellationToken, Task<bool>>
-type GetView<'View> = Func<RouteContext, CancellationToken, Task<'View>>
 
 [<Struct>]
 type CacheStrategy =
   | NoCache
   | Cache
 
-[<NoComparison; NoEquality>]
-type RouteDefinition<'View> = {
+type RouteGuard = Func<RouteContext, CancellationToken, Task<bool>>
+
+and GetView<'View> =
+  Func<RouteContext, INavigate<'View>, CancellationToken, Task<'View>>
+
+and [<Struct; NoComparison; NoEquality>] NavigationError<'View> =
+  | NavigationCancelled
+  | RouteNotFound of url: string
+  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
+  | CantActivate of activateGuard: RouteDefinition<'View>
+
+
+and [<NoComparison; NoEquality>] RouteDefinition<'View> = {
   Name: string
   Pattern: string
   GetContent: GetView<'View>
@@ -32,6 +42,17 @@ type RouteDefinition<'View> = {
   CacheStrategy: CacheStrategy
 }
 
+and INavigate<'View> =
+
+  abstract member Navigate:
+    url: string * [<Optional>] ?cancellationToken: CancellationToken ->
+      Task<Result<unit, NavigationError<'View>>>
+
+  abstract member NavigateByName:
+    routeName: string *
+    [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj> *
+    [<Optional>] ?cancellationToken: CancellationToken ->
+      Task<Result<unit, NavigationError<'View>>>
 
 [<NoComparison; NoEquality>]
 type RouteTrack<'View> = {

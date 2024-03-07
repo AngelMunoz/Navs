@@ -10,12 +10,13 @@ type Route =
     (
       name,
       path,
-      [<InlineIfLambda>] view: RouteContext -> 'View
+      [<InlineIfLambda>] handler: RouteContext * INavigate<'View> -> 'View
     ) =
     {
       Name = name
       Pattern = path
-      GetContent = Func<_, _, _>(fun ctx _ -> Task.FromResult(view ctx))
+      GetContent =
+        Func<_, _, _, _>(fun ctx nav _ -> Task.FromResult(handler(ctx, nav)))
       Children = []
       CanActivate = []
       CanDeactivate = []
@@ -26,14 +27,18 @@ type Route =
     (
       name,
       path,
-      [<InlineIfLambda>] getContent: RouteContext -> Async<'View>
+      [<InlineIfLambda>] handler:
+        RouteContext * INavigate<'View> -> Async<'View>
     ) =
     {
       Name = name
       Pattern = path
       GetContent =
-        Func<_, _, _>(fun ctx token ->
-          Async.StartImmediateAsTask(getContent ctx, cancellationToken = token)
+        Func<_, _, _, _>(fun ctx nav token ->
+          Async.StartImmediateAsTask(
+            handler(ctx, nav),
+            cancellationToken = token
+          )
         )
       Children = []
       CanActivate = []
@@ -45,13 +50,14 @@ type Route =
     (
       name,
       path,
-      [<InlineIfLambda>] getContent:
-        RouteContext * CancellationToken -> Task<'View>
+      [<InlineIfLambda>] handler:
+        RouteContext * INavigate<'View> * CancellationToken -> Task<'View>
     ) =
     {
       Name = name
       Pattern = path
-      GetContent = Func<_, _, _>(fun ctx token -> getContent(ctx, token))
+      GetContent =
+        Func<_, _, _, _>(fun ctx nav token -> handler(ctx, nav, token))
       Children = []
       CanActivate = []
       CanDeactivate = []

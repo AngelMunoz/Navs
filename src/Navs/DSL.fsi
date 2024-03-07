@@ -9,32 +9,35 @@ type Route =
   ///<summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
   /// <param name="path">A templated URL that will be used to match this route</param>
-  /// <param name="view">The view to render when the route is activated</param>
+  /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member inline define<'View> :
-    name: string * path: string * [<InlineIfLambda>] view: (RouteContext -> 'View) -> RouteDefinition<'View>
-
-  /// <summary>Defines a route in the application</summary>
-  /// <param name="name">The name of the route</param>
-  /// <param name="path">A templated URL that will be used to match this route</param>
-  /// <param name="getContent">An task returning function to render when the route is activated.</param>
-  /// <returns>A route definition</returns>
-  /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
-  static member inline define<'View> :
-    name: string * path: string * [<InlineIfLambda>] getContent: (RouteContext * CancellationToken -> Task<'View>) ->
+    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> -> 'View) ->
       RouteDefinition<'View>
 
   /// <summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
   /// <param name="path">A templated URL that will be used to match this route</param>
-  /// <param name="getContent">An async returning function to render when the route is activated.</param>
+  /// <param name="handler">An task returning function to render when the route is activated.</param>
+  /// <returns>A route definition</returns>
+  /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
+  static member inline define<'View> :
+    name: string *
+    path: string *
+    [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> * CancellationToken -> Task<'View>) ->
+      RouteDefinition<'View>
+
+  /// <summary>Defines a route in the application</summary>
+  /// <param name="name">The name of the route</param>
+  /// <param name="path">A templated URL that will be used to match this route</param>
+  /// <param name="handler">An async returning function to render when the route is activated.</param>
   /// <returns>A route definition</returns>
   /// <remarks>
   ///   A cancellation token can be extracted from Async.CancellationToken in the async workdflow
   ///   to support cancellation of the route activation.
   /// </remarks>
   static member inline define<'View> :
-    name: string * path: string * [<InlineIfLambda>] getContent: (RouteContext -> Async<'View>) ->
+    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> -> Async<'View>) ->
       RouteDefinition<'View>
 
   /// <summary>

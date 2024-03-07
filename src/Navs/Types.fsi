@@ -3,6 +3,8 @@ namespace Navs
 open System
 open System.Threading
 open System.Threading.Tasks
+open System.Runtime.InteropServices
+open System.Collections.Generic
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
 
@@ -29,21 +31,19 @@ type RouteGuard = Func<RouteContext, CancellationToken, Task<bool>>
 
 /// An alias for a function that takes a route context and a cancellation token
 /// in order to extract the view that will be rendered when the route is activated.
-type GetView<'View> = Func<RouteContext, CancellationToken, Task<'View>>
+type GetView<'View> = Func<RouteContext, INavigate<'View>, CancellationToken, Task<'View>>
 
-/// The strategy that the router will use to cache the views that are rendered
-/// when the route is activated.
-[<Struct>]
-type CacheStrategy =
-  /// The Cache strategy makes that the rendered view will be stored in memory
-  /// and will be re-used when the route is activated again.
-  | NoCache
-  /// The NoCache strategy makes that the rendered view will be re-rendered
-  /// every time the route is activated.
-  | Cache
+/// <summary>
+/// This object contains the contextual information about why a navigation
+/// could not be performed.
+/// </summary>
+and [<Struct; NoComparison; NoEquality>] NavigationError<'View> =
+  | NavigationCancelled
+  | RouteNotFound of url: string
+  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
+  | CantActivate of activateGuard: RouteDefinition<'View>
 
-[<NoComparison; NoEquality>]
-type RouteDefinition<'View> =
+and [<NoComparison; NoEquality>] RouteDefinition<'View> =
   {
     /// Name used to locate this route for "by-name" route activation
     Name: string
@@ -64,6 +64,27 @@ type RouteDefinition<'View> =
     /// when the route is activated.
     CacheStrategy: CacheStrategy
   }
+
+/// The strategy that the router will use to cache the views that are rendered
+/// when the route is activated.
+and [<Struct>] CacheStrategy =
+  /// The Cache strategy makes that the rendered view will be stored in memory
+  /// and will be re-used when the route is activated again.
+  | NoCache
+  /// The NoCache strategy makes that the rendered view will be re-rendered
+  /// every time the route is activated.
+  | Cache
+
+and INavigate<'View> =
+
+  abstract member Navigate:
+    url: string * [<Optional>] ?cancellationToken: CancellationToken -> Task<Result<unit, NavigationError<'View>>>
+
+  abstract member NavigateByName:
+    routeName: string *
+    [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj> *
+    [<Optional>] ?cancellationToken: CancellationToken ->
+      Task<Result<unit, NavigationError<'View>>>
 
 /// This is an object used to keep track of the routes that are defined in the application.
 /// and contextual information about the route that is being activated.

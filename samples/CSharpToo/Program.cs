@@ -15,14 +15,14 @@ AppBuilder
   .StartWithClassicDesktopLifetime(GetWindow, args);
 
 static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
-     Route.Define("home", "/", ctx => new TextBlock().Text("Hello World!"))
+     Route.Define("home", "/", (ctx , _)=> new TextBlock().Text("Hello World!"))
       .NoCacheOnVisit()
       .Children(
-        Route.Define("sub", "sub/route", ctx => new TextBlock().Text("Sub")),
-        Route.Define("sub2", "sub/route2", ctx => new TextBlock().Text("Sub2"))
+        Route.Define("sub", "sub/route", (ctx , _)=> new TextBlock().Text("Sub")),
+        Route.Define("sub2", "sub/route2", (ctx , _)=> new TextBlock().Text("Sub2"))
        ),
-     Route.Define("about", "/about", ctx => new TextBlock().Text("About")),
-     Route.Define("by-name", "/by-name/:id<guid>", async (ctx, token) => {
+     Route.Define("about", "/about", (ctx , _)=> new TextBlock().Text("About")),
+     Route.Define("by-name", "/by-name/:id<guid>", async (ctx, _, token) => {
         // Simulate a fetch or something
         await Task.Delay(80, token);
         ctx.UrlMatch.Params.TryGetValue("id", out var id);

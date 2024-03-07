@@ -37,7 +37,7 @@ let routes = [
   Route.define(
     "guid",
     "/:id<guid>",
-    fun context -> async {
+    fun (context, _) -> async {
       return
         TextBlock.create [
           match context.UrlMatch.Params.TryGetValue "id" with

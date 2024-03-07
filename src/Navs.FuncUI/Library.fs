@@ -18,8 +18,8 @@ open Navs.Router
 type FuncUIRouter
   (
     routes: RouteDefinition<IView> seq,
-    [<Optional>] ?splash: Func<IView>,
-    [<Optional>] ?notFound: Func<IView>,
+    [<Optional>] ?splash: Func<INavigate<IView>, IView>,
+    [<Optional>] ?notFound: Func<INavigate<IView>, IView>,
     [<Optional>] ?historyManager: IHistoryManager<RouteTrack<IView>>
   ) =
   inherit
@@ -60,13 +60,13 @@ type Route =
     (
       name,
       path,
-      handler: RouteContext -> Async<#IView>
+      handler: RouteContext * INavigate<IView> -> Async<#IView>
     ) : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
-      fun ctx -> async {
-        let! view = handler ctx
+      fun args -> async {
+        let! view = handler args
         return view :> IView
       }
     )
@@ -75,13 +75,14 @@ type Route =
     (
       name,
       path,
-      handler: RouteContext * CancellationToken -> Task<#IView>
+      handler:
+        RouteContext * INavigate<IView> * CancellationToken -> Task<#IView>
     ) : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
-      fun (ctx, token) -> task {
-        let! view = handler(ctx, token)
+      fun args -> task {
+        let! view = handler args
         return view :> IView
       }
     )
@@ -90,6 +91,6 @@ type Route =
     (
       name,
       path,
-      handler: RouteContext -> #IView
+      handler: RouteContext * INavigate<IView> -> #IView
     ) : RouteDefinition<IView> =
-    Navs.Route.define<IView>(name, path, (fun ctx -> handler ctx :> IView))
+    Navs.Route.define<IView>(name, path, (fun args -> handler args :> IView))

@@ -14,7 +14,7 @@ let routes = [
   Route.define(
     "guid",
     "/:id<guid>",
-    fun context -> async {
+    fun (context, _) -> async {
       return
         match context.UrlMatch.Params.TryGetValue "id" with
         | true, id -> TextBlock().text($"%O{id}")
@@ -42,7 +42,7 @@ let navigate url (router: AvaloniaRouter) _ _ =
 let app () =
 
   let router =
-    AvaloniaRouter(routes, splash = (fun () -> TextBlock().text("Loading...")))
+    AvaloniaRouter(routes, splash = (fun _ -> TextBlock().text("Loading...")))
 
   Window()
     .content(
