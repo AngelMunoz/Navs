@@ -71,7 +71,7 @@ let router =
         title = "Splash"
         content = "Loading..."
         onAction =
-          fun nav -> task {
+          fun () -> task {
             do! Task.Delay(500)
             nav.Navigate "/home" |> ignore
           }
