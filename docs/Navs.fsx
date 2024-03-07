@@ -39,7 +39,7 @@ open Navs.Router
 type Page = {
   title: string
   content: string
-  onAction: (unit -> unit) option
+  onAction: (unit -> Task<unit>) option
 }
 
 let routes = [
@@ -71,7 +71,8 @@ let router =
         title = "Splash"
         content = "Loading..."
         onAction =
-          fun () -> task {
+          Some
+          <| fun () -> task {
             do! Task.Delay(500)
             nav.Navigate "/home" |> ignore
           }
@@ -176,16 +177,17 @@ let taskRoute =
   Route.define<Page>(
     "task",
     "/task",
-    fun (_, view, token) -> task {
+    fun (_, (nav: INavigate<Page>), token) -> task {
       do! Task.Delay(90, token)
 
       return {
         title = "Task"
         content = "This is a task route"
         onAction =
-          fun () -> task {
+          Some
+          <| fun () -> task {
             do! Task.Delay(90)
-            view.Navigate "/home" |> ignore
+            nav.Navigate("/home") |> ignore
           }
       }
     }
