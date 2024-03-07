@@ -29,12 +29,12 @@ For F# then the next thing would be to create a custom `Route` type that works w
         (
           name,
           path,
-          handler: RouteContext -> Async<'View>
+          handler: RouteContext * INavigate<Control> -> Async<'View>
         ) : RouteDefinition<Control> =
         Navs.Route.define<Control>(
           name,
           path,
-          fun ctx -> async {
+          fun (ctx, _) -> async {
             // here sadly we have to cast the result to Control
             // because the type hierarchy is solvable by the F# compiler without hints
             // so we have to help it a little bit.
@@ -48,7 +48,7 @@ Once that is done, we can convert our route definitions to the custom type and u
 From
 
     let router = Router<Control>(RouteTracks.fromDefinitions [
-      Route.define<Control>("Home", "/", fun ctx -> async {
+      Route.define<Control>("Home", "/", fun (ctx, _) -> async {
         do! Async.Sleep 90
         return UserControl()
       })
@@ -57,7 +57,7 @@ From
 To
 
     let router = AvaloniaRouter([
-      Route.define("Home", "/", fun ctx -> async {
+      Route.define("Home", "/", fun (ctx, _) -> async {
         do! Async.Sleep 90
         return UserControl()
       })
@@ -75,16 +75,16 @@ To interop with other languages though it is not required, but it is recommended
           (
             name,
             path,
-            handler: Func<RouteContext, #Control>
+            handler: Func<RouteContext, INavigate<Control>, #Control>
           ) =
-          Navs.Route.define(name, path, (fun ctx -> handler.Invoke(ctx) :> Control))
+          Navs.Route.define(name, path, (fun args -> handler.Invoke(args) :> Control))
 
 This will make sure that the route definitions can be created from C# or any other language that can interop with.
 
     [lang=csharp]
     using Route = Navs.Interop.Route;
     new AvaloniaRouter([
-      Route.Define("Home", "/", ctx => {
+      Route.Define("Home", "/", (ctx, _) => {
         return new UserControl();
       })
     ]);
@@ -99,13 +99,13 @@ In general what you want to do is to help the compiler solve the correct type fr
         (
           name,
           path,
-          handler: RouteContext -> Async<#IView>
+          handler: RouteContext * INavigate<IView> -> Async<#IView>
         ) : RouteDefinition<IView> =
         Navs.Route.define<IView>(
           name,
           path,
-          fun ctx -> async {
-            let! view = handler ctx
+          fun args -> async {
+            let! view = handler args
             return view :> IView
           }
         )

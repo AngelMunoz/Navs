@@ -29,7 +29,7 @@ let routes = [
   Route.define<string>(
     "guid",
     "/:id<guid>",
-    fun context -> async {
+    fun (context, _) -> async {
       do! Async.Sleep(90)
       return
         match context.UrlMatch.Params.TryGetValue "id" with
@@ -103,7 +103,7 @@ let navigate url (router: AvaloniaRouter) _ _ =
 
 let app () =
 
-  let router = AvaloniaRouter(routes, splash = fun () -> TextBlock().text("Loading..."))
+  let router = AvaloniaRouter(routes, splash = fun _ -> TextBlock().text("Loading..."))
 
   Window()
     .content(

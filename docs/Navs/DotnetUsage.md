@@ -24,10 +24,10 @@ The aliased `Route` is a static class that contains `Route.Define` method and ov
 ```csharp
 
 RouteDefinition<string>[] routes = [
-    Route.Define<string>("home", "/", () => "Home"),
-    Route.Define<string>("about", "/about", () => "About"),
-    Route.Define<string>("contact", "/contact", () => "Contact"),
-    Route.Define<string>("random", "/random", async (_, token) => {
+    Route.Define<string>("home", "/", (_, _) => "Home"),
+    Route.Define<string>("about", "/about", (_, _) => "About"),
+    Route.Define<string>("contact", "/contact", (_, _) => "Contact"),
+    Route.Define<string>("random", "/random", async (_, _, token) => {
         await Task.Delay(90, token);
         return $"Random {Random.Shared.Next()}";
     })

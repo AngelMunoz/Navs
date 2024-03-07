@@ -36,7 +36,11 @@ open System.Threading.Tasks
 open Navs
 open Navs.Router
 
-type Page = { title: string; content: string }
+type Page = {
+  title: string
+  content: string
+  onAction: (unit -> unit) option
+}
 
 let routes = [
   Route.define<Page>(
@@ -45,6 +49,7 @@ let routes = [
     fun _ -> {
       title = "Home"
       content = "Welcome to the home page"
+      onAction = None
     }
   )
   Route.define<Page>(
@@ -53,6 +58,7 @@ let routes = [
     fun _ -> {
       title = "About"
       content = "This is the about page"
+      onAction = None
     }
   )
 ]
@@ -61,9 +67,14 @@ let router =
   Router<Page>(
     RouteTracks.fromDefinitions routes,
     splash =
-      fun _ -> {
+      fun nav -> {
         title = "Splash"
         content = "Loading..."
+        onAction =
+          fun nav -> task {
+            do! Task.Delay(500)
+            nav.Navigate "/home" |> ignore
+          }
       }
   )
 
@@ -151,6 +162,7 @@ let asyncRoute =
       return {
         title = "Async"
         content = "This is an async route"
+        onAction = None
       }
     }
   )
@@ -164,12 +176,17 @@ let taskRoute =
   Route.define<Page>(
     "task",
     "/task",
-    fun (_, _, token) -> task {
+    fun (_, view, token) -> task {
       do! Task.Delay(90, token)
 
       return {
         title = "Task"
         content = "This is a task route"
+        onAction =
+          fun () -> task {
+            do! Task.Delay(90)
+            view.Navigate "/home" |> ignore
+          }
       }
     }
   )
@@ -197,12 +214,33 @@ let extractFromParams<'Type> name (ctx: RouteContext) =
 Route.define<Page>(
   "param",
   "/param/:id<guid>",
-  fun ctx ->
+  fun (ctx, _) ->
     let guid = extractFromParams<Guid> "id" ctx
 
     {
       title = "Param"
       content = $"This is a route with a parameter: {guid}"
+      onAction = None
+    }
+)
+
+(**
+## The INavigate<'View> interface
+
+The `cref:T:Navs.INavigate<'View>` is provided so you can perform `Navigate` and `NavigateByname` operations within your view handlers.
+Perhaps when a button is clicked, or when a link is clicked, you can use the `INavigate` interface to navigate to a different route.
+*)
+
+Route.define<Page>(
+  "param",
+  "/param/:id<guid>",
+  fun (ctx, _) ->
+    let guid = extractFromParams<Guid> "id" ctx
+
+    {
+      title = "Param"
+      content = $"This is a route with a parameter: {guid}"
+      onAction = None
     }
 )
 
