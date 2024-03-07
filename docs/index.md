@@ -24,7 +24,7 @@ A Compelling Example:
 ```fsharp
 
 let routes = [
-  Route.define<string>("home", "/", (fun _ -> "Home")
+  Route.define<string>("home", "/", (fun _ -> "Home"))
   Route.define<string>("about", "/about", (fun _ -> "About"))
   Route.define<string>(
     "guid",
@@ -68,7 +68,7 @@ let routes = [
     "guid",
     // routes can be typed!
     "/:id<guid>",
-    fun context -> async {
+    fun (context, _) -> async {
       // you can pre-load data if you want to
       do! Async.Sleep(90)
       return
@@ -147,7 +147,7 @@ let routes = [
   Route.define(
     "guid",
     "/:id<guid>",
-    fun context -> async {
+    fun (context, _) -> async {
       return
         TextBlock.create [
           match context.UrlMatch.Params.TryGetValue "id" with

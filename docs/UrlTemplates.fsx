@@ -3,7 +3,7 @@
 categoryindex: 0
 index: 1
 title: UrlTemplates
-category: Library
+category: Libraries
 description: A library for creating and parsing URL templates.
 keywords: url, template, url-parsing, validation
 ---
@@ -12,7 +12,7 @@ This library specializes itself in parsing URL-like strings into structured obje
 *)
 
 (*** hide ***)
-#r "nuget: UrlTemplates, 1.0.0-beta-001"
+#r "nuget: UrlTemplates, 1.0.0-beta-003"
 
 open System
 (**

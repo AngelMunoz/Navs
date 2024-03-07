@@ -3,7 +3,7 @@
 categoryindex: 0
 index: 1
 title: Navs
-category: Library
+category: Libraries
 description: A library for bare bones routing in F# applications
 keywords: navigation, routing, url, navigation, navs
 ---
@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-001"
+#r "nuget: Navs, 1.0.0-beta-003"
 
 open FSharp.Data.Adaptive
 open System
@@ -61,7 +61,7 @@ let router =
   Router<Page>(
     RouteTracks.fromDefinitions routes,
     splash =
-      fun () -> {
+      fun _ -> {
         title = "Splash"
         content = "Loading..."
       }
@@ -164,7 +164,7 @@ let taskRoute =
   Route.define<Page>(
     "task",
     "/task",
-    fun (_, token) -> task {
+    fun (_, _, token) -> task {
       do! Task.Delay(90, token)
 
       return {
