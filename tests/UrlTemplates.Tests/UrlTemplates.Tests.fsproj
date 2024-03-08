@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="RouteMatcher.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="10.1.0" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.14.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UrlTemplates\UrlTemplates.fsproj" />
+  </ItemGroup>
+</Project>
