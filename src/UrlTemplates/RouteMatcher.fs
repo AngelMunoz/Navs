@@ -89,7 +89,6 @@ module RouteMatcher =
           if name <> url then
             return! Error(SegmentMismatch(name, url))
           else
-            bag.Add(name, url)
             return ()
         | ParamSegment(name, tipe) ->
           let! parsedValue =
