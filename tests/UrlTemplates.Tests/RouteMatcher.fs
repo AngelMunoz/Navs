@@ -1,68 +1,455 @@
 module UrlTemplates.Tests.RouteMatcher
 
+#nowarn "25"
+
 open Expecto
+open UrlTemplates
 open UrlTemplates.RouteMatcher
 
-module MatchTemplate =
-
-  [<Tests>]
-  let tests = testList "MatchTemplate Tests" []
-
-
-module MatchUrl =
+module Params =
+  open UrlTemplates.UrlTemplate
 
   [<Tests>]
   let tests =
-    testList "MatchUrl Tests" [
+    testList "URL Params Tests" [
 
+      test "UrlTemplate parses the correct param segments" {
+
+        let actualTemplate = "/api/v1/users/:userId/posts/:postId<int>"
+        let actualUrl = "/api/v1/users/123/posts/456"
+
+        let urlTemplate, _, _ =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Segments
+          [
+            Plain ""
+            Plain "api"
+            Plain "v1"
+            Plain "users"
+            ParamSegment("userId", String)
+            Plain "posts"
+            ParamSegment("postId", Int)
+          ]
+          "Segments should match"
+      }
+
+      test "UrlMatch does not allow '-' in param segments" {
+        let actualTemplate = "/api/:user-name"
+        let actualUrl = "/api/john+doe"
+
+        match RouteMatcher.matchStrings actualTemplate actualUrl with
+        | Ok _ -> failtestf "Expected Error, got Ok"
+        | Error [ TemplateParsingError e ] ->
+
+          Expect.stringContains
+            e
+            "Expecting: Ascii letter"
+            "Error message should contain the expected value"
+        | Error e -> failtestf "Unexpected Error, got %A" e
+      }
     ]
 
+module QueryParams =
+  open UrlTemplates.UrlTemplate
+
+
+  [<Tests>]
+  let tests =
+    testList "Query Params Tests" [
+      test "Optional Query Params are parsed correctly" {
+        let actualTemplate = "/api?name&age&status"
+        let actualUrl = "/api?name=john&age=30&status=active"
+
+        let urlTemplate, urlMatch, _ =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Query
+          [
+            Optional("name", String)
+            Optional("age", String)
+            Optional("status", String)
+          ]
+          "Query should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlMatch.Query["name"]
+
+        Expect.equal
+          value
+          "john"
+          "name=john should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlMatch.Query["age"]
+
+        Expect.equal value "30" "age=30 should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlMatch.Query["status"]
+
+        Expect.equal
+          value
+          "active"
+          "status=active should match from the supplied template"
+
+      }
+
+      test "Optional Query Params are not required in the url" {
+        let actualTemplate = "/api?name&age&status"
+        let actualUrl = "/api?name=john&age=30"
+
+        let urlTemplate, urlInfo, urlMatch =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Query
+          [
+            Optional("name", String)
+            Optional("age", String)
+            Optional("status", String)
+          ]
+          "Query should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["name"]
+
+        Expect.equal value "john" "name=john should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["age"]
+
+        Expect.equal value "30" "age=30 should match"
+
+        Expect.throwsT<System.Collections.Generic.KeyNotFoundException>
+          (fun () -> urlInfo.Query["status"] |> ignore)
+          "Optional QueryValue should not be present in the URL Information"
+
+        let name = urlMatch.QueryParams["name"]
+
+        Expect.equal
+          name
+          "john"
+          "The matched URL should contain the supplied key and value"
+
+        let age = urlMatch.QueryParams["age"]
+
+        Expect.equal
+          age
+          "30"
+          "The matched URL should contain the supplied key and value"
+
+        Expect.throwsT<System.Collections.Generic.KeyNotFoundException>
+          (fun () -> urlMatch.QueryParams["status"] |> ignore)
+          "Optional QueryValue should not be present in the matched URL"
+      }
+
+      test "Required Query Params are parsed correctly" {
+
+        let actualTemplate = "/api?name!&age!&status!"
+        let actualUrl = "/api?name=john&age=30&status=active"
+
+        let urlTemplate, urlInfo, _ =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Query
+          [
+            Required("name", String)
+            Required("age", String)
+            Required("status", String)
+          ]
+          "Query should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["name"]
+
+        Expect.equal
+          value
+          "john"
+          "name=john should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["age"]
+
+        Expect.equal value "30" "age=30 should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["status"]
+
+        Expect.equal
+          value
+          "active"
+          "status=active should match from the supplied template"
+
+      }
+      test "Required Query Params are required in the url" {
+        let actualTemplate = "/api?name!&age!&status!"
+        let actualUrl = "/api?name=john&age=30"
+
+        match RouteMatcher.matchStrings actualTemplate actualUrl with
+        | Ok _ -> failtestf "Expected Error, got Ok"
+        | Error [ MatchingError(MissingQueryParams [ value ]) ] ->
+          Expect.equal value "status" "status should be missing"
+        | Error e -> failtestf "Unexpected Error, got %A" e
+      }
+
+      test "QueryParams can include '-' or '_' in their name" {
+
+        let actualTemplate = "/api?first-name&last_name"
+        let actualUrl = "/api?first-name=john&last_name=doe"
+
+        let urlTemplate, urlInfo, _ =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Query
+          [ Optional("first-name", String); Optional("last_name", String) ]
+          "Query should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["first-name"]
+
+        Expect.equal
+          value
+          "john"
+          "first-name=john should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["last_name"]
+
+        Expect.equal
+          value
+          "doe"
+          "last_name=doe should match from the supplied template"
+      }
+
+      test "Query Params can be typed" {
+        let actualTemplate = "/api?name&age<int>&id<guid>!"
+        let guid = System.Guid.NewGuid()
+        let actualUrl = $"/api?age=30&id={guid}&name=john"
+
+        let urlTemplate, urlInfo, urlMatch =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Query
+          [
+            Optional("name", String)
+            Optional("age", Int)
+            Required("id", Guid)
+          ]
+          "Query should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["name"]
+
+        Expect.equal
+          value
+          "john"
+          "name=john should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["age"]
+
+        Expect.equal value "30" "age=30 should match from the supplied template"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) = urlInfo.Query["id"]
+
+        Expect.equal
+          value
+          (guid.ToString())
+          "id should match from the supplied template"
+
+        let age = urlMatch.QueryParams["age"]
+
+        Expect.equal
+          (unbox<int> age)
+          30
+          "The matched URL should contain the supplied key and value"
+
+        let id = urlMatch.QueryParams["id"]
+
+        Expect.equal
+          (unbox<System.Guid> id)
+          guid
+          "The matched URL should contain the supplied key and value"
+
+        let name = urlMatch.QueryParams["name"]
+
+        Expect.equal
+          (unbox<string> name)
+          "john"
+          "The matched URL should contain the supplied key and value"
+      }
+    ]
 
 module MatchStrings =
   open UrlTemplates.UrlTemplate
 
+  [<Tests>]
   let tests =
     testList "MatchStrings Tests" [
-      testCase "It can parse a segment only"
-      <| fun _ ->
+      test "UrlTemplate segments, query, and hash contain the expected values" {
         let actualTemplate = "/hello/world"
         let actualUrl = "/hello/world"
-        let actual = RouteMatcher.matchStrings actualTemplate actualUrl
 
-        match actual with
-        | Ok(urlTpl, urlMatch, urlInfo) ->
-          Expect.equal
-            urlTpl.Segments
-            [ Plain ""; Plain "hello"; Plain "world" ]
-            "Segments should match"
+        let (urlTemplate, _, _) =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
 
-          Expect.isEmpty urlTpl.Query "Query should be empty"
+        Expect.equal
+          urlTemplate.Segments
+          [ Plain ""; Plain "hello"; Plain "world" ]
+          "Segments should match"
 
-          Expect.equal urlTpl.Hash ValueNone "Hash should be empty"
+        Expect.isEmpty urlTemplate.Query "Query should be empty"
 
-          Expect.isEmpty urlMatch.Query "Query should be empty"
+        Expect.equal urlTemplate.Hash ValueNone "Hash should be empty"
+      }
 
-          Expect.equal urlMatch.Hash ValueNone "Hash should be empty"
+      test " UrlMatch segments, query, and hash contain the expected values" {
+        let actualTemplate = "/hello/world"
+        let actualUrl = "/hello/world"
 
-          Expect.equal
-            urlMatch.Segments
-            [ ""; "hello"; "world" ]
-            "Segments should match"
+        let _, urlInfo, _ =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
 
-          Expect.isEmpty urlInfo.Params "Params should be empty"
+        Expect.isEmpty urlInfo.Query "Query should be empty"
 
-          Expect.isEmpty urlInfo.QueryParams "QueryParams should be empty"
+        Expect.equal urlInfo.Hash ValueNone "Hash should be empty"
 
-          Expect.equal urlInfo.Hash ValueNone "Hash should be empty"
+        Expect.equal
+          urlInfo.Segments
+          [ ""; "hello"; "world" ]
+          "Segments should match"
+      }
 
-        | Error e -> failtestf "Expected Ok, got Error %A" e
+      test "UrlInfo segments, query, and hash contain the expected values" {
+        let actualTemplate = "/hello/world"
+        let actualUrl = "/hello/world"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.isEmpty urlMatch.Params "Params should be empty"
+
+        Expect.isEmpty urlMatch.QueryParams "QueryParams should be empty"
+
+        Expect.equal urlMatch.Hash ValueNone "Hash should be empty"
+      }
+
+      test "Strings with different segments should not match" {
+        let actualTemplate = "/hello/world"
+        let actualUrl = "/hello/earth"
+
+        match RouteMatcher.matchStrings actualTemplate actualUrl with
+        | Ok _ -> failtestf "Expected Error, got Ok"
+        | Error [ MatchingError(SegmentMismatch(name, otherName)) ] ->
+          Expect.equal name "world" "world should be missing"
+          Expect.equal otherName "earth" "earth should be missing"
+        | Error e -> failtestf "Unexpected Error, got %A" e
+      }
+
+      test "strings with segments and queries should match" {
+        let actualTemplate = "/hello/:world<Guid>?name&age<int>"
+        let guid = System.Guid.NewGuid()
+        let actualUrl = $"/hello/{guid}?name=john&age=30"
+
+        let (urlTemplate, urlInfo, urlMatch) =
+          RouteMatcher.matchStrings actualTemplate actualUrl
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        Expect.equal
+          urlTemplate.Segments
+          [ Plain ""; Plain "hello"; ParamSegment("world", Guid) ]
+          "Segments should match"
+
+        Expect.equal
+
+          urlTemplate.Query
+          [ Optional("name", String); Optional("age", Int) ]
+          "Query should match"
+
+        Expect.equal urlTemplate.Hash ValueNone "Hash should be empty"
+
+        Expect.equal
+          urlInfo.Segments
+          [ ""; "hello"; guid.ToString() ]
+          "Segments should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["name"]
+
+        Expect.equal value "john" "name=john should match"
+
+        let (UrlParser.QueryValue.String(ValueSome value)) =
+          urlInfo.Query["age"]
+
+        Expect.equal value "30" "age=30 should match"
+
+        Expect.equal urlInfo.Hash ValueNone "Hash should be empty"
+
+        let world = urlMatch.Params["world"]
+
+        Expect.equal
+          (unbox<System.Guid> world)
+          guid
+          "The matched URL should contain the supplied key and value"
+
+        let name = urlMatch.QueryParams["name"]
+
+        Expect.equal
+          (unbox<string> name)
+          "john"
+          "The matched URL should contain the supplied key and value"
+
+        let age = urlMatch.QueryParams["age"]
+
+        Expect.equal
+          (unbox<int> age)
+          30
+          "The matched URL should contain the supplied key and value"
+
+        Expect.equal urlMatch.Hash ValueNone "Hash should be empty"
+      }
     ]
 
 
 [<Tests>]
 let tests =
   testList "RouteMatcher Tests" [
-    MatchTemplate.tests
-    MatchUrl.tests
+    Params.tests
+    QueryParams.tests
     MatchStrings.tests
   ]
