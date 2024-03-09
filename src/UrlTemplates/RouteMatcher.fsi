@@ -5,6 +5,7 @@ open FsToolkit.ErrorHandling
 
 open UrlTemplates.UrlTemplate
 open UrlTemplates.UrlParser
+open System.Runtime.CompilerServices
 
 type QueryParamError =
   | MissingRequired of string
@@ -37,7 +38,7 @@ type UrlMatch =
     ///
     /// Params["name"] = "john"
     /// </example>
-    Params: Dictionary<string, obj>
+    Params: IReadOnlyDictionary<string, obj>
     /// <summary>
     /// The matched query parameters of the URL, this will be used to extract the parameters
     /// </summary>
@@ -48,7 +49,7 @@ type UrlMatch =
     ///
     /// QueryParams["age"] = 30
     /// </example>
-    QueryParams: Dictionary<string, obj>
+    QueryParams: IReadOnlyDictionary<string, obj>
 
     /// <summary>
     /// The hash of the URL
@@ -60,6 +61,97 @@ type UrlMatch =
     /// </example>
     Hash: string voption
   }
+
+[<RequireQualifiedAccess>]
+module UrlMatch =
+
+  /// <summary>
+  /// Gets a sequence of parameters from the supplied query key in the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter values if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  val getParamSeqFromQuery<'CastedType> : name: string -> urlMatch: UrlMatch -> 'CastedType seq voption
+
+
+  /// <summary>
+  /// Gets a parameter from the query parameters of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  val getParamFromQuery<'CastedType> : name: string -> urlMatch: UrlMatch -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the path segments of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the path segments and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  val getParamFromPath<'CastedType> : name: string -> urlMatch: UrlMatch -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the query parameters or segments of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters or path segments and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  val getFromParams<'CastedType> : name: string -> urlMatch: UrlMatch -> 'CastedType voption
+
+[<Class; Sealed; Extension>]
+type UrlMatchExtensions =
+
+  /// <summary>
+  /// Gets a sequence of parameters from the supplied query key in the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter values if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  [<Extension; CompiledName "GetParamSeqFromQuery">]
+  static member inline getParamSeqFromQuery<'CastedType> : urlMatch: UrlMatch * name: string -> 'CastedType seq voption
+
+  /// <summary>
+  /// Gets a parameter from the query parameters of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  [<Extension; CompiledName "GetParamFromQuery">]
+  static member inline getParamFromQuery<'CastedType> : urlMatch: UrlMatch * name: string -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the path segments of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the path segments and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  [<Extension; CompiledName "GetParamFromPath">]
+  static member inline getParamFromPath<'CastedType> : urlMatch: UrlMatch * name: string -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the query parameters or segments of the URL
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="urlMatch">The match result to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters or path segments and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  [<Extension; CompiledName "GetFromParams">]
+  static member inline getFromParams<'CastedType> : urlMatch: UrlMatch * name: string -> 'CastedType voption
 
 [<RequireQualifiedAccess>]
 module RouteMatcher =

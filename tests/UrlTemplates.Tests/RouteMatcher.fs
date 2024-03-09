@@ -446,6 +446,159 @@ module MatchStrings =
     ]
 
 
+module UrlMatchExtensions =
+
+  [<Tests>]
+  let tests =
+    testList "UrlMatch Extensions" [
+
+      test "UrlMatch.getParamFromQuery returns the correct value" {
+        let template = "/api?name&age<int>&status"
+        let url = "/api?name=john&age=30"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = UrlMatch.getParamFromQuery<string> "name" urlMatch
+        let age = UrlMatch.getParamFromQuery<int> "age" urlMatch
+        let status = UrlMatch.getParamFromQuery<string> "status" urlMatch
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status ValueNone "status should not match"
+      }
+
+      test "UrlMatch.getParamFromPath returns the correct value" {
+        let template = "/api/:name/:age<int>/:status"
+        let url = "/api/john/30/active"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = UrlMatch.getParamFromPath<string> "name" urlMatch
+        let age = UrlMatch.getParamFromPath<int> "age" urlMatch
+        let status = UrlMatch.getParamFromPath<string> "status" urlMatch
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status (ValueSome "active") "status should match"
+      }
+
+      test "UrlMatch.getFromParams returns the correct value" {
+        let template = "/api?name&age<int>&status"
+        let url = "/api?name=john&age=30"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = UrlMatch.getFromParams<string> "name" urlMatch
+        let age = UrlMatch.getFromParams<int> "age" urlMatch
+        let status = UrlMatch.getFromParams<string> "status" urlMatch
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status ValueNone "status should not match"
+      }
+
+      test "UrlMatchExtensions.getParamFromQuery returns the correct value" {
+        let template = "/api?name&age<int>&status"
+        let url = "/api?name=john&age=30"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = urlMatch.getParamFromQuery<string>("name")
+        let age = urlMatch.getParamFromQuery<int>("age")
+        let status = urlMatch.getParamFromQuery<string>("status")
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status ValueNone "status should not match"
+      }
+
+      test "UrlMatchExtensions.getParamFromPath returns the correct value" {
+        let template = "/api/:name/:age<int>/:status"
+        let url = "/api/john/30/active"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = urlMatch.getParamFromPath<string>("name")
+        let age = urlMatch.getParamFromPath<int>("age")
+        let status = urlMatch.getParamFromPath<string>("status")
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status (ValueSome "active") "status should not match"
+      }
+
+      test "UrlMatchExtensions.getFromParams returns the correct value" {
+        let template = "/api?name&age<int>&status"
+        let url = "/api?name=john&age=30"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = urlMatch.getFromParams<string>("name")
+        let age = urlMatch.getFromParams<int>("age")
+        let status = urlMatch.getFromParams<string>("status")
+
+        Expect.equal name (ValueSome "john") "name should match"
+        Expect.equal age (ValueSome 30) "age should match"
+        Expect.equal status ValueNone "status should not match"
+      }
+
+      test
+        "UrlMatchExtensions.getParamSeqFromQuery can return a sequence of query params" {
+        let template = "/api?name&age<int>&statuses"
+        let url = "/api?name=john&age=30&statuses=active&statuses=inactive"
+
+        let _, _, urlMatch =
+          RouteMatcher.matchStrings template url
+          |> Result.defaultWith(fun e ->
+            failtestf "Expected Ok, got Error %A" e
+          )
+
+        let name = urlMatch.getFromParams<string>("name")
+        let age = urlMatch.getFromParams<int>("age")
+
+        let values = urlMatch.getParamSeqFromQuery<string>("statuses")
+
+        let statuses = values |> ValueOption.defaultValue Seq.empty
+
+        Expect.equal name (ValueSome "john") "name should match"
+
+        Expect.equal age (ValueSome 30) "age should match"
+
+        Expect.sequenceContainsOrder
+          statuses
+          (seq {
+            "inactive"
+            "active"
+          })
+          "statuses should match"
+
+      }
+    ]
+
 [<Tests>]
 let tests =
   testList "RouteMatcher Tests" [

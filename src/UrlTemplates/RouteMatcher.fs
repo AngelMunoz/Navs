@@ -2,11 +2,12 @@ namespace UrlTemplates.RouteMatcher
 
 open System
 open System.Collections.Generic
-
+open System.Runtime.CompilerServices
 open FsToolkit.ErrorHandling
 
 open UrlTemplates.UrlTemplate
 open UrlTemplates.UrlParser
+
 
 type QueryParamError =
   | MissingRequired of string
@@ -30,10 +31,84 @@ type StringMatchError =
 
 
 type UrlMatch = {
-  Params: Dictionary<string, obj>
-  QueryParams: Dictionary<string, obj>
+  Params: IReadOnlyDictionary<string, obj>
+  QueryParams: IReadOnlyDictionary<string, obj>
   Hash: string voption
 }
+
+[<RequireQualifiedAccess>]
+module UrlMatch =
+
+  let getParamSeqFromQuery<'CastedType> (name: string) (urlMatch: UrlMatch) =
+    match urlMatch.QueryParams.TryGetValue name with
+    | true, value ->
+      try
+        let items = unbox<seq<obj>> value
+        items |> Seq.cast<'CastedType> |> ValueSome
+      with :? InvalidCastException ->
+        ValueNone
+    | false, _ -> ValueNone
+
+  let getParamFromQuery<'CastedType> (name: string) (urlMatch: UrlMatch) =
+    match urlMatch.QueryParams.TryGetValue name with
+    | true, value ->
+      try
+        ValueSome(unbox<'CastedType> value)
+      with :? InvalidCastException ->
+        ValueNone
+    | false, _ -> ValueNone
+
+
+  let getParamFromPath<'CastedType> (name: string) (urlMatch: UrlMatch) =
+    match urlMatch.Params.TryGetValue name with
+    | true, value ->
+      try
+        ValueSome(unbox<'CastedType> value)
+      with :? InvalidCastException ->
+        ValueNone
+    | false, _ -> ValueNone
+
+  let getFromParams<'CastedType> (name: string) (urlMatch: UrlMatch) =
+    getParamFromPath<'CastedType> name urlMatch
+    |> ValueOption.orElseWith(fun () ->
+      getParamFromQuery<'CastedType> name urlMatch
+    )
+
+[<Class; Sealed; Extension>]
+type UrlMatchExtensions =
+
+  [<Extension; CompiledName "GetParamSeqFromQuery">]
+  static member inline getParamSeqFromQuery<'CastedType>
+    (
+      urlMatch: UrlMatch,
+      name: string
+    ) =
+    UrlMatch.getParamSeqFromQuery<'CastedType> name urlMatch
+
+  [<Extension; CompiledName "GetParamFromQuery">]
+  static member inline getParamFromQuery<'CastedType>
+    (
+      urlMatch: UrlMatch,
+      name: string
+    ) =
+    UrlMatch.getParamFromQuery<'CastedType> name urlMatch
+
+  [<Extension; CompiledName "GetParamFromPath">]
+  static member inline getParamFromPath<'CastedType>
+    (
+      urlMatch: UrlMatch,
+      name: string
+    ) =
+    UrlMatch.getParamFromPath<'CastedType> name urlMatch
+
+  [<Extension; CompiledName "GetFromParams">]
+  static member inline getFromParams<'CastedType>
+    (
+      urlMatch: UrlMatch,
+      name: string
+    ) =
+    UrlMatch.getFromParams<'CastedType> name urlMatch
+
 
 [<RequireQualifiedAccess>]
 module RouteMatcher =
