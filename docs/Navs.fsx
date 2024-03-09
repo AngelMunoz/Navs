@@ -25,10 +25,10 @@ From there on, you can use the router to navigate to different parts of your app
 
 (*** hide ***)
 #r "nuget: Navs, 1.0.0-beta-004"
+#r "nuget: FSharp.Data.Adaptive, 1.2.14"
 
 open FSharp.Data.Adaptive
 open System
-open System.Threading
 open System.Threading.Tasks
 open UrlTemplates.RouteMatcher
 
@@ -246,6 +246,8 @@ Route.define<Page>(
 
 (**
 The UrlMatch property in the context has algo access to the QueryParams and the Hash of the URL that was matched for this route.
+
+> For more information about extracting parameters from the URL, please refer to the [UrlTemplates Document section](./UrlTemplates.fsx).
 
 ## Guards
 

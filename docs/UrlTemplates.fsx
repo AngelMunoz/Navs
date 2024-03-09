@@ -169,7 +169,7 @@ let statuses =
 
 (*** hide ***)
 
-printfn "%A{statuses}"
+printfn $"%A{statuses}"
 (*** include-output ***)
 
 
@@ -192,7 +192,7 @@ Console.WriteLine($"{values.Value[0]}, {values.Value[1]}");
 // inactive, active
 ```
 
-> ***Note:*** The `cref:T:UrlTemplates.RouteMatcher.UrlMatchModule.getParamSeqFromQuery` function  and its extension method counterpart
+> ***Note:*** The ``cref:M:UrlTemplates.RouteMatcher.UrlMatchModule.getParamSeqFromQuery`1`` function  and its extension method counterpart
 > does not guarantee that the values are in the same order as they were in the URL.
 
 *)
