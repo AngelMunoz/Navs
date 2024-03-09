@@ -30,6 +30,7 @@ open FSharp.Data.Adaptive
 open System
 open System.Threading
 open System.Threading.Tasks
+open UrlTemplates.RouteMatcher
 
 (*** show ***)
 
@@ -208,16 +209,12 @@ If you wanted to define a route that takes a parameter, and then access that in 
 
 *)
 
-let extractFromParams<'Type> name (ctx: RouteContext) =
-  match ctx.UrlMatch.Params.TryGetValue name with
-  | true, value -> value :?> 'Type
-  | false, _ -> failwith "Parameter not found"
 
 Route.define<Page>(
   "param",
   "/param/:id<guid>",
   fun (ctx, _) ->
-    let guid = extractFromParams<Guid> "id" ctx
+    let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
@@ -237,7 +234,7 @@ Route.define<Page>(
   "param",
   "/param/:id<guid>",
   fun (ctx, _) ->
-    let guid = extractFromParams<Guid> "id" ctx
+    let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
