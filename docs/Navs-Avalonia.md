@@ -17,7 +17,7 @@ That being said...
 ## Usage
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-003"
+    #r "nuget: Navs.Avalonia, 1.0.0-beta-004"
 
 Using this library is very similar to using the base Navs library. The main difference is that the `Navs.Avalonia` library provides a less generic versions of the API.
 

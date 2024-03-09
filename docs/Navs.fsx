@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-003"
+#r "nuget: Navs, 1.0.0-beta-004"
 
 open FSharp.Data.Adaptive
 open System

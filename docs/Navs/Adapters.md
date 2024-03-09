@@ -7,7 +7,7 @@ category: Navs
 ## Creating an adapter.
 
     [hide]
-    #r "nuget: Navs, 1.0.0-beta-003"
+    #r "nuget: Navs, 1.0.0-beta-004"
 
 Sometimes you may want to create a custom adapter when you know the concrete types (or the interface) that you're targeting with your router and your definitions. This is a guide on how to create an adapter for a custom type.
 
