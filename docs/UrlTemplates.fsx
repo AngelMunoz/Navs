@@ -148,7 +148,7 @@ let tplDefinition = "/api?name&age<int>&statuses"
 let targetUrl = "/api?name=john&age=30&statuses=active&statuses=inactive"
 
 let _, _, matchedUrl =
-  RouteMatcher.matchStrings template url
+  RouteMatcher.matchStrings tplDefinition targetUrl
   |> Result.defaultWith(fun e -> failwithf "Expected Ok, got Error %O" e)
 
 
@@ -156,21 +156,24 @@ let _, _, matchedUrl =
 
 Normally query parameters are stored in string, object read only dictionaries however we offer a few utilities to extract them into a more useful format.
 for de F# folks you can use the following functions:
+*)
 
-```fsharp
+let name = matchedUrl |> UrlMatch.getFromParams<string> "name"
 
-let name = urlMatch |> UrlMatch.getFromParams<string> "name"
+let age = matchedUrl |> UrlMatch.getFromParams<int> "age"
 
-let age = urlMatch |> UrlMatch.getFromParams<int> "age"
+let values = matchedUrl |> UrlMatch.getParamSeqFromQuery<string> "statuses"
 
-let values = urlMatch |> UrlMatch.getParamSeqFromQuery<string> "statuses"
+let statuses =
+  values |> ValueOption.defaultWith(fun _ -> failwith "Expected a value")
 
-let statuses = values |> ValueOption.defaultWith(fun _ -> failwith "Expected a value")
+(*** hide ***)
 
-printfn "%s{statuses[0]}, %s{statuses[1]}" statuses[0] statuses[1]
-// inactive, active
-```
+printfn "%A{statuses}"
+(*** include-output ***)
 
+
+(**
 For the non F# folks extension methods are also provided
 
 ```csharp
