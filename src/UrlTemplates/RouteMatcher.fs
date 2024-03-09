@@ -216,7 +216,7 @@ module RouteMatcher =
 
     if requiredKeysSize > 0 then
       do!
-        urlKeySize > requiredKeysSize
+        urlKeySize >= requiredKeysSize
         |> Result.requireTrue ""
         |> Result.mapError(collectMissingQueryParams template url)
 
