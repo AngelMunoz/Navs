@@ -20,6 +20,16 @@ type Route =
   static member inline Define:
     name: string * path: string * getContent: Func<RouteContext, 'View> -> RouteDefinition<'View>
 
+  /// <summary>Defines a route in the application</summary>
+  /// <param name="name">The name of the route</param>
+  /// <param name="path">A templated URL that will be used to match this route</param>
+  /// <param name="getContent">The delegate that will be called to render the view when the route is activated</param>
+  /// <returns>A route definition</returns>
+  /// <remarks>
+  /// This function should ideally be used from F# as it provides a more idiomatic F# Function signature.
+  /// </remarks>
+  static member inline Define: name: string * path: string * getContent: GetView<'View> -> RouteDefinition<'View>
+
 
 /// <summary>
 /// Extensions for a builder-like API for defining routes in the application

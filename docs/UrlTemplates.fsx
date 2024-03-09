@@ -130,4 +130,66 @@ For example:
 
 - `/docs/functions#callbacks`
 
+
+## Extracting Parameters from a Matched URL
+
+The `UrlMatch` type provides a set of functions to extract parameters from a matched URL.
+
+*)
+
+
+(*** hide ***)
+
+open UrlTemplates.RouteMatcher
+
+(*** show ***)
+
+let tplDefinition = "/api?name&age<int>&statuses"
+let targetUrl = "/api?name=john&age=30&statuses=active&statuses=inactive"
+
+let _, _, matchedUrl =
+  RouteMatcher.matchStrings template url
+  |> Result.defaultWith(fun e -> failwithf "Expected Ok, got Error %O" e)
+
+
+(**
+
+Normally query parameters are stored in string, object read only dictionaries however we offer a few utilities to extract them into a more useful format.
+for de F# folks you can use the following functions:
+
+```fsharp
+
+let name = urlMatch |> UrlMatch.getFromParams<string> "name"
+
+let age = urlMatch |> UrlMatch.getFromParams<int> "age"
+
+let values = urlMatch |> UrlMatch.getParamSeqFromQuery<string> "statuses"
+
+let statuses = values |> ValueOption.defaultWith(fun _ -> failwith "Expected a value")
+
+printfn "%s{statuses[0]}, %s{statuses[1]}" statuses[0] statuses[1]
+// inactive, active
+```
+
+For the non F# folks extension methods are also provided
+
+```csharp
+var name = urlMatch.GetFromParams<string>("name");
+
+var age = urlMatch.GetFromParams<int>("age");
+
+var values = urlMatch.GetParamSeqFromQuery<string>("statuses");
+
+if (values.IsNone)
+{
+  throw new Exception("Expected a value");
+}
+
+Console.WriteLine($"{values.Value[0]}, {values.Value[1]}");
+// inactive, active
+```
+
+> ***Note:*** The `cref:T:UrlTemplates.RouteMatcher.UrlMatchModule.getParamSeqFromQuery` function  and its extension method counterpart
+> does not guarantee that the values are in the same order as they were in the URL.
+
 *)
