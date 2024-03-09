@@ -38,6 +38,9 @@ type UrlMatch = {
 
 [<RequireQualifiedAccess>]
 module UrlMatch =
+  // make sure extensions are visible in VB.NET
+  [<assembly: Extension>]
+  do ()
 
   let getParamSeqFromQuery<'CastedType> (name: string) (urlMatch: UrlMatch) =
     match urlMatch.QueryParams.TryGetValue name with

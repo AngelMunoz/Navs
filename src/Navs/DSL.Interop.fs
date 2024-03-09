@@ -6,6 +6,10 @@ open System.Runtime.CompilerServices
 
 open Navs
 
+// make sure extensions are visible in VB.NET
+[<assembly: Extension>]
+do ()
+
 type Route =
 
   static member inline Define<'View>
@@ -37,6 +41,7 @@ type Route =
 
 [<Extension>]
 type RouteDefinitionExtensions =
+
 
   [<Extension>]
   static member inline Child<'View>
