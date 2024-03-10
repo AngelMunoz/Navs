@@ -14,6 +14,7 @@ open UrlTemplates.UrlParser
 open UrlTemplates.UrlTemplate
 
 open Navs
+open System.Threading.Tasks
 
 [<Struct; NoComparison>]
 type ActiveRouteParams = {
@@ -105,8 +106,7 @@ module RouteInfo =
     let canDeactivate = Queue<RouteGuard * RouteDefinition<'View>>()
 
     activeGraph
-    |> Array.ofSeq
-    |> Array.Parallel.iter(fun route ->
+    |> Seq.iter(fun route ->
       for guard in route.Definition.CanActivate do
         canActivate.Push(guard, route.Definition)
 
@@ -171,7 +171,9 @@ module Router =
       routes: RouteTrack<'View> seq,
       notFound: (Func<INavigate<_>, 'View>) option,
       content: cval<_>,
-      liveNodes: cmap<string, ActiveRouteParams list * _>
+      liveNodes: cmap<string, ActiveRouteParams list * _>,
+      activeRoute:
+        cval<(RouteContext * (RouteGuard * RouteDefinition<_>) list) voption>
     ) =
     fun url -> asyncResult {
       let! token = Async.CancellationToken
@@ -188,7 +190,13 @@ module Router =
 
       let guards = RouteInfo.extractGuards activeRouteNodes
 
-      do! runGuards CantDeactivate guards.canDeactivate nextContext
+      match activeRoute |> AVal.force with
+      | ValueSome(activeContext, activeGuards) ->
+
+        do! runGuards CantDeactivate activeGuards activeContext
+
+      | ValueNone -> ()
+
 
       do! runGuards CantActivate guards.canActivate nextContext
 
@@ -202,6 +210,7 @@ module Router =
         | None ->
           // no templated url found.
           transact(fun _ ->
+            activeRoute.Value <- ValueNone
             content.Value <- notFound |> Option.map(fun f -> f.Invoke(router))
           )
 
@@ -213,18 +222,29 @@ module Router =
 
             let! view = resolveViewNonCached router routeHit nextContext
 
-            transact(fun _ -> content.Value <- Some view)
+            transact(fun _ ->
+              activeRoute.Value <- ValueSome(nextContext, guards.canDeactivate)
+              content.Value <- Some view
+            )
           | Cache ->
             // Templated url hit, check the cache and update if necessary
             match liveNodes.TryGetValue routeHit.PatternPath with
             | Some(oldParams, oldView) ->
               // we've visited this route template before
               if currentParams = oldParams then
-                transact(fun _ -> content.Value <- (Some oldView))
+                transact(fun _ ->
+                  activeRoute.Value <-
+                    ValueSome(nextContext, guards.canDeactivate)
+
+                  content.Value <- (Some oldView)
+                )
               else
                 let! view = resolveViewNonCached router routeHit nextContext
 
                 transact(fun _ ->
+                  activeRoute.Value <-
+                    ValueSome(nextContext, guards.canDeactivate)
+
                   liveNodes.Item(routeHit.PatternPath) <- (currentParams, view)
 
                   content.Value <- Some view
@@ -235,6 +255,10 @@ module Router =
 
               // This is the first time we hit this templated url, add it to the map
               transact(fun _ ->
+
+                activeRoute.Value <-
+                  ValueSome(nextContext, guards.canDeactivate)
+
                 liveNodes.Add(routeHit.PatternPath, (currentParams, view))
                 |> ignore
 
@@ -257,9 +281,12 @@ type Router<'View>
 
   let liveNodes = cmap<string, ActiveRouteParams list * 'View>()
 
+  let liveRoute = cval(ValueNone)
+
   let content = cval(splash |> Option.map(fun f -> f.Invoke(this)))
 
-  let navigate = Router.navigate(this, routes, notFound, content, liveNodes)
+  let navigate =
+    Router.navigate(this, routes, notFound, content, liveNodes, liveRoute)
 
   member _.Content: 'View IObservable =
     { new IObservable<'View> with
@@ -296,7 +323,17 @@ type Router<'View>
         return Error e
     }
 
-    Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)
+    task {
+      try
+        return!
+          Async.StartImmediateAsTask(
+            work,
+            ?cancellationToken = cancellationToken
+          )
+      with
+      | :? TaskCanceledException
+      | :? OperationCanceledException -> return Error NavigationCancelled
+    }
 
   member _.NavigateByName
     (
@@ -347,7 +384,17 @@ type Router<'View>
         return Error error
     }
 
-    Async.StartImmediateAsTask(work, ?cancellationToken = cancellationToken)
+    task {
+      try
+        return!
+          Async.StartImmediateAsTask(
+            work,
+            ?cancellationToken = cancellationToken
+          )
+      with
+      | :? TaskCanceledException
+      | :? OperationCanceledException -> return Error NavigationCancelled
+    }
 
 
   interface INavigate<'View> with
