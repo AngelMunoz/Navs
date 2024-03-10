@@ -49,7 +49,7 @@ type Route =
   static member inline define<'View>
     (
       name,
-      path,
+      path: string,
       [<InlineIfLambda>] handler:
         RouteContext * INavigate<'View> * CancellationToken -> Task<'View>
     ) =
@@ -66,12 +66,32 @@ type Route =
 
   static member inline child child definition : RouteDefinition<_> = {
     definition with
-        Children = child :: definition.Children
+        Children =
+          {
+            child with
+                Pattern =
+                  if child.Pattern.StartsWith('/') then
+                    child.Pattern[1..]
+                  else
+                    child.Pattern
+          }
+          :: definition.Children
   }
 
   static member inline children children definition : RouteDefinition<_> = {
     definition with
-        Children = [ yield! definition.Children; yield! children ]
+        Children = [
+          yield! children
+          for child in definition.Children ->
+            {
+              child with
+                  Pattern =
+                    if child.Pattern.StartsWith('/') then
+                      child.Pattern[1..]
+                    else
+                      child.Pattern
+            }
+        ]
   }
 
   static member inline cache strategy definition : RouteDefinition<_> = {

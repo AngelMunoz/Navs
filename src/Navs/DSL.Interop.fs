@@ -49,10 +49,7 @@ type RouteDefinitionExtensions =
       routeDef: RouteDefinition<'View>,
       child: RouteDefinition<'View>
     ) =
-    {
-      routeDef with
-          Children = child :: routeDef.Children
-    }
+    Route.child child routeDef
 
   [<Extension>]
   static member inline Children<'View>
@@ -60,10 +57,7 @@ type RouteDefinitionExtensions =
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] children: RouteDefinition<'View> array
     ) =
-    {
-      routeDef with
-          Children = [ yield! routeDef.Children; yield! children ]
-    }
+    Route.children children routeDef
 
   [<Extension>]
   static member inline CanActivate<'View>
