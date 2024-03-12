@@ -23,6 +23,133 @@ type ActiveRouteParams = {
   ParamValue: string
 }
 
+[<NoComparison; NoEquality>]
+type RoutingEnv<'View> = {
+  routes: RouteTrack<'View> seq
+  history: IHistoryManager<RouteTrack<'View>>
+  viewCache: cmap<string, ActiveRouteParams list * 'View>
+  activeRoute:
+    cval<voption<(RouteContext * (RouteGuard * RouteDefinition<'View>) list)>>
+  content: cval<voption<'View>>
+}
+
+[<NoComparison; NoEquality>]
+type ParamResoluton<'View> = {
+  nextRouteNodes: RouteTrack<'View> seq
+  nextRouteParams: ActiveRouteParams list
+  nextContext: RouteContext
+  routeHit: RouteTrack<'View>
+}
+
+[<NoEquality; NoComparison>]
+type RouteResolution<'View> = {
+  view: 'View
+  canDeactivateGuards: (RouteGuard * RouteDefinition<'View>) list
+}
+
+[<Struct; NoComparison>]
+type Guards<'View> = {
+  canActivate: list<RouteGuard * RouteDefinition<'View>>
+  canDeactivate: list<RouteGuard * RouteDefinition<'View>>
+}
+
+
+module RouteTracks =
+
+  let rec internal processChildren pattern parent children =
+    match children with
+    | [] -> []
+    | child :: rest ->
+      let childTrack = {
+        pathPattern = $"{pattern}/{child.pattern}"
+        routeDefinition = child
+        parentTrack = parent
+        children = []
+      }
+
+      {
+        childTrack with
+            children =
+              processChildren
+                $"{pattern}/{child.pattern}"
+                (ValueSome childTrack)
+                child.children
+      }
+      :: processChildren pattern parent rest
+
+  let internal getDefinition
+    currentPattern
+    (parent: RouteTrack<'View> voption)
+    (track: RouteDefinition<'View>)
+    =
+    let queue =
+      Queue<string *
+      RouteTrack<'View> voption *
+      RouteDefinition<'View> *
+      RouteTrack<'View> list>()
+
+    let result = ResizeArray<RouteTrack<'View>>()
+
+    queue.Enqueue(currentPattern, parent, track, [])
+
+    while queue.Count > 0 do
+      let currentPattern, parent, track, siblings = queue.Dequeue()
+
+      let pattern =
+        if currentPattern = "" then
+          track.pattern
+        else if parent.IsSome && currentPattern.EndsWith('/') then
+          $"{currentPattern}{track.pattern}"
+        else
+          $"{currentPattern}/{track.pattern}"
+
+      let currentTrack = {
+        pathPattern = pattern
+        routeDefinition = track
+        parentTrack = parent
+        children = siblings
+      }
+
+      result.Add currentTrack
+
+      let childrenTracks =
+        processChildren pattern (ValueSome currentTrack) track.children
+
+      for childTrack in childrenTracks do
+        queue.Enqueue(
+          pattern,
+          ValueSome currentTrack,
+          childTrack.routeDefinition,
+          childTrack.children
+        )
+
+    result
+
+  [<CompiledName "FromDefinitions">]
+  let fromDefinitions (routes: RouteDefinition<'View> seq) = [
+    for route in routes do
+      yield! getDefinition "" ValueNone route
+  ]
+
+module RoutingEnv =
+
+  let get<'View>
+    (
+      routes: RouteDefinition<'View> seq,
+      splash: (unit -> 'View) option
+    ) =
+    let routes = RouteTracks.fromDefinitions routes
+
+    {
+      routes = routes
+      history = HistoryManager()
+      viewCache = cmap()
+      activeRoute = cval(ValueNone)
+      content =
+        cval(splash |> ValueOption.ofOption |> ValueOption.map(fun f -> f()))
+    }
+
+
 
 module Result =
   let inline requireValueSome (msg: string) (value: 'a voption) =
@@ -63,7 +190,7 @@ module RouteInfo =
       let currentTrack = queue.Dequeue()
       result.Add currentTrack
 
-      match currentTrack.ParentTrack with
+      match currentTrack.parentTrack with
       | ValueSome parent -> queue.Enqueue(parent)
       | ValueNone -> ()
 
@@ -76,7 +203,7 @@ module RouteInfo =
         let! track, matchInfo =
           routes
           |> Seq.tryPick(fun route ->
-            match RouteMatcher.matchStrings route.PatternPath url with
+            match RouteMatcher.matchStrings route.pathPattern url with
             | Ok(template, urlinfo, matchInfo) ->
               Some(
                 route,
@@ -97,7 +224,14 @@ module RouteInfo =
 
     let urlParam = getParamDiff routeContext.UrlInfo routeContext.UrlTemplate
 
-    return activeGraph, urlParam, routeContext
+    return
+      activeGraph,
+      urlParam,
+      {
+        path = url
+        urlInfo = routeContext.UrlInfo
+        urlMatch = routeContext.UrlMatch
+      }
   }
 
   let extractGuards (activeGraph: RouteTrack<'View> seq) =
@@ -107,14 +241,14 @@ module RouteInfo =
 
     activeGraph
     |> Seq.iter(fun route ->
-      for guard in route.Definition.CanActivate do
-        canActivate.Push(guard, route.Definition)
+      for guard in route.routeDefinition.canActivate do
+        canActivate.Push(guard, route.routeDefinition)
 
-      for guard in route.Definition.CanDeactivate do
-        canDeactivate.Enqueue(guard, route.Definition)
+      for guard in route.routeDefinition.canDeactivate do
+        canDeactivate.Enqueue(guard, route.routeDefinition)
     )
 
-    struct {|
+    {
       canActivate = [
         while canActivate.Count > 0 do
           canActivate.Pop()
@@ -123,12 +257,12 @@ module RouteInfo =
         while canDeactivate.Count > 0 do
           canDeactivate.Dequeue()
       ]
-    |}
+    }
 
-module Router =
+module Navigable =
 
   let runGuards<'View>
-    (onFalsePredicate: RouteDefinition<'View> -> NavigationError<'View>)
+    (onFalsePredicate: string -> NavigationError<'View>)
     (guards: (RouteGuard * RouteDefinition<'View>) list)
     nextContext
     =
@@ -141,207 +275,170 @@ module Router =
           if token.IsCancellationRequested then
             AsyncResult.error NavigationCancelled
           else
-            guard.Invoke(nextContext, token)
+            guard nextContext token
             |> Async.AwaitTask
-            |> AsyncResult.requireTrue(onFalsePredicate definition)
+            |> AsyncResult.requireTrue(onFalsePredicate definition.name)
         )
         |> AsyncResult.ignore
     }
 
-  let resolveViewNonCached router routeHit nextContext = async {
-    let! token = Async.CancellationToken
+  let canDeactivate (activeContext) = asyncResult {
+    match activeContext |> AVal.force with
+    | ValueSome(activeContext, activeGuards) ->
 
-    if token.IsCancellationRequested then
-      return Error NavigationCancelled
-    else
-      let! result =
-        routeHit.Definition.GetContent.Invoke(nextContext, router, token)
-        |> Async.AwaitTask
-        |> Async.Catch
+      do! runGuards CantDeactivate activeGuards activeContext
 
-      match result with
-      | Choice1Of2 view -> return Ok view
-      | Choice2Of2 ex -> return Error NavigationError.NavigationCancelled
+    | ValueNone -> ()
   }
 
+  let canActivate (nextContext, activeRouteNodes) = asyncResult {
+    let guards = RouteInfo.extractGuards activeRouteNodes
 
-  let navigate
+    do! runGuards CantActivate guards.canActivate nextContext
+    return guards
+  }
+
+  let tryGetFromCache
+    (liveNodes: cmap<string, ActiveRouteParams list * 'View>)
+    =
+    fun (key, nextRouteParams) ->
+      match liveNodes.TryGetValue key with
+      | Some(oldParams, oldView) ->
+        if nextRouteParams = oldParams then
+          ValueSome oldView
+        else
+          ValueNone
+      | None -> ValueNone
+
+  let resolveView tryGetFromCache (navigable: ref<INavigable<_>>) =
+    fun paramResolution -> asyncResult {
+
+      let renderView =
+        fun ctx -> asyncResult {
+          let! token = Async.CancellationToken
+
+          do!
+            token.IsCancellationRequested
+            |> Result.requireFalse NavigationCancelled
+
+          let! result =
+            paramResolution.routeHit.routeDefinition.getContent
+              ctx
+              navigable.Value
+              token
+            |> Async.AwaitTask
+            |> Async.Catch
+
+          match result with
+          | Choice1Of2 view -> return view
+          | Choice2Of2 ex -> return! Error NavigationCancelled
+        }
+
+      // 5. Will Render view
+      match paramResolution.routeHit.routeDefinition.cacheStrategy with
+      | NoCache ->
+        let! view = renderView paramResolution.nextContext
+
+        return view
+      | Cache ->
+        match
+          tryGetFromCache(
+            paramResolution.routeHit.pathPattern,
+            paramResolution.nextRouteParams
+          )
+        with
+        | ValueSome view -> return view
+        | ValueNone ->
+          let! view = renderView paramResolution.nextContext
+
+          return view
+    }
+
+  let resolveParams routingEnv url = asyncResult {
+
+    let! nextRouteNodes, nextRouteParams, nextContext =
+      RouteInfo.getActiveRouteInfo routingEnv.routes url
+      |> Result.mapError(fun _ -> RouteNotFound url)
+
+    let! routeHit =
+      nextRouteNodes
+      // The first route is the currently active route
+      // The rest of the routes are the matched "parent" routes.
+      |> Seq.tryHead
+      |> Result.requireSome(RouteNotFound url)
+
+    return {
+      nextRouteNodes = nextRouteNodes
+      nextRouteParams = nextRouteParams
+      nextContext = nextContext
+      routeHit = routeHit
+    }
+  }
+
+  let navigateByUrl
     (
-      router: INavigate<_>,
-      routes: RouteTrack<'View> seq,
-      notFound: (Func<INavigate<_>, 'View>) option,
-      content: cval<_>,
-      liveNodes: cmap<string, ActiveRouteParams list * _>,
-      activeRoute:
-        cval<(RouteContext * (RouteGuard * RouteDefinition<_>) list) voption>
+      routingEnv,
+      resolveParams,
+      resolveView:
+        ParamResoluton<'View> -> Async<Result<'View, NavigationError<'View>>>
     ) =
-    fun url -> asyncResult {
+    fun (url: string) -> asyncResult {
       let! token = Async.CancellationToken
+      // 1. Can Deactivate
+      do! canDeactivate routingEnv.activeRoute
 
-      let! activeRouteNodes, currentParams, routeContext =
-        RouteInfo.getActiveRouteInfo routes url
-        |> Result.mapError(fun _ -> RouteNotFound url)
+      // Navigation cancelled is not part of lifecycle
+      do!
+        token.IsCancellationRequested |> Result.requireFalse NavigationCancelled
 
-      let nextContext: RouteContext = {
-        Route = url
-        UrlInfo = routeContext.UrlInfo
-        UrlMatch = routeContext.UrlMatch
-      }
+      // 2. Resolve URl and Parameters
+      let! resolveParams =
+        resolveParams url
+        |> AsyncResult.teeError(fun error ->
+          match error with
+          | RouteNotFound _ ->
+            transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
+          | _ -> ()
+        )
 
-      let guards = RouteInfo.extractGuards activeRouteNodes
+      // 3. Can Activate
+      let! guards =
+        canActivate(resolveParams.nextContext, resolveParams.nextRouteNodes)
 
-      match activeRoute |> AVal.force with
-      | ValueSome(activeContext, activeGuards) ->
+      // 4. Render View
+      let! rendered = resolveView resolveParams
 
-        do! runGuards CantDeactivate activeGuards activeContext
+      match resolveParams.routeHit.routeDefinition.cacheStrategy with
+      | NoCache ->
+        transact(fun _ ->
+          routingEnv.activeRoute.Value <-
+            ValueSome(resolveParams.nextContext, guards.canDeactivate)
 
-      | ValueNone -> ()
-
-
-      do! runGuards CantActivate guards.canActivate nextContext
-
-
-      if token.IsCancellationRequested then
-        return! Error NavigationCancelled
-      else
-        // The first route is the currently active route
-        // The rest of the routes are the matched "parent" routes.
-        match activeRouteNodes |> Seq.tryHead with
-        | None ->
-          // no templated url found.
-          transact(fun _ ->
-            activeRoute.Value <- ValueNone
-            content.Value <- notFound |> Option.map(fun f -> f.Invoke(router))
+          routingEnv.content.Value <- ValueSome rendered
+        )
+      | Cache ->
+        transact(fun _ ->
+          routingEnv.viewCache.Add(
+            resolveParams.routeHit.pathPattern,
+            (resolveParams.nextRouteParams, rendered)
           )
+          |> ignore
 
-          return! Error(RouteNotFound url)
-        | Some routeHit ->
+          routingEnv.activeRoute.Value <-
+            ValueSome(resolveParams.nextContext, guards.canDeactivate)
 
-          match routeHit.Definition.CacheStrategy with
-          | NoCache -> // No caching, just resolve any time.
-
-            let! view = resolveViewNonCached router routeHit nextContext
-
-            transact(fun _ ->
-              activeRoute.Value <- ValueSome(nextContext, guards.canDeactivate)
-              content.Value <- Some view
-            )
-          | Cache ->
-            // Templated url hit, check the cache and update if necessary
-            match liveNodes.TryGetValue routeHit.PatternPath with
-            | Some(oldParams, oldView) ->
-              // we've visited this route template before
-              if currentParams = oldParams then
-                transact(fun _ ->
-                  activeRoute.Value <-
-                    ValueSome(nextContext, guards.canDeactivate)
-
-                  content.Value <- (Some oldView)
-                )
-              else
-                let! view = resolveViewNonCached router routeHit nextContext
-
-                transact(fun _ ->
-                  activeRoute.Value <-
-                    ValueSome(nextContext, guards.canDeactivate)
-
-                  liveNodes.Item(routeHit.PatternPath) <- (currentParams, view)
-
-                  content.Value <- Some view
-                )
-            | None ->
-              // no cached templated url, resolve the view
-              let! view = resolveViewNonCached router routeHit nextContext
-
-              // This is the first time we hit this templated url, add it to the map
-              transact(fun _ ->
-
-                activeRoute.Value <-
-                  ValueSome(nextContext, guards.canDeactivate)
-
-                liveNodes.Add(routeHit.PatternPath, (currentParams, view))
-                |> ignore
-
-                content.Value <- Some view
-              )
-
-          return routeHit
+          routingEnv.content.Value <- ValueSome rendered
+        )
     }
 
-type Router<'View>
-  (
-    routes: RouteTrack<'View> seq,
-    [<Optional>] ?splash: Func<INavigate<'View>, 'View>,
-    [<Optional>] ?notFound: Func<INavigate<'View>, 'View>,
-    [<Optional>] ?historyManager: IHistoryManager<RouteTrack<'View>>
-  ) as this =
+  let navigateByName routingEnv nav =
+    fun name routeParams -> asyncResult {
 
-  let history: IHistoryManager<RouteTrack<'View>> =
-    defaultArg historyManager (HistoryManager())
+      let tryGetFromCache = tryGetFromCache routingEnv.viewCache
+      let resolveParams = resolveParams routingEnv
+      let resolveView = resolveView tryGetFromCache nav
 
-  let liveNodes = cmap<string, ActiveRouteParams list * 'View>()
-
-  let liveRoute = cval(ValueNone)
-
-  let content = cval(splash |> Option.map(fun f -> f.Invoke(this)))
-
-  let navigate =
-    Router.navigate(this, routes, notFound, content, liveNodes, liveRoute)
-
-  member _.Content: 'View IObservable =
-    { new IObservable<'View> with
-        member _.Subscribe(observer) =
-          content.AddCallback(fun value ->
-            match value with
-            | Some view -> observer.OnNext(view)
-            | None -> ()
-          )
-    }
-
-  member _.AdaptiveContent: 'View option aval = content
-
-  member _.Navigate
-    (
-      url: string,
-      [<Optional>] ?cancellationToken: CancellationToken
-    ) =
-    let work = async {
-      let! result = navigate url
-
-      match result with
-      | Ok tracked ->
-        history.SetCurrent(tracked)
-        return Ok()
-      | Error e ->
-        match e with
-        | RouteNotFound _ ->
-          transact(fun _ ->
-            content.Value <- notFound |> Option.map(fun f -> f.Invoke(this))
-          )
-        | _ -> ()
-
-        return Error e
-    }
-
-    task {
-      try
-        return!
-          Async.StartImmediateAsTask(
-            work,
-            ?cancellationToken = cancellationToken
-          )
-      with
-      | :? TaskCanceledException
-      | :? OperationCanceledException -> return Error NavigationCancelled
-    }
-
-  member _.NavigateByName
-    (
-      routeName: string,
-      [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj>,
-      [<Optional>] ?cancellationToken: CancellationToken
-    ) =
-    let work = async {
+      let navigateByUrl = navigateByUrl(routingEnv, resolveParams, resolveView)
 
       let routeParams: IReadOnlyDictionary<string, obj> =
         routeParams
@@ -350,66 +447,100 @@ type Router<'View>
         |> Option.flatten
         |> Option.defaultWith(fun _ -> Dictionary())
 
-      let setNotFound e =
-        match e with
-        | RouteNotFound _ ->
-          transact(fun _ ->
-            content.Value <- notFound |> Option.map(fun f -> f.Invoke(this))
-          )
-        | _ -> ()
+      let! route =
+        routingEnv.routes
+        |> Seq.tryFind(fun route -> route.routeDefinition.name = name)
+        |> Result.requireSome(RouteNotFound name)
 
-      match
-        routes |> Seq.tryFind(fun route -> route.Definition.Name = routeName)
-      with
-      | Some route ->
-        match UrlTemplate.toUrl route.PatternPath routeParams with
-        | Ok url ->
-          let! result = navigate url
+      let! url =
+        UrlTemplate.toUrl route.pathPattern routeParams
+        |> Result.mapError(fun e -> RouteNotFound(String.concat ", " e))
 
-          match result with
-          | Ok tracked ->
-            history.SetCurrent(tracked)
-            return Ok()
-          | Error e ->
-            setNotFound e
-
-            return Error e
-        | Error e ->
-          let error = RouteNotFound(String.concat ", " e)
-          setNotFound error
-          return Error error
-      | None ->
-        let error = RouteNotFound routeName
-        setNotFound error
-        return Error error
+      return! navigateByUrl url
     }
 
-    task {
-      try
-        return!
-          Async.StartImmediateAsTask(
-            work,
+  let get<'View> routingEnv =
+    let navigable = ref Unchecked.defaultof<INavigable<_>>
+    let tryGetFromCache = tryGetFromCache routingEnv.viewCache
+    let resolveParams = resolveParams routingEnv
+    let resolveView = resolveView tryGetFromCache navigable
+    let navigateByUrl = navigateByUrl(routingEnv, resolveParams, resolveView)
+
+    navigable.Value <-
+      { new INavigable<'View> with
+          override _.Navigate(url, ?cancellationToken) = task {
+            try
+              return!
+                Async.StartImmediateAsTask(
+                  navigateByUrl url,
+                  ?cancellationToken = cancellationToken
+                )
+            with
+            | :? TaskCanceledException
+            | :? OperationCanceledException as ex ->
+
+              return Error NavigationCancelled
+          }
+
+          override _.NavigateByName(name, ?routeParams, ?cancellationToken) = task {
+            try
+              return!
+                Async.StartImmediateAsTask(
+                  navigateByName routingEnv navigable name routeParams,
+                  ?cancellationToken = cancellationToken
+                )
+            with
+            | :? TaskCanceledException
+            | :? OperationCanceledException -> return Error NavigationCancelled
+          }
+      }
+
+    navigable.Value
+
+[<Sealed; Class>]
+type Router =
+
+  static member get<'View>(env: RoutingEnv<'View>, nav: INavigable<'View>) =
+    { new IRouter<'View> with
+        member _.Content = env.content
+
+        member _.Navigate(url, ?cancellationToken) =
+          nav.Navigate(url, ?cancellationToken = cancellationToken)
+
+        member _.NavigateByName(name, ?routeParams, ?cancellationToken) =
+          nav.NavigateByName(
+            name,
+            ?routeParams = routeParams,
             ?cancellationToken = cancellationToken
           )
-      with
-      | :? TaskCanceledException
-      | :? OperationCanceledException -> return Error NavigationCancelled
     }
 
+  /// <summary>
+  /// Creates a new router with the provided routes.
+  /// </summary>
+  /// <param name="routes">The routes that the router will use to match the URL and render the view</param>
+  /// <param name="splash">
+  /// The router initially doesn't have a view to render. You can provide this function
+  /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
+  /// </param>
+  [<CompiledName "Get">]
+  static member get<'View>(routes, [<Optional>] ?splash) =
+    let env = RoutingEnv.get<'View>(routes, splash)
 
-  interface INavigate<'View> with
+    let navigable = Navigable.get env
 
-    member _.Navigate(name, [<Optional>] ?cancellationToken) =
-      this.Navigate(name, ?cancellationToken = cancellationToken)
 
-    member _.NavigateByName
-      (
-        name,
-        [<Optional>] ?routeParams,
-        [<Optional>] ?cancellationToken
-      ) =
-      this.NavigateByName(
-        name,
-        ?routeParams = routeParams,
-        ?cancellationToken = cancellationToken
-      )
+    { new IRouter<'View> with
+
+        member _.Content = env.content
+
+        member _.Navigate(url, ?cancellationToken) =
+          navigable.Navigate(url, ?cancellationToken = cancellationToken)
+
+        member _.NavigateByName(name, ?routeParams, ?cancellationToken) =
+          navigable.NavigateByName(
+            name,
+            ?routeParams = routeParams,
+            ?cancellationToken = cancellationToken
+          )
+    }
