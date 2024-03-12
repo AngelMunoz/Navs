@@ -22,22 +22,15 @@ type FuncUIRouter =
   /// The router initially doesn't have a view to render. You can provide this function
   /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
   /// </param>
-  /// <param name="notFound">The view that will be rendered when the router cannot find a route to match the URL</param>
-  /// <param name="historyManager">The history manager that the router will use to manage the navigation history</param>
-  new:
-    routes: RouteDefinition<IView> seq *
-    [<Optional>] ?splash: Func<INavigate<IView>, IView> *
-    [<Optional>] ?notFound: Func<INavigate<IView>, IView> *
-    [<Optional>] ?historyManager: IHistoryManager<RouteTrack<IView>> ->
-      FuncUIRouter
+  new: routes: RouteDefinition<IView> seq * [<Optional>] ?splash: Func<IView> -> FuncUIRouter
 
-  inherit Router<IView>
+  interface IRouter<IView>
 
 [<Class; Extension>]
 type IComponentContexExtensions =
   /// Subscribes to the router and returns an IReadable that emits the view that is being rendered.
   [<Extension>]
-  static member inline useRouter: context: IComponentContext * router: FuncUIRouter -> IReadable<IView>
+  static member inline useRouter: context: IComponentContext * router: IRouter<IView> -> IReadable<IView>
 
 [<Class>]
 type Route =
@@ -47,7 +40,8 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext * INavigate<IView> -> Async<#IView>) -> RouteDefinition<IView>
+    name: string * path: string * handler: (RouteContext -> INavigable<IView> -> Async<#IView>) ->
+      RouteDefinition<IView>
 
   /// <summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -56,7 +50,7 @@ type Route =
   /// <returns>A route definition</returns>
   /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
   static member define:
-    name: string * path: string * handler: (RouteContext * INavigate<IView> * CancellationToken -> Task<#IView>) ->
+    name: string * path: string * handler: (RouteContext -> INavigable<IView> -> CancellationToken -> Task<#IView>) ->
       RouteDefinition<IView>
 
   ///<summary>Defines a route in the application</summary>
@@ -65,4 +59,4 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext * INavigate<IView> -> #IView) -> RouteDefinition<IView>
+    name: string * path: string * handler: (RouteContext -> INavigable<IView> -> #IView) -> RouteDefinition<IView>
