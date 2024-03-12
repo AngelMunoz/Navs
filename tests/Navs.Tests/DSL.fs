@@ -8,45 +8,42 @@ open System.Threading.Tasks
 module Routes =
 
   let defaultRoute = {
-    Name = ""
-    Pattern = ""
-    GetContent = Func<_, _, _, _>(fun ctx nav _ -> Task.FromResult(""))
-    Children = []
-    CanActivate = []
-    CanDeactivate = []
-    CacheStrategy = Cache
+    name = ""
+    pattern = ""
+    getContent = (fun _ _ _ -> Task.FromResult(""))
+    children = []
+    canActivate = []
+    canDeactivate = []
+    cacheStrategy = Cache
   }
 
   [<Tests>]
   let tests =
     testList "Navs Route Tests" [
       testTask "define<View> should the correct route definition<view>" {
-        let route = Route.define("home", "/", (fun (_, _) -> "Home"))
+        let route = Route.define("home", "/", (fun _ _ -> "Home"))
 
         let expected = {
           defaultRoute with
-              Name = "home"
-              Pattern = "/"
-              GetContent =
-                Func<_, _, _, _>(fun ctx nav _ -> Task.FromResult("Home"))
+              name = "home"
+              pattern = "/"
+              getContent = (fun _ _ _ -> Task.FromResult("Home"))
         }
 
-        Expect.equal route.Name expected.Name "Name should be equal"
-        Expect.equal route.Pattern expected.Pattern "Pattern should be equal"
+        Expect.equal route.name expected.name "Name should be equal"
+        Expect.equal route.pattern expected.pattern "Pattern should be equal"
 
         let! actual =
-          route.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          route.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         let! expected =
-          expected.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          expected.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         Expect.equal actual expected "GetContent should be equal"
       }
@@ -57,33 +54,30 @@ module Routes =
           Route.define<string>(
             "home",
             "/",
-            (fun (_, _) -> async { return "Home" })
+            (fun _ _ -> async { return "Home" })
           )
 
         let expected = {
           defaultRoute with
-              Name = "home"
-              Pattern = "/"
-              GetContent =
-                Func<_, _, _, _>(fun ctx nav token -> Task.FromResult("Home"))
+              name = "home"
+              pattern = "/"
+              getContent = fun _ _ _ -> Task.FromResult("Home")
         }
 
-        Expect.equal route.Name expected.Name "Name should be equal"
-        Expect.equal route.Pattern expected.Pattern "Pattern should be equal"
+        Expect.equal route.name expected.name "Name should be equal"
+        Expect.equal route.pattern expected.pattern "Pattern should be equal"
 
         let! actual =
-          route.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          route.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         let! expected =
-          expected.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          expected.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         Expect.equal actual expected "GetContent should be equal"
 
@@ -95,33 +89,30 @@ module Routes =
           Route.define<string>(
             "home",
             "/",
-            (fun (_, _, _) -> task { return "Home" })
+            (fun _ _ _ -> task { return "Home" })
           )
 
         let expected = {
           defaultRoute with
-              Name = "home"
-              Pattern = "/"
-              GetContent =
-                Func<_, _, _, _>(fun ctx nav token -> Task.FromResult("Home"))
+              name = "home"
+              pattern = "/"
+              getContent = fun _ _ _ -> Task.FromResult("Home")
         }
 
-        Expect.equal route.Name expected.Name "Name should be equal"
-        Expect.equal route.Pattern expected.Pattern "Pattern should be equal"
+        Expect.equal route.name expected.name "Name should be equal"
+        Expect.equal route.pattern expected.pattern "Pattern should be equal"
 
         let! actual =
-          route.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          route.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         let! expected =
-          expected.GetContent.Invoke(
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
+          expected.getContent
             Unchecked.defaultof<_>
-          )
+            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>
 
         Expect.equal actual expected "GetContent should be equal"
       }
