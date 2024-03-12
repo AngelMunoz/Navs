@@ -40,7 +40,7 @@ let routes = [
     fun (context, _) -> async {
       return
         TextBlock.create [
-          match context.UrlMatch.Params.TryGetValue "id" with
+          match context.urlMatch.Params.TryGetValue "id" with
           | true, id -> TextBlock.text $"Visited: {id}"
           | false, _ -> TextBlock.text "Guid No GUID"
         ]
@@ -63,7 +63,7 @@ let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
 type AppWindow(router: FuncUIRouter) as this =
   inherit HostWindow()
 
-  do this.Content <- appContent (router, navbar)
+  do this.Content <- appContent(router, navbar)
 
 
 type App() =
