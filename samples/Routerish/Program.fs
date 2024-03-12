@@ -16,7 +16,7 @@ let routes = [
     "/:id<guid>",
     fun (context, _) -> async {
       return
-        match context.UrlMatch.Params.TryGetValue "id" with
+        match context.urlMatch.Params.TryGetValue "id" with
         | true, id -> TextBlock().text($"%O{id}")
         | false, _ -> TextBlock().text("Guid No GUID")
     }

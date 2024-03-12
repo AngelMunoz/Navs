@@ -16,20 +16,21 @@ open Navs
 open Navs.Router
 
 type FuncUIRouter
-  (
-    routes: RouteDefinition<IView> seq,
-    [<Optional>] ?splash: Func<INavigate<IView>, IView>,
-    [<Optional>] ?notFound: Func<INavigate<IView>, IView>,
-    [<Optional>] ?historyManager: IHistoryManager<RouteTrack<IView>>
-  ) =
-  inherit
-    Router<IView>(
-      RouteTracks.fromDefinitions routes,
-      ?splash = splash,
-      ?notFound = notFound,
-      ?historyManager = historyManager
-    )
+  (routes: RouteDefinition<IView> seq, [<Optional>] ?splash: Func<IView>) =
 
+  let router =
+    let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
+    Router.get<IView>(routes, ?splash = splash)
+
+
+  interface IRouter<IView> with
+    member _.Content = router.Content
+
+    member _.Navigate(a, [<Optional>] ?b) =
+      router.Navigate(a, ?cancellationToken = b)
+
+    member _.NavigateByName(a, [<Optional>] ?b, [<Optional>] ?c) =
+      router.NavigateByName(a, ?routeParams = b, ?cancellationToken = c)
 
 [<Extension>]
 type IComponentContexExtensions =
@@ -38,17 +39,24 @@ type IComponentContexExtensions =
   static member inline useRouter
     (
       context: IComponentContext,
-      router: FuncUIRouter
+      router: IRouter<IView>
     ) =
     let view =
       context.useStateLazy(fun () ->
-        router.AdaptiveContent
+        router.Content
         |> AVal.force
-        |> Option.defaultWith(fun _ -> TextBlock.create [])
+        |> ValueOption.defaultWith(fun _ -> TextBlock.create [])
       )
 
     context.useEffect(
-      handler = (fun () -> router.Content.Subscribe(view.Set)),
+      handler =
+        (fun () ->
+          router.Content.AddCallback(
+            function
+            | ValueSome v -> view.Set v
+            | ValueNone -> ()
+          )
+        ),
       triggers = [ EffectTrigger.AfterInit ]
     )
 
@@ -60,13 +68,13 @@ type Route =
     (
       name,
       path,
-      handler: RouteContext * INavigate<IView> -> Async<#IView>
+      handler: RouteContext -> INavigable<IView> -> Async<#IView>
     ) : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
-      fun args -> async {
-        let! view = handler args
+      fun c n -> async {
+        let! view = handler c n
         return view :> IView
       }
     )
@@ -76,13 +84,13 @@ type Route =
       name,
       path,
       handler:
-        RouteContext * INavigate<IView> * CancellationToken -> Task<#IView>
+        RouteContext -> INavigable<IView> -> CancellationToken -> Task<#IView>
     ) : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
-      fun args -> task {
-        let! view = handler args
+      fun c n t -> task {
+        let! view = handler c n t
         return view :> IView
       }
     )
@@ -91,6 +99,6 @@ type Route =
     (
       name,
       path,
-      handler: RouteContext * INavigate<IView> -> #IView
+      handler: RouteContext -> INavigable<IView> -> #IView
     ) : RouteDefinition<IView> =
-    Navs.Route.define<IView>(name, path, (fun args -> handler args :> IView))
+    Navs.Route.define<IView>(name, path, (fun c n -> handler c n :> IView))

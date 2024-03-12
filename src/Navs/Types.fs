@@ -5,44 +5,25 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.InteropServices
 open System.Collections.Generic
+open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
 
 type RouteContext = {
-  Route: string
-  UrlMatch: UrlMatch
-  UrlInfo: UrlInfo
+  path: string
+  urlMatch: UrlMatch
+  urlInfo: UrlInfo
 }
 
-
-[<Struct>]
-type CacheStrategy =
-  | NoCache
-  | Cache
-
-type RouteGuard = Func<RouteContext, CancellationToken, Task<bool>>
-
-and GetView<'View> =
-  Func<RouteContext, INavigate<'View>, CancellationToken, Task<'View>>
-
-and [<Struct; NoComparison; NoEquality>] NavigationError<'View> =
+[<Struct; NoComparison; NoEquality>]
+type NavigationError<'View> =
   | NavigationCancelled
   | RouteNotFound of url: string
-  | CantDeactivate of deactivateGuard: RouteDefinition<'View>
-  | CantActivate of activateGuard: RouteDefinition<'View>
+  | CantDeactivate of deactivatedRoute: string
+  | CantActivate of activatedRoute: string
 
-
-and [<NoComparison; NoEquality>] RouteDefinition<'View> = {
-  Name: string
-  Pattern: string
-  GetContent: GetView<'View>
-  Children: RouteDefinition<'View> list
-  CanActivate: RouteGuard list
-  CanDeactivate: RouteGuard list
-  CacheStrategy: CacheStrategy
-}
-
-and INavigate<'View> =
+[<Interface>]
+type INavigable<'View> =
 
   abstract member Navigate:
     url: string * [<Optional>] ?cancellationToken: CancellationToken ->
@@ -54,87 +35,37 @@ and INavigate<'View> =
     [<Optional>] ?cancellationToken: CancellationToken ->
       Task<Result<unit, NavigationError<'View>>>
 
+[<Interface>]
+type IRouter<'View> =
+  inherit INavigable<'View>
+
+  abstract member Content: aval<'View voption>
+
+type RouteGuard = RouteContext -> CancellationToken -> Task<bool>
+
+type GetView<'View> =
+  RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
+
+[<Struct>]
+type CacheStrategy =
+  | NoCache
+  | Cache
+
 [<NoComparison; NoEquality>]
-type RouteTrack<'View> = {
-  PatternPath: string
-  Definition: RouteDefinition<'View>
-  ParentTrack: RouteTrack<'View> voption
-  Children: RouteTrack<'View> list
+type RouteDefinition<'View> = {
+  name: string
+  pattern: string
+  getContent: GetView<'View>
+  children: RouteDefinition<'View> list
+  canActivate: RouteGuard list
+  canDeactivate: RouteGuard list
+  cacheStrategy: CacheStrategy
 }
 
-module RouteTracks =
-
-  let rec internal processChildren pattern parent children =
-    match children with
-    | [] -> []
-    | child :: rest ->
-      let childTrack = {
-        PatternPath = $"{pattern}/{child.Pattern}"
-        Definition = child
-        ParentTrack = parent
-        Children = []
-      }
-
-      {
-        childTrack with
-            Children =
-              processChildren
-                $"{pattern}/{child.Pattern}"
-                (ValueSome childTrack)
-                child.Children
-      }
-      :: processChildren pattern parent rest
-
-  let internal getDefinition
-    currentPattern
-    (parent: RouteTrack<'View> voption)
-    (track: RouteDefinition<'View>)
-    =
-    let queue =
-      Queue<string *
-      RouteTrack<'View> voption *
-      RouteDefinition<'View> *
-      RouteTrack<'View> list>()
-
-    let result = ResizeArray<RouteTrack<'View>>()
-
-    queue.Enqueue(currentPattern, parent, track, [])
-
-    while queue.Count > 0 do
-      let currentPattern, parent, track, siblings = queue.Dequeue()
-
-      let pattern =
-        if currentPattern = "" then
-          track.Pattern
-        else if parent.IsSome && currentPattern.EndsWith('/') then
-          $"{currentPattern}{track.Pattern}"
-        else
-          $"{currentPattern}/{track.Pattern}"
-
-      let currentTrack = {
-        PatternPath = pattern
-        Definition = track
-        ParentTrack = parent
-        Children = siblings
-      }
-
-      result.Add currentTrack
-
-      let childrenTracks =
-        processChildren pattern (ValueSome currentTrack) track.Children
-
-      for childTrack in childrenTracks do
-        queue.Enqueue(
-          pattern,
-          ValueSome currentTrack,
-          childTrack.Definition,
-          childTrack.Children
-        )
-
-    result
-
-  [<CompiledName "FromDefinitions">]
-  let fromDefinitions (routes: RouteDefinition<'View> seq) = [
-    for route in routes do
-      yield! getDefinition "" ValueNone route
-  ]
+[<NoComparison; NoEquality>]
+type RouteTrack<'View> = {
+  pathPattern: string
+  routeDefinition: RouteDefinition<'View>
+  parentTrack: RouteTrack<'View> voption
+  children: RouteTrack<'View> list
+}

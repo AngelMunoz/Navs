@@ -18,7 +18,7 @@ type Route =
   ///  This function should ideally be used from non-F# languages as it provides a more standard Function signature.
   /// </remarks>
   static member inline Define:
-    name: string * path: string * getContent: Func<RouteContext, 'View> -> RouteDefinition<'View>
+    name: string * path: string * getContent: Func<RouteContext, INavigable<'View>, 'View> -> RouteDefinition<'View>
 
   /// <summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -28,7 +28,9 @@ type Route =
   /// <remarks>
   /// This function should ideally be used from F# as it provides a more idiomatic F# Function signature.
   /// </remarks>
-  static member inline Define: name: string * path: string * getContent: GetView<'View> -> RouteDefinition<'View>
+  static member inline Define:
+    name: string * path: string * getContent: Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>> ->
+      RouteDefinition<'View>
 
 
 /// <summary>
@@ -55,14 +57,16 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanActivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: RouteGuard array -> RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext, CancellationToken, Task<bool>> array ->
+      RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is deactivated.
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: RouteGuard array -> RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext, CancellationToken, Task<bool>> array ->
+      RouteDefinition<'View>
 
   /// <summary>
   /// Ensure that rendered view used for this route is picked up from the in-memory cache.
