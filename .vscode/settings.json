@@ -1,0 +1,5 @@
+{
+  "dotnet.defaultSolution": "samples/Samples.sln",
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  "FSharp.inlayHints.disableLongTooltip": true
+}
