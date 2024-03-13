@@ -10,8 +10,11 @@ open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
 
 type RouteContext = {
+  [<CompiledName "Path">]
   path: string
+  [<CompiledName "UrlMatch">]
   urlMatch: UrlMatch
+  [<CompiledName "UrlInfo">]
   urlInfo: UrlInfo
 }
 
@@ -53,19 +56,30 @@ type CacheStrategy =
 
 [<NoComparison; NoEquality>]
 type RouteDefinition<'View> = {
+  [<CompiledName "Name">]
   name: string
+  [<CompiledName "Pattern">]
   pattern: string
+  [<CompiledName "GetContent">]
   getContent: GetView<'View>
+  [<CompiledName "Children">]
   children: RouteDefinition<'View> list
+  [<CompiledName "CanActivate">]
   canActivate: RouteGuard list
+  [<CompiledName "CanDeactivate">]
   canDeactivate: RouteGuard list
+  [<CompiledName "CacheStrategy">]
   cacheStrategy: CacheStrategy
 }
 
 [<NoComparison; NoEquality>]
 type RouteTrack<'View> = {
+  [<CompiledName "PathPattern">]
   pathPattern: string
+  [<CompiledName "RouteDefinition">]
   routeDefinition: RouteDefinition<'View>
+  [<CompiledName "ParentTrack">]
   parentTrack: RouteTrack<'View> voption
+  [<CompiledName "Children">]
   children: RouteTrack<'View> list
 }

@@ -17,12 +17,15 @@ open UrlTemplates.UrlParser
 type RouteContext =
   {
     /// RAW URL that is being activated
+    [<CompiledName "Path">]
     path: string
     /// An object that contains multiple dictionaries with the parameters
     /// that were extracted from the URL either from the url parameters
     /// the query string or the hash portion of the URL.
+    [<CompiledName "UrlMatch">]
     urlMatch: UrlMatch
     /// An object that contains the segments, query and hash of the URL in a string form.
+    [<CompiledName "UrlInfo">]
     urlInfo: UrlInfo
   }
 
@@ -113,22 +116,29 @@ type CacheStrategy =
 type RouteDefinition<'View> =
   {
     /// Name used to locate this route for "by-name" route activation
+    [<CompiledName "Name">]
     name: string
     /// The URL pattern that will be used to match the route and enforce
     /// the URL's parameters to be extracted and passed to the view.
+    [<CompiledName "Pattern">]
     pattern: string
     /// The delegate that will be called to render the view when the route is activated.
+    [<CompiledName "GetContent">]
     getContent: GetView<'View>
     /// The children routes that this route contains.
+    [<CompiledName "Children">]
     children: RouteDefinition<'View> list
     /// The guards that will be executed when the route is activated.
     /// If any of them returns false, the route will not be activated.
+    [<CompiledName "CanActivate">]
     canActivate: RouteGuard list
     /// The guards that will be executed when the route is deactivated.
     /// If any of them returns false, the route will not be deactivated.
+    [<CompiledName "CanDeactivate">]
     canDeactivate: RouteGuard list
     /// The strategy that the router will use to cache the views that are rendered
     /// when the route is activated.
+    [<CompiledName "CacheStrategy">]
     cacheStrategy: CacheStrategy
   }
 
@@ -137,7 +147,7 @@ type RouteDefinition<'View> =
 /// This is used to match the URL and render the view.
 /// It also contains the children routes that are defined in the application.
 [<NoComparison; NoEquality>]
-type RouteTrack<'View> =
+type internal RouteTrack<'View> =
   { pathPattern: string
     routeDefinition: RouteDefinition<'View>
     parentTrack: RouteTrack<'View> voption
