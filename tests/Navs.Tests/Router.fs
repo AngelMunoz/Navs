@@ -11,7 +11,6 @@ open UrlTemplates.RouteMatcher
 
 module Navigation =
 
-
   let tests =
     testList "Navs Navigation Tests" [
 
