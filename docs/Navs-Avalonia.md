@@ -100,7 +100,7 @@ But internally we use [FSharp.Data.Adaptive](https://www.nuget.org/packages/FSha
                 )
               Button()
                 .content("Increment")
-                .AddClickHandler(fun _ _ ->
+                .OnClickHandler(fun _ _ ->
                   let currentValue = counter.getValue()
                   // set local state
                   setCounter (currentValue + 1))
@@ -154,7 +154,7 @@ For shared state between components you can pass down the adaptive data and cons
             ),
           Button()
             .content("Increment")
-            .AddClickHandler(fun _ _ ->
+            .OnClickHandler(fun _ _ ->
               value.setValue(fun v -> v + 1)
             )
         )
@@ -188,7 +188,7 @@ An alternative of course would be to hoist the updates to the parent and all of 
             ),
           Button()
             .content("Increment")
-            .AddClickHandler(fun _ _ -> onIncrement())
+            .OnClickHandler(fun _ _ -> onIncrement())
         )
 
     let parent() =

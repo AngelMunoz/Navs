@@ -122,7 +122,7 @@ The `IRouter<T>` interface actually inherits from `INavigable<T>`, these two int
         do! Async.Sleep 90
         return
           Button()
-            .AddClickHandler(fun _ _ -> async {
+            .OnClickHandler(fun _ _ -> async {
               do!
                 nav.Navigate("/about")
                 |> Async.AwaitTask
