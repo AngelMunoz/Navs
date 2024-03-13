@@ -33,7 +33,7 @@ RouteDefinition<string>[] routes = [
     })
 ];
 
-var router = new Router<string>(RouteTracks.FromDefinitions(routes));
+IRouter<string> router = Router.Get<string>(routes);
 ```
 
 From there on, you can use the router as you would in F#. for more information visit the [Navs](../Navs.fsx) general documentation.

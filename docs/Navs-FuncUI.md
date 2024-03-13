@@ -6,7 +6,7 @@ category: Libraries
 ---
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-004"
+    #r "nuget: Navs.Avalonia, 1.0.0-beta-006"
 
 ## Navs.FuncUI
 
@@ -24,9 +24,10 @@ open Avalonia.FuncUI.Types
 
 open Navs
 open Navs.FuncUI
+open UrlTemplates.RouteMatcher
 
 
-let navbar (router: FuncUIRouter) : IView =
+let navbar (router: IRouter<IView>) : IView =
   StackPanel.create [
     StackPanel.dock Dock.Top
     StackPanel.orientation Layout.Orientation.Horizontal
@@ -46,23 +47,24 @@ let routes = [
   Route.define(
     "books",
     "/books",
-    (fun _ -> TextBlock.create [ TextBlock.text "Books" ])
+    (fun _ _ -> TextBlock.create [ TextBlock.text "Books" ])
   )
   Route.define(
     "guid",
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context  _ -> async {
       return
         TextBlock.create [
-          match context.UrlMatch.Params.TryGetValue "id" with
-          | true, id -> TextBlock.text $"Visited: {id}"
-          | false, _ -> TextBlock.text "Guid No GUID"
+          let id = context.urlMatch |> UrlMatch.getFromParams<Guid> "id"
+          match id with
+          | ValueSome id -> TextBlock.text $"Visited: {id}"
+          | ValueNone -> TextBlock.text "Guid No GUID"
         ]
     }
   )
 ]
 
-let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
+let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
   Component(fun ctx ->
 
     let currentView = ctx.useRouter router
@@ -80,7 +82,7 @@ The `useRouter` hook is a very simplistic one it takes a `cref:T:Navs.FuncUI.Fun
 
 ```fsharp
 
-let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
+let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
   Component(fun ctx ->
     // The useRouter hook
     let iView = ctx.useRouter router

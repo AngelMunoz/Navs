@@ -7,7 +7,7 @@ category: Navs
 ## Creating an adapter.
 
     [hide]
-    #r "nuget: Navs, 1.0.0-beta-004"
+    #r "nuget: Navs, 1.0.0-beta-006"
 
 Sometimes you may want to create a custom adapter when you know the concrete types (or the interface) that you're targeting with your router and your definitions. This is a guide on how to create an adapter for a custom type.
 
@@ -29,16 +29,16 @@ For F# then the next thing would be to create a custom `Route` type that works w
         (
           name,
           path,
-          handler: RouteContext * INavigate<Control> -> Async<'View>
+          handler: RouteContext -> INavigate<Control> -> Async<'View>
         ) : RouteDefinition<Control> =
         Navs.Route.define<Control>(
           name,
           path,
-          fun (ctx, _) -> async {
+          fun ctx nav -> async {
             // here sadly we have to cast the result to Control
             // because the type hierarchy is solvable by the F# compiler without hints
             // so we have to help it a little bit.
-            let! result = handler ctx
+            let! result = handler ctx nav
             return result :> Control
           }
         )
@@ -47,8 +47,8 @@ Once that is done, we can convert our route definitions to the custom type and u
 
 From
 
-    let router = Router<Control>(RouteTracks.fromDefinitions [
-      Route.define<Control>("Home", "/", fun (ctx, _) -> async {
+    let router = Router.get<Control>([
+      Route.define<Control>("Home", "/", fun ctx _ -> async {
         do! Async.Sleep 90
         return UserControl()
       })
@@ -56,8 +56,8 @@ From
 
 To
 
-    let router = AvaloniaRouter([
-      Route.define("Home", "/", fun (ctx, _) -> async {
+    let router: IRouter<Control> = AvaloniaRouter([
+      Route.define("Home", "/", fun ctx _ -> async {
         do! Async.Sleep 90
         return UserControl()
       })
@@ -83,11 +83,12 @@ This will make sure that the route definitions can be created from C# or any oth
 
     [lang=csharp]
     using Route = Navs.Interop.Route;
-    new AvaloniaRouter([
-      Route.Define("Home", "/", (ctx, _) => {
-        return new UserControl();
-      })
-    ]);
+    IRouter<Control> =
+      new AvaloniaRouter([
+        Route.Define("Home", "/", (ctx, _) => {
+          return new UserControl();
+        })
+      ]);
 
 In general what you want to do is to help the compiler solve the correct type from the types that are being used by your users, in a similar sense that's what we do in the FuncUI adapter as well.
 
@@ -99,19 +100,41 @@ In general what you want to do is to help the compiler solve the correct type fr
         (
           name,
           path,
-          handler: RouteContext * INavigate<IView> -> Async<#IView>
+          handler: RouteContext -> INavigate<IView> -> Async<#IView>
         ) : RouteDefinition<IView> =
         Navs.Route.define<IView>(
           name,
           path,
-          fun args -> async {
-            let! view = handler args
+          fun ctx nav -> async {
+            let! view = handler ctx nav
             return view :> IView
           }
         )
 
 If there are no complex hierarchies involved then just a small wrapper around the generic type is enough to make it easier to use from the language you are targeting.
 
-### Where's the IRouter interface?
+## `INavigable<T>` and `IRouter<T>`
 
-For the moment I haven't decided to freeze the interface of the `Router` class as I expect a little bit more of feedback now that I've recently published the package to NuGet so after the dust has settled and I've received some feedback the IRouter interface will pop up eventually.
+The `IRouter<T>` interface actually inherits from `INavigable<T>`, these two interfaces are separated for one reason, for you to be able to navigate within your handlers. The `INavigable<T>` interface is contains the `Navigate` and `NavigateByName` methods, whike the `IRouter<T>` interface also contains the current view so you can use it in your UI.
+
+    let router: IRouter<Control> = AvaloniaRouter([
+      Route.define("Home", "/", fun ctx (nav: INavigable<Control>) -> async {
+        do! Async.Sleep 90
+        return
+          Button()
+            .AddClickHandler(fun _ _ -> async {
+              do!
+                nav.Navigate("/about")
+                |> Async.AwaitTask
+                |> Async.Ignore
+            }
+            |> Async.StartImmediate)
+      })
+    ])
+
+    do! router.Navigate("/home")
+
+    Window()
+      .content(router.Content |> AVal.toBinding)
+
+That is a brief example but it should show the main difference between the two, in any case they're backed by the same mechanisms to make the work effective.
