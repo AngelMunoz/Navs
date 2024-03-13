@@ -2,6 +2,7 @@ namespace Navs.Avalonia
 
 open System
 open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 
@@ -11,14 +12,65 @@ open Avalonia.Data
 open FSharp.Data.Adaptive
 open Navs
 
+[<RequireQualifiedAccess>]
 module AVal =
+
+  /// <summary>
+  /// Get the value of an adaptive value by forcing it
+  /// </summary>
+  val inline getValue: adaptiveValue: aval<'Value> -> 'Value
+
+  /// <summary>
+  /// sets up a transaction and sets the value of a changeable value
+  /// </summary>
+  val inline setValue: adaptiveValue: cval<'Value> -> value: 'Value -> unit
+
+  /// <summary>
+  /// sets up a transaction and sets the value resulting of the provided function
+  /// </summary>
+  val inline mapSet: adaptiveValue: cval<'Value> -> setValue: ('Value -> 'Value) -> unit
+
+  /// <summary>
+  /// Provide a friendly interface to handle local state via Adaptive data
+  /// </summary>
   val useState<'Value> : initialValue: 'Value -> aval<'Value> * ('Value -> unit)
 
+  /// <summary>
+  /// Convert Adaptive data into a binding that can be handled by avalonia
+  /// </summary>
   [<CompiledName "ToBinding">]
   val toBinding<'Value> : value: aval<'Value> -> IBinding
 
   module Interop =
-    val UseState<'Value> : initialValue: 'Value -> aval<'Value> * Action<'Value>
+    /// <summary>
+    /// Provide a dotnet interop friendly interface to handle local state via Adaptive data
+    /// </summary>
+    val UseState<'Value> : initialValue: 'Value -> struct (aval<'Value> * Action<'Value>)
+
+
+/// <summary>
+/// dotnet interop friendly API for adaptive and changeable data
+/// </summary>
+[<Extension; Class>]
+type AValExtensions =
+
+  /// <summary>
+  /// Get the value of an adaptive value by forcing it
+  /// </summary>
+  [<CompiledName "GetValue"; Extension>]
+  static member inline getValue: adaptiveValue: aval<'Value> -> 'Value
+
+  /// <summary>
+  /// sets up a transaction and sets the value of a changeable value
+  /// </summary>
+  [<CompiledName "SetValue"; Extension>]
+  static member inline setValue: adaptiveValue: cval<'Value> * value: 'Value -> unit
+
+  [<CompiledName "SetValue"; Extension>]
+  static member inline setValue: adaptiveValue: cval<'Value> * setValue: Func<'Value, 'Value> -> unit
+
+  [<CompiledName "ToBinding"; Extension>]
+  static member inline toBinding: value: aval<'Value> -> IBinding
 
 
 /// <summary>

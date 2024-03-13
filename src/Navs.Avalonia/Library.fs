@@ -2,6 +2,7 @@ namespace Navs.Avalonia
 
 open System
 open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 
@@ -12,8 +13,21 @@ open FSharp.Data.Adaptive
 open Navs
 open Navs.Router
 
+// enable extensions for VB.NE
+[<assembly: Extension>]
+do ()
+
+[<RequireQualifiedAccess>]
 module AVal =
   open Avalonia.Data
+
+  let inline getValue (adaptiveValue: aval<_>) = AVal.force adaptiveValue
+
+  let inline setValue (adaptiveValue: cval<_>) value =
+    transact(fun () -> adaptiveValue.Value <- value)
+
+  let inline mapSet (adaptiveValue: cval<_>) setValue =
+    transact(fun () -> adaptiveValue.Value <- setValue(adaptiveValue.Value))
 
   let useState<'Value>
     (initialValue: 'Value)
@@ -46,11 +60,31 @@ module AVal =
 
   module Interop =
 
-    let UseState<'Value>
-      (initialValue: 'Value)
-      : aval<'Value> * Action<'Value> =
+    let UseState<'Value> (initialValue: 'Value) =
       let value = cval initialValue
-      value, (Action<'Value>(fun v -> transact(fun () -> value.Value <- v)))
+
+      struct (value :> aval<_>,
+              (Action<'Value>(fun v -> transact(fun () -> value.Value <- v))))
+
+[<Extension; Class>]
+type AValExtensions =
+
+  [<CompiledName "GetValue"; Extension>]
+  static member inline getValue(adaptiveValue: aval<_>) =
+    AVal.force adaptiveValue
+
+  [<CompiledName "SetValue"; Extension>]
+  static member inline setValue(adaptiveValue: cval<_>, value) =
+    transact(fun () -> adaptiveValue.Value <- value)
+
+  [<CompiledName "SetValue"; Extension>]
+  static member inline setValue(adaptiveValue: cval<_>, setValue: Func<_, _>) =
+    transact(fun () ->
+      adaptiveValue.Value <- setValue.Invoke(adaptiveValue.Value)
+    )
+
+  [<CompiledName "ToBinding"; Extension>]
+  static member inline toBinding(value: aval<_>) = AVal.toBinding value
 
 type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
   let router =
