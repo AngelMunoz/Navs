@@ -1,7 +1,7 @@
 namespace Navs
 
 [<Interface>]
-type IHistoryManager<'HistoryEntry> =
+type internal IHistoryManager<'HistoryEntry> =
   abstract member CanGoBack: bool
   abstract member CanGoForward: bool
 

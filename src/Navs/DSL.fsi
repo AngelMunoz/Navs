@@ -12,7 +12,7 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member inline define<'View> :
-    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> -> 'View) ->
+    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext -> INavigable<'View> -> 'View) ->
       RouteDefinition<'View>
 
   /// <summary>Defines a route in the application</summary>
@@ -24,7 +24,7 @@ type Route =
   static member inline define<'View> :
     name: string *
     path: string *
-    [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> * CancellationToken -> Task<'View>) ->
+    [<InlineIfLambda>] handler: (RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>) ->
       RouteDefinition<'View>
 
   /// <summary>Defines a route in the application</summary>
@@ -37,7 +37,7 @@ type Route =
   ///   to support cancellation of the route activation.
   /// </remarks>
   static member inline define<'View> :
-    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext * INavigate<'View> -> Async<'View>) ->
+    name: string * path: string * [<InlineIfLambda>] handler: (RouteContext -> INavigable<'View> -> Async<'View>) ->
       RouteDefinition<'View>
 
   /// <summary>
@@ -72,7 +72,7 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canActivateTask:
-    [<InlineIfLambda>] guard: (RouteContext * CancellationToken -> Task<bool>) ->
+    [<InlineIfLambda>] guard: (RouteContext -> CancellationToken -> Task<bool>) ->
     definition: RouteDefinition<'a> ->
       RouteDefinition<'a>
 
@@ -92,7 +92,7 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canDeactivateTask:
-    [<InlineIfLambda>] guard: (RouteContext * CancellationToken -> Task<bool>) ->
+    [<InlineIfLambda>] guard: (RouteContext -> CancellationToken -> Task<bool>) ->
     definition: RouteDefinition<'a> ->
       RouteDefinition<'a>
 

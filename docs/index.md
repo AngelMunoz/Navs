@@ -29,7 +29,7 @@ let routes = [
   Route.define<string>(
     "guid",
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context _ -> async {
       do! Async.Sleep(90)
       return
         match context.UrlMatch.Params.TryGetValue "id" with
@@ -39,9 +39,9 @@ let routes = [
   )
 ]
 
-let router = Router<string>(RouteTracks.fromDefinitions routes)
+let router = Router.get<string>(routes)
 
-router.content.Subscribe(fun content -> printfn $"%A{content}")
+router.Content.AddCallback(fun content -> printfn $"%A{content}")
 
 let! result1 = router.navigate("/about")
 let! result2 = router.navigate("/home")
@@ -68,28 +68,28 @@ let routes = [
     "guid",
     // routes can be typed!
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context _ -> async {
       // you can pre-load data if you want to
       do! Async.Sleep(90)
       return
         // extract parameters from the URL
-        match context.UrlMatch.Params.TryGetValue "id" with
-        | true, id -> TextBlock().text(sprintf "Home %A" id)
-        | false, _ -> TextBlock().text("Guid No GUID")
+        match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+        | ValueSome id -> TextBlock().text(sprintf "Home %A" id)
+        | ValueNone -> TextBlock().text("Guid No GUID")
     }
   )
   // Simpler non-async routes are also supported
-  Route.define("books", "/books", (fun _ -> TextBlock().text("Books")))
+  Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
 ]
 
-let getMainContent (router: AvaloniaRouter) =
+let getMainContent (router: IRouter<Control>) =
   ContentControl()
     .DockTop()
     // with NXUI you can use the .content method to bind the content
     // to the observable in a seamless way
-    .content(router.Content.ToBinding(), BindingMode.OneWay)
+    .content(router.Content |> AVal.toBinding)
 
-let navigate url (router: AvaloniaRouter) _ _ =
+let navigate url (router: IRouter<Control>) _ _ =
   task {
     // navigation is asynchronous and returns a result
     // in order to check if the navigation was successful
@@ -103,7 +103,7 @@ let navigate url (router: AvaloniaRouter) _ _ =
 
 let app () =
 
-  let router = AvaloniaRouter(routes, splash = fun _ -> TextBlock().text("Loading..."))
+  let router: IRouter<Control> = AvaloniaRouter(routes, splash = fun _ -> TextBlock().text("Loading..."))
 
   Window()
     .content(
@@ -142,23 +142,23 @@ let routes = [
   Route.define(
     "books",
     "/books",
-    (fun _ -> TextBlock.create [ TextBlock.text "Books" ])
+    (fun _ _ -> TextBlock.create [ TextBlock.text "Books" ])
   )
   Route.define(
     "guid",
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context _ -> async {
       return
         TextBlock.create [
-          match context.UrlMatch.Params.TryGetValue "id" with
-          | true, id -> TextBlock.text $"Visited: {id}"
-          | false, _ -> TextBlock.text "Guid No GUID"
+          match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+          | ValueSome id -> TextBlock.text $"Visited: {id}"
+          | ValueNone -> TextBlock.text "Guid No GUID"
         ]
     }
   )
 ]
 
-let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
+let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
   Component(fun ctx ->
 
     let currentView = ctx.useRouter router

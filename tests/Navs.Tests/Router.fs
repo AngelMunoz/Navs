@@ -11,96 +11,77 @@ open UrlTemplates.RouteMatcher
 
 module Navigation =
 
-
   let tests =
     testList "Navs Navigation Tests" [
 
       test "Router is initialized without any views" {
-        let routes = [ Route.define("home", "/", (fun (_, _) -> "Home")) ]
-        let router = Router<string>(RouteTracks.fromDefinitions routes)
-        let view = router.AdaptiveContent |> AVal.force
+        let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
+        let router = Router.get<string>(routes)
+        let view = router.Content |> AVal.force
 
-        Expect.equal None view "View should be None"
+        Expect.equal ValueNone view "View should be None"
       }
 
       test "The Splash view should be provided before any navigation" {
-        let routes = [ Route.define("home", "/", (fun (_, _) -> "Home")) ]
+        let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = fun _ -> "Splash"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal "Splash" view "View should be Splash"
       }
 
       testTask "The view should be updated when the route changes" {
-        let routes = [ Route.define("home", "/", (fun (_, _) -> "Home")) ]
+        let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = fun _ -> "Splash"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
         Expect.equal view "Home" "View should be Home"
       }
 
       testTask "The view should be the fallback if not found" {
-        let routes = [ Route.define("home", "/", (fun (_, _) -> "Home")) ]
+        let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Error(RouteNotFound value)) = router.Navigate("/not-found")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
         Expect.equal value "/not-found" "Value should be /not-found"
 
-        Expect.equal view "Fallback" "View should be Fallback"
+        Expect.equal view "Splash" "View should be Splash"
 
       }
 
       testTask "The view should change any time there's a successful navigation" {
 
         let routes = [
-          Route.define("home", "/", (fun (_, _) -> "Home"))
-          Route.define("about", "/about", (fun (_, _) -> "About"))
+          Route.define("home", "/", (fun _ _ -> "Home"))
+          Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/about")
-        let (Some firstNavigation) = router.AdaptiveContent |> AVal.force
+        let (ValueSome firstNavigation) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/")
-        let (Some secondNavigation) = router.AdaptiveContent |> AVal.force
+        let (ValueSome secondNavigation) = router.Content |> AVal.force
 
 
         Expect.equal splash "Splash" "Splash should be the initial view"
@@ -112,14 +93,14 @@ module Navigation =
 
       testTask "Children can be navigated" {
         let routes = [
-          Route.define("users", "/users", (fun (_, _) -> "Users"))
+          Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.child(
             Route.define(
               "user",
               "/:id<int>",
-              (fun (ctx, _) ->
+              (fun ctx _ ->
                 let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.UrlMatch
+                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
 
                 $"User - %i{userId}"
               )
@@ -127,20 +108,15 @@ module Navigation =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/users")
-        let (Some users) = router.AdaptiveContent |> AVal.force
+        let (ValueSome users) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/users/1")
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
 
         Expect.equal splash "Splash" "Splash should be the initial view"
@@ -148,38 +124,6 @@ module Navigation =
         Expect.equal users "Users" "Users should be the first navigation"
 
         Expect.equal view "User - 1" "View should be User - 1"
-      }
-
-      testTask "INavigable<_> can navigate from a route" {
-        let routes = [
-          Route.define<string>(
-            "home",
-            "/",
-            fun (_, nav: INavigate<_>) -> async {
-              match! nav.Navigate("/about") |> Async.AwaitTask with
-              | Ok _ -> return "About"
-              | Error _ -> return "Error"
-            }
-          )
-          Route.define("about", "/about", (fun (_, nav) -> "About"))
-        ]
-
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
-
-        let (Some splash) = router.AdaptiveContent |> AVal.force
-
-        let! (Ok _) = router.Navigate("/")
-
-        let (Some view) = router.AdaptiveContent |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        Expect.equal view "About" "View should be About"
       }
 
     ]
@@ -190,45 +134,35 @@ module Guards =
     testList "Guard Tests" [
       testTask "Attempting to activate fails if canActivate returns false" {
         let routes = [
-          Route.define("home", "/", (fun (_, _) -> "Home"))
+          Route.define("home", "/", (fun _ _ -> "Home"))
           |> Route.canActivate((fun _ -> async { return false }))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! Error(CantActivate definition) = router.Navigate("/")
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
-        Expect.equal definition.Name "home" "Definition name should be home"
+        Expect.equal definition "home" "Definition name should be home"
 
       }
 
       testTask "Attempting to activate succeeds if canActivate returns true" {
         let routes = [
-          Route.define("home", "/", (fun (_, _) -> "Home"))
+          Route.define("home", "/", (fun _ _ -> "Home"))
           |> Route.canActivate((fun _ -> async { return true }))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -238,56 +172,46 @@ module Guards =
       testTask
         "Attempting to navigate away fails if canDeactivate returns false" {
         let routes = [
-          Route.define("home", "/", (fun (_, _) -> "Home"))
+          Route.define("home", "/", (fun _ _ -> "Home"))
           |> Route.canDeactivate((fun _ -> async { return false }))
-          Route.define("about", "/about", (fun (_, _) -> "About"))
+          Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/")
 
         let! Error(CantDeactivate definition) = router.Navigate("/about")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
         Expect.equal view "Home" "View should be Home"
 
-        Expect.equal definition.Name "home" "Definition name should be home"
+        Expect.equal definition "home" "Definition name should be home"
 
       }
 
       testTask
         "Attempting to navigate away succeeds if canDeactivate returns true" {
         let routes = [
-          Route.define("home", "/", (fun (_, _) -> "Home"))
+          Route.define("home", "/", (fun _ _ -> "Home"))
           |> Route.canDeactivate((fun _ -> async { return true }))
-          Route.define("about", "/about", (fun (_, _) -> "About"))
+          Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/")
 
         let! (Ok _) = router.Navigate("/about")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -296,15 +220,15 @@ module Guards =
 
       testTask "Parent Guard can prevent child activation" {
         let routes = [
-          Route.define("users", "/users", (fun (_, _) -> "Users"))
+          Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.canActivate((fun _ -> async { return false }))
           |> Route.child(
             Route.define(
               "user",
               "/:id<int>",
-              (fun (ctx, _) ->
+              (fun ctx _ ->
                 let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.UrlMatch
+                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
 
                 $"User - %i{userId}"
               )
@@ -312,37 +236,32 @@ module Guards =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! Error(CantActivate definition) = router.Navigate("/users/1")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
         Expect.equal view "Splash" "View should be Splash"
 
-        Expect.equal definition.Name "users" "Definition name should be users"
+        Expect.equal definition "users" "Definition name should be users"
       }
 
       testTask "Parent Guard can allow child activation" {
         let routes = [
-          Route.define("users", "/users", (fun (_, _) -> "Users"))
+          Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.canActivate((fun _ -> async { return true }))
           |> Route.child(
             Route.define(
               "user",
               "/:id<int>",
-              (fun (ctx, _) ->
+              (fun ctx _ ->
                 let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.UrlMatch
+                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
 
                 $"User - %i{userId}"
               )
@@ -350,18 +269,13 @@ module Guards =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! (Ok _) = router.Navigate("/users/1")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -370,14 +284,14 @@ module Guards =
 
       testTask "Child Guard can prevent deactivation" {
         let routes = [
-          Route.define("users", "/users", (fun (_, _) -> "Users"))
+          Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.child(
             Route.define(
               "user",
               "/:id<int>",
-              (fun (ctx, _) ->
+              (fun ctx _ ->
                 let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.UrlMatch
+                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
 
                 $"User - %i{userId}"
               )
@@ -386,24 +300,19 @@ module Guards =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! Error(CantActivate definition) = router.Navigate("/users/1")
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
         Expect.equal view "Splash" "View should be Splash"
 
-        Expect.equal definition.Name "user" "Definition name should be user"
+        Expect.equal definition "user" "Definition name should be user"
       }
     ]
 
@@ -420,21 +329,16 @@ module Cancellation =
           Route.define<string>(
             "home",
             "/",
-            fun (_, _) -> async {
+            fun _ _ -> async {
               do! Async.Sleep 5000
               return "Home"
             }
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let cts = new CancellationTokenSource(10)
 
@@ -442,7 +346,7 @@ module Cancellation =
           router.Navigate("/", cancellationToken = cts.Token)
 
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -458,7 +362,7 @@ module Cancellation =
           Route.define<string>(
             "home",
             "/",
-            fun (_, _) -> async {
+            fun _ _ -> async {
               do! Async.Sleep 5000
               return "Home"
             }
@@ -469,21 +373,16 @@ module Cancellation =
           })
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let cts = new CancellationTokenSource(10)
 
         let! Error(NavigationCancelled) =
           router.Navigate("/", cancellationToken = cts.Token)
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -500,7 +399,7 @@ module Cancellation =
           Route.define<string>(
             "home",
             "/",
-            fun (_, nav: INavigate<_>) -> async {
+            fun _ (nav: INavigable<_>) -> async {
               count <- count + 1
               let! token = Async.CancellationToken
 
@@ -513,7 +412,7 @@ module Cancellation =
           Route.define<string>(
             "about",
             "/about",
-            fun (_, _) -> async {
+            fun _ _ -> async {
               do! Async.Sleep 5000
               count <- count + 1
               return "About"
@@ -521,20 +420,15 @@ module Cancellation =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let cts = new CancellationTokenSource(200)
 
         let! Error(NavigationCancelled) = router.Navigate("/", cts.Token)
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
@@ -553,7 +447,7 @@ module Cancellation =
           Route.define<string>(
             "home",
             "/",
-            fun (_, nav: INavigate<_>) -> async {
+            fun _ (nav: INavigable<_>) -> async {
               count <- count + 1
               let! token = Async.CancellationToken
 
@@ -567,7 +461,7 @@ module Cancellation =
           Route.define<string>(
             "about",
             "/about",
-            fun (_, _) -> async {
+            fun _ _ -> async {
               count <- count + 1
               do! Async.Sleep 5000
               count <- count + 1
@@ -576,34 +470,34 @@ module Cancellation =
           )
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
-        let cts = new CancellationTokenSource(200)
+        let cts = new CancellationTokenSource()
 
         // First navigation count++
         // inner navigation starts count++
         // inner navigation cancels, count remains the same
-        let! Ok _ = router.Navigate("/", cts.Token)
+        match! router.Navigate("/", cts.Token) with
+        | Ok _ -> ()
+        | Error e -> failtestf "Navigation should not fail %A" e
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        match router.Content |> AVal.force with
+        | ValueSome view ->
+          Expect.equal view "Home 1" "Home 1 should be the view"
+        | _ -> failtestf "View should not be None"
 
-        Expect.equal view "Home 1" "Home 1 should be the view"
         // allow the inner navigation to get cancelled
         // by the cancellation token of the first navigation
-        do! Task.Delay 250
+        cts.Cancel()
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
-
-        Expect.equal view "Home 1" "Home 1 should be the view"
+        match router.Content |> AVal.force with
+        | ValueSome view ->
+          Expect.equal view "Home 1" "Home 1 should be the view"
+        | _ -> failtestf "View should not be None"
 
         Expect.equal count 2 "Count should be 2"
 
@@ -616,28 +510,23 @@ module Cancellation =
           Route.define<string>(
             "home",
             "/",
-            fun (_, _) -> async {
+            fun _ _ -> async {
               do! Async.Sleep 10
               return "Home"
             }
           )
-          Route.define<string>("about", "/about", (fun (_, _) -> "About"))
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
-        let cts = new CancellationTokenSource(200)
-
+        let cts = new CancellationTokenSource()
+        cts.CancelAfter(1000)
         let! Ok _ = router.Navigate("/", cts.Token)
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
         Expect.equal view "Home" "Home should be the view"
@@ -647,22 +536,17 @@ module Cancellation =
 
       testTask "Navigation can be cancelled while checking deactivate guards" {
         let routes = [
-          Route.define<string>("home", "/", (fun (_, _) -> "Home"))
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
           |> Route.canDeactivate(fun _ -> async {
             do! Async.Sleep 5000
             return true
           })
-          Route.define<string>("about", "/about", (fun (_, _) -> "About"))
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router =
-          Router<string>(
-            RouteTracks.fromDefinitions routes,
-            splash = (fun _ -> "Splash"),
-            notFound = fun _ -> "Fallback"
-          )
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
 
-        let (Some splash) = router.AdaptiveContent |> AVal.force
+        let (ValueSome splash) = router.Content |> AVal.force
 
         let! Ok _ = router.Navigate("/")
 
@@ -670,7 +554,7 @@ module Cancellation =
 
         let! Error(NavigationCancelled) = router.Navigate("/about", cts.Token)
 
-        let (Some view) = router.AdaptiveContent |> AVal.force
+        let (ValueSome view) = router.Content |> AVal.force
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 

@@ -10,17 +10,16 @@ type Route =
     (
       name,
       path,
-      [<InlineIfLambda>] handler: RouteContext * INavigate<'View> -> 'View
+      [<InlineIfLambda>] handler: RouteContext -> INavigable<'View> -> 'View
     ) =
     {
-      Name = name
-      Pattern = path
-      GetContent =
-        Func<_, _, _, _>(fun ctx nav _ -> Task.FromResult(handler(ctx, nav)))
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
+      name = name
+      pattern = path
+      getContent = fun ctx nav _ -> task { return handler ctx nav }
+      children = []
+      canActivate = []
+      canDeactivate = []
+      cacheStrategy = Cache
     }
 
   static member inline define<'View>
@@ -28,22 +27,19 @@ type Route =
       name,
       path,
       [<InlineIfLambda>] handler:
-        RouteContext * INavigate<'View> -> Async<'View>
+        RouteContext -> INavigable<'View> -> Async<'View>
     ) =
     {
-      Name = name
-      Pattern = path
-      GetContent =
-        Func<_, _, _, _>(fun ctx nav token ->
-          Async.StartImmediateAsTask(
-            handler(ctx, nav),
-            cancellationToken = token
-          )
-        )
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
+      name = name
+      pattern = path
+      getContent =
+        fun ctx nav token ->
+          Async.StartImmediateAsTask(handler ctx nav, cancellationToken = token)
+
+      children = []
+      canActivate = []
+      canDeactivate = []
+      cacheStrategy = Cache
     }
 
   static member inline define<'View>
@@ -51,64 +47,61 @@ type Route =
       name,
       path: string,
       [<InlineIfLambda>] handler:
-        RouteContext * INavigate<'View> * CancellationToken -> Task<'View>
+        RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
     ) =
     {
-      Name = name
-      Pattern = path
-      GetContent =
-        Func<_, _, _, _>(fun ctx nav token -> handler(ctx, nav, token))
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
+      name = name
+      pattern = path
+      getContent = handler
+      children = []
+      canActivate = []
+      canDeactivate = []
+      cacheStrategy = Cache
     }
 
   static member inline child child definition : RouteDefinition<_> = {
     definition with
-        Children =
+        children =
           {
             child with
-                Pattern =
-                  if child.Pattern.StartsWith('/') then
-                    child.Pattern[1..]
+                pattern =
+                  if child.pattern.StartsWith('/') then
+                    child.pattern[1..]
                   else
-                    child.Pattern
+                    child.pattern
           }
-          :: definition.Children
+          :: definition.children
   }
 
   static member inline children children definition : RouteDefinition<_> = {
     definition with
-        Children = [
+        children = [
           yield! children
-          for child in definition.Children ->
+          for child in definition.children ->
             {
               child with
-                  Pattern =
-                    if child.Pattern.StartsWith('/') then
-                      child.Pattern[1..]
+                  pattern =
+                    if child.pattern.StartsWith('/') then
+                      child.pattern[1..]
                     else
-                      child.Pattern
+                      child.pattern
             }
         ]
   }
 
   static member inline cache strategy definition : RouteDefinition<_> = {
     definition with
-        CacheStrategy = strategy
+        cacheStrategy = strategy
   }
 
 module Route =
   let inline canActivateTask
-    ([<InlineIfLambda>] guard: RouteContext * CancellationToken -> Task<bool>)
+    ([<InlineIfLambda>] guard: RouteContext -> CancellationToken -> Task<bool>)
     definition
     : RouteDefinition<_> =
     {
       definition with
-          CanActivate =
-            Func<_, _, _>(fun ctx token -> guard(ctx, token))
-            :: definition.CanActivate
+          canActivate = guard :: definition.canActivate
     }
 
   let inline canActivate
@@ -117,22 +110,20 @@ module Route =
     : RouteDefinition<_> =
     {
       definition with
-          CanActivate =
-            Func<_, _, _>(fun ctx token ->
+          canActivate =
+            (fun ctx token ->
               Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
             )
-            :: definition.CanActivate
+            :: definition.canActivate
     }
 
   let inline canDeactivateTask
-    ([<InlineIfLambda>] guard: RouteContext * CancellationToken -> Task<bool>)
+    ([<InlineIfLambda>] guard: RouteContext -> CancellationToken -> Task<bool>)
     definition
     : RouteDefinition<_> =
     {
       definition with
-          CanDeactivate =
-            Func<_, _, _>(fun ctx token -> guard(ctx, token))
-            :: definition.CanDeactivate
+          canDeactivate = guard :: definition.canDeactivate
     }
 
   let inline canDeactivate
@@ -141,9 +132,9 @@ module Route =
     : RouteDefinition<_> =
     {
       definition with
-          CanDeactivate =
-            Func<_, _, _>(fun ctx token ->
+          canDeactivate =
+            (fun ctx token ->
               Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
             )
-            :: definition.CanDeactivate
+            :: definition.canDeactivate
     }

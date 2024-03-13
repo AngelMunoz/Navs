@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-004"
+#r "nuget: Navs, 1.0.0-beta-006"
 #r "nuget: FSharp.Data.Adaptive, 1.2.14"
 
 open FSharp.Data.Adaptive
@@ -37,47 +37,45 @@ open UrlTemplates.RouteMatcher
 open Navs
 open Navs.Router
 
+module Task =
+
+  let empty = Task.FromResult(()) :> Task
+
 type Page = {
   title: string
   content: string
-  onAction: (unit -> Task<unit>) option
+  onAction: unit -> Task
 }
 
 let routes = [
   Route.define<Page>(
     "home",
     "/home",
-    fun _ -> {
+    fun _ _ -> {
       title = "Home"
       content = "Welcome to the home page"
-      onAction = None
+      onAction = fun () -> Task.empty
     }
   )
   Route.define<Page>(
     "about",
     "/about",
-    fun _ -> {
+    fun _ _ -> {
       title = "About"
       content = "This is the about page"
-      onAction = None
+      onAction = fun () -> Task.empty
     }
   )
 ]
 
 let router =
-  Router<Page>(
-    RouteTracks.fromDefinitions routes,
-    splash =
-      fun nav -> {
-        title = "Splash"
-        content = "Loading..."
-        onAction =
-          Some
-          <| fun () -> task {
-            do! Task.Delay(500)
-            nav.Navigate "/home" |> ignore
-          }
-      }
+  Router.get<Page>(
+    routes,
+    fun () -> {
+      title = "Splash"
+      content = "Loading..."
+      onAction = fun () -> Task.empty
+    }
   )
 
 (**
@@ -87,9 +85,9 @@ However, the router doesn't navigate anywhere by itself, it requires the user to
 *)
 
 (*** hide ***)
-let view = router.AdaptiveContent |> AVal.force
+let view = router.Content |> AVal.force
 
-printfn "Current view: \n\n%A" view.Value
+printfn "Current view: \n\n%A" view
 (*** include-output ***)
 
 task {
@@ -112,7 +110,7 @@ task {
   Or if you're using FSharp.Data.Adaptive, you can use the `router.AcaptiveContent` property to get the rendered content as an adaptive value.
 *)
 let adaptiveContent () = adaptive {
-  let! view = router.AdaptiveContent
+  let! view = router.Content
   // the view will always be the most up to date view
   match view with
   | Some view ->
@@ -125,21 +123,23 @@ let adaptiveContent () = adaptive {
     return ()
 }
 (**
-  Or in the case of the observable
+  If you need an observable, you can easily wrap the `router.Content` property in an observable.
 *)
+
+// extend the existing AVal module
+module AVal =
+  let toObservable (value: aval<_>) =
+    { new IObservable<_> with
+        member _.Subscribe(observer) = value.AddCallback(observer.OnNext)
+    }
 
 // subscribe to the router content
-router.Content
-|> Observable.subscribe(fun view ->
-  // ... do something with the view ...
-  ()
-)
+router.Content |> toObservable
+
 
 (**
-There's a caveat with the `router.Current` and `router.AdaptiveContent` properties, while both represent the current view, The observable will emit only when there's a view to render.
-While the Adaptive Value will emit a `None` value when there's no view to render. So for that reason we recommend using the observable instead, but of course it's up to you to decide which one to use.
+ > ***NOTE***: If you're coming from C# and you're looking for the observables you can create an extension method in a simialr fashion, but keep in mind that you can use FSharp.Data.Adaptive from C# as well via the [CSharp.Data.Adaptive](https://www.nuget.org/packages/CSharp.Data.Adaptive) package.
 *)
-
 
 (**
 ## Async Routes
@@ -157,14 +157,14 @@ let asyncRoute =
   Route.define<Page>(
     "async",
     "/async",
-    fun _ -> async {
+    fun _ _ -> async {
       let! token = Async.CancellationToken
       do! Task.Delay(90, token) |> Async.AwaitTask
 
       return {
         title = "Async"
         content = "This is an async route"
-        onAction = None
+        onAction = fun () -> Task.empty
       }
     }
   )
@@ -178,15 +178,14 @@ let taskRoute =
   Route.define<Page>(
     "task",
     "/task",
-    fun (_, (nav: INavigate<Page>), token) -> task {
+    fun _ (nav: INavigable<Page>) token -> task {
       do! Task.Delay(90, token)
 
       return {
         title = "Task"
         content = "This is a task route"
         onAction =
-          Some
-          <| fun () -> task {
+          fun () -> task {
             do! Task.Delay(90)
             nav.Navigate("/home") |> ignore
           }
@@ -213,33 +212,33 @@ If you wanted to define a route that takes a parameter, and then access that in 
 Route.define<Page>(
   "param",
   "/param/:id<guid>",
-  fun (ctx, _) ->
+  fun ctx _ ->
     let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
       content = $"This is a route with a parameter: {guid}"
-      onAction = None
+      onAction = fun () -> Task.empty
     }
 )
 
 (**
-## The INavigate<'View> interface
+## The INavigable<'View> interface
 
-The `cref:T:Navs.INavigate<'View>` is provided so you can perform `Navigate` and `NavigateByname` operations within your view handlers.
-Perhaps when a button is clicked, or when a link is clicked, you can use the `INavigate` interface to navigate to a different route.
+The ``cref:T:Navs.INavigable`1`` is provided so you can perform `Navigate` and `NavigateByname` operations within your view handlers.
+Perhaps when a button is clicked, or when a link is clicked, you can use the `INavigable` interface to navigate to a different route.
 *)
 
 Route.define<Page>(
   "param",
   "/param/:id<guid>",
-  fun (ctx, _) ->
+  fun ctx _ ->
     let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
       content = $"This is a route with a parameter: {guid}"
-      onAction = None
+      onAction = fun () -> Task.empty
     }
 )
 

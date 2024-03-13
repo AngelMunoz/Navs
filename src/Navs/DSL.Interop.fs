@@ -5,6 +5,7 @@ open System.Threading.Tasks
 open System.Runtime.CompilerServices
 
 open Navs
+open System.Threading
 
 // make sure extensions are visible in VB.NET
 [<assembly: Extension>]
@@ -16,28 +17,34 @@ type Route =
     (
       name,
       path,
-      getContent: Func<RouteContext, 'View>
+      getContent: Func<RouteContext, INavigable<'View>, 'View>
     ) =
     {
-      Name = name
-      Pattern = path
-      GetContent =
-        Func<_, _, _, _>(fun ctx _ _ -> Task.FromResult(getContent.Invoke(ctx)))
-      Children = []
-      CanActivate = []
-      CanDeactivate = []
-      CacheStrategy = Cache
+      name = name
+      pattern = path
+      getContent = fun ctx nav _ -> task { return getContent.Invoke(ctx, nav) }
+      children = []
+      canActivate = []
+      canDeactivate = []
+      cacheStrategy = Cache
     }
 
-  static member inline Define<'View>(name, path, getContent: GetView<'View>) = {
-    Name = name
-    Pattern = path
-    GetContent = getContent
-    Children = []
-    CanActivate = []
-    CanDeactivate = []
-    CacheStrategy = Cache
-  }
+  static member inline Define<'View>
+    (
+      name,
+      path,
+      getContent:
+        Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>>
+    ) =
+    {
+      name = name
+      pattern = path
+      getContent = fun ctx nav token -> getContent.Invoke(ctx, nav, token)
+      children = []
+      canActivate = []
+      canDeactivate = []
+      cacheStrategy = Cache
+    }
 
 [<Extension>]
 type RouteDefinitionExtensions =
@@ -63,32 +70,42 @@ type RouteDefinitionExtensions =
   static member inline CanActivate<'View>
     (
       routeDef: RouteDefinition<'View>,
-      [<ParamArray>] guards: RouteGuard array
+      [<ParamArray>] guards:
+        Func<RouteContext, CancellationToken, Task<bool>> array
     ) =
     {
       routeDef with
-          CanActivate = [ yield! routeDef.CanActivate; yield! guards ]
+          canActivate = [
+            yield! routeDef.canActivate
+            for guard in guards do
+              FuncConvert.FromFunc(guard)
+          ]
     }
 
   [<Extension>]
   static member inline CanDeactivate<'View>
     (
       routeDef: RouteDefinition<'View>,
-      [<ParamArray>] guards: RouteGuard array
+      [<ParamArray>] guards:
+        Func<RouteContext, CancellationToken, Task<bool>> array
     ) =
     {
       routeDef with
-          CanDeactivate = [ yield! routeDef.CanDeactivate; yield! guards ]
+          canDeactivate = [
+            yield! routeDef.canDeactivate
+            for guard in guards do
+              FuncConvert.FromFunc(guard)
+          ]
     }
 
   [<Extension>]
   static member inline CacheOnVisit<'View>(routeDef: RouteDefinition<'View>) = {
     routeDef with
-        CacheStrategy = CacheStrategy.Cache
+        cacheStrategy = CacheStrategy.Cache
   }
 
   [<Extension>]
   static member inline NoCacheOnVisit<'View>(routeDef: RouteDefinition<'View>) = {
     routeDef with
-        CacheStrategy = CacheStrategy.NoCache
+        cacheStrategy = CacheStrategy.NoCache
   }
