@@ -12,7 +12,7 @@ open Navs.FuncUI
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Types
 
-let navbar (router: FuncUIRouter) : IView =
+let navbar (router: IRouter<IView>) : IView =
   StackPanel.create [
     StackPanel.dock Dock.Top
     StackPanel.orientation Layout.Orientation.Horizontal
@@ -32,12 +32,12 @@ let routes = [
   Route.define(
     "books",
     "/books",
-    (fun _ -> TextBlock.create [ TextBlock.text "Books" ])
+    (fun _ _ -> TextBlock.create [ TextBlock.text "Books" ])
   )
   Route.define(
     "guid",
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context _ -> async {
       return
         TextBlock.create [
           match context.urlMatch.Params.TryGetValue "id" with

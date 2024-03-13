@@ -14,30 +14,30 @@ let routes = [
   Route.define(
     "guid",
     "/:id<guid>",
-    fun (context, _) -> async {
+    fun context _ -> async {
       return
         match context.urlMatch.Params.TryGetValue "id" with
         | true, id -> TextBlock().text($"%O{id}")
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define("books", "/books", (fun _ -> TextBlock().text("Books")))
+  Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
 ]
 
-let getMainContent (router: AvaloniaRouter) =
+let getMainContent (router: IRouter<Control>) =
   ContentControl()
     .DockTop()
-    .content(router.Content.ToBinding(), BindingMode.OneWay)
+    .content(router.Content |> AVal.toBinding, BindingMode.OneWay)
 
-let navigate url (router: AvaloniaRouter) _ _ =
-  task {
-    let! result = router.Navigate(url)
+let navigate url (router: IRouter<Control>) _ _ =
+  async {
+    let! result = router.Navigate(url) |> Async.AwaitTask
 
     match result with
     | Ok _ -> ()
     | Error e -> printfn $"%A{e}"
   }
-  |> ignore
+  |> Async.StartImmediate
 
 let app () =
 
