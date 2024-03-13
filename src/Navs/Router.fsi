@@ -19,8 +19,12 @@ type ActiveRouteParams =
     ParamName: string
     ParamValue: string }
 
+/// <summary>
+/// This object is a container for the routing operations performed by <see cref="T:Navs.INavigable`1">INavigable</see>
+/// interface.
+/// </summary>
 [<NoComparison; NoEquality>]
-type RoutingEnv<'View> =
+type internal RoutingEnv<'View> =
   { routes: RouteTrack<'View> seq
     history: IHistoryManager<RouteTrack<'View>>
     viewCache: cmap<string, ActiveRouteParams list * 'View>
@@ -28,18 +32,12 @@ type RoutingEnv<'View> =
     content: cval<voption<'View>> }
 
 
-[<RequireQualifiedAccess>]
-module RoutingEnv =
-  val get<'View> : routes: RouteDefinition<'View> seq * splash: (unit -> 'View) option -> RoutingEnv<'View>
-
-[<RequireQualifiedAccess>]
-module Navigable =
-  val get<'View> : routingEnv: RoutingEnv<'View> -> INavigable<'View>
-
 [<Sealed; Class>]
 type Router =
 
-  static member get: env: RoutingEnv<'View> * nav: INavigable<'View> -> IRouter<'View>
-
+  /// <summary>
+  /// Get an instance of <see cref="T:Navs.IRouter`1">IRouter</see> with the given routes.
+  /// and optionally a splash screen.
+  /// </summary>
   [<CompiledName "Get">]
   static member get: routes: RouteDefinition<'View> seq * [<Optional>] ?splash: (unit -> 'View) -> IRouter<'View>
