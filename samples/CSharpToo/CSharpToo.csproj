@@ -13,6 +13,7 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.0.0" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="NXUI" Version="11.0.0" />
     <PackageReference Include="NXUI.Desktop" Version="11.0.0" />
+    <PackageReference Include="CSharp.Data.Adaptive" Version="1.2.14" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,13 +29,13 @@ module AVal =
   let inline mapSet (adaptiveValue: cval<_>) setValue =
     transact(fun () -> adaptiveValue.Value <- setValue(adaptiveValue.Value))
 
-  let useState<'Value>
-    (initialValue: 'Value)
-    : aval<'Value> * ('Value -> unit) =
+  let useState<'Value> (initialValue: 'Value) =
     let v = cval initialValue
-    let update value = transact(fun () -> v.Value <- value)
 
-    v, update
+    let update mapValue =
+      transact(fun () -> v.Value <- mapValue(v.Value))
+
+    v :> aval<_>, update
 
   [<CompiledName "ToBinding">]
   let toBinding<'Value> (value: aval<'Value>) =
@@ -63,8 +63,12 @@ module AVal =
     let UseState<'Value> (initialValue: 'Value) =
       let value = cval initialValue
 
-      struct (value :> aval<_>,
-              (Action<'Value>(fun v -> transact(fun () -> value.Value <- v))))
+      let action =
+        Action<Func<'Value, 'Value>>(fun v ->
+          transact(fun () -> value.Value <- v.Invoke(value.Value))
+        )
+
+      struct (value :> aval<_>, action)
 
 [<Extension; Class>]
 type AValExtensions =

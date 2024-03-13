@@ -1,11 +1,15 @@
+using FSharp.Data.Adaptive;
+using CSharp.Data.Adaptive;
+
 using Navs;
-using Navs.Router;
+using UrlTemplates.RouteMatcher;
 using Navs.Avalonia;
 
 // Namespaces for smooth interop
 // With the library for non-F# languages.
 using Navs.Interop;
 using Route = Navs.Avalonia.Interop.Route;
+using static Navs.Avalonia.AVal.Interop;
 
 AppBuilder
   .Configure<Application>()
@@ -15,24 +19,64 @@ AppBuilder
   .StartWithClassicDesktopLifetime(GetWindow, args);
 
 static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
-     Route.Define("home", "/", (ctx , _)=> new TextBlock().Text("Hello World!"))
-      .NoCacheOnVisit()
-      .Children(
-        Route.Define("sub", "sub/route", (ctx , _)=> new TextBlock().Text("Sub")),
-        Route.Define("sub2", "sub/route2", (ctx , _)=> new TextBlock().Text("Sub2"))
-       ),
-     Route.Define("about", "/about", (ctx , _)=> new TextBlock().Text("About")),
-     Route.Define("by-name", "/by-name/:id<guid>", async (ctx, _, token) => {
+     Route.Define("home", "/", (_ , _) => {
+        var (count, setCount) = UseState(0);
+        return StackPanel()
+          .Spacing(8)
+          .Children(
+            TextBlock().Text("Home"),
+            TextBlock().Text(count.Map(value => $"Count: {value}").ToBinding()),
+            Button().Content("Increment").OnClickHandler((_, _) => setCount(count => count + 1)),
+            Button().Content("Decrement").OnClickHandler((_, _) => setCount(count => count - 1)),
+            Button().Content("Reset").OnClickHandler((_, _) => setCount(_ => 0))
+          );
+      }),
+     Route.Define("about", "/about", (_ , _)=> {
+        var text = new ChangeableValue<string>("");
+
+        return StackPanel()
+          .Spacing(8)
+          .Children(
+            TextBlock().Text("About"),
+            TextBlock().Text("This is a simple Avalonia app with a router, It uses Navs for routing and Adaptive Data for state management."),
+            TextBlock().Text(
+              text.Map(value => {
+                if (string.IsNullOrWhiteSpace(value)) { return "Type something!"; }
+                return $"You typed: {value}";
+              })
+              .ToBinding()
+            ),
+            TextBox()
+              .Watermark("Type here!")
+              .OnTextChangedHandler((source,args) =>{
+                if (source.Text is null) { return; }
+                text.SetValue(text => source.Text);
+              })
+          );
+
+     }),
+     Route.Define<Control>("by-name", "/by-name?id<guid>", async (ctx, nav, token) => {
         // Simulate a fetch or something
         await Task.Delay(80, token);
-        ctx.UrlMatch.Params.TryGetValue("id", out var id);
-        return new TextBlock().Text($"By Name: {id as Guid?}");
+        var guid = UrlMatchModule.getFromParams<Guid>("id", ctx.urlMatch);
+        if (guid.IsValueSome && guid.Value is Guid id)
+        {
+          return TextBlock().Text($"By Name: {id}");
+        }
+        return StackPanel().Children(
+          TextBlock().Text($"No ID Found!"),
+          Button().Content("Visit one with Id")
+            .OnClickHandler((_, _) => {
+                nav.Navigate("/by-name?id=" + Guid.NewGuid());
+            })
+        );
      })
+     .NoCacheOnVisit()
   ];
 
 static Window GetWindow()
 {
-  var router = new AvaloniaRouter(GetRoutes());
+  IRouter<Control> router = new AvaloniaRouter(GetRoutes());
 
   return new Window().Title("Hello World!").Content(
     StackPanel().Children(
@@ -44,12 +88,19 @@ static Window GetWindow()
       Button()
         .Content("Navigate By Name Missing Param")
         .OnClickHandler((_, _) => NavigateByName("by-name", router)),
-      ContentControl().Content(router.Content.ToBinding(), BindingMode.OneWay)
+      ContentControl()
+        .Content(
+          router.Content.Map(value =>
+          {
+            if (value.IsSome) { return value.Value; }
+            return new TextBlock().Text("No Content");
+          }).ToBinding()
+        )
     )
   );
 }
 
-static async void NavigateByName(string name, Router<Control> router, Dictionary<string, object>? routeParams = null)
+static async void NavigateByName(string name, IRouter<Control> router, Dictionary<string, object>? routeParams = null)
 {
   var result = await router.NavigateByName("by-name", routeParams);
 
@@ -60,7 +111,7 @@ static async void NavigateByName(string name, Router<Control> router, Dictionary
   }
 }
 
-static async void NavigateTo(string path, Router<Control> router)
+static async void NavigateTo(string path, IRouter<Control> router)
 {
   var result = await router.Navigate(path);
 

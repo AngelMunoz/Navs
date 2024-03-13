@@ -33,7 +33,7 @@ module AVal =
   /// <summary>
   /// Provide a friendly interface to handle local state via Adaptive data
   /// </summary>
-  val useState<'Value> : initialValue: 'Value -> aval<'Value> * ('Value -> unit)
+  val useState: initialValue: 'Value -> aval<'Value> * (('Value -> 'Value) -> unit)
 
   /// <summary>
   /// Convert Adaptive data into a binding that can be handled by avalonia
@@ -42,10 +42,11 @@ module AVal =
   val toBinding<'Value> : value: aval<'Value> -> IBinding
 
   module Interop =
+
     /// <summary>
     /// Provide a dotnet interop friendly interface to handle local state via Adaptive data
     /// </summary>
-    val UseState<'Value> : initialValue: 'Value -> struct (aval<'Value> * Action<'Value>)
+    val UseState<'Value> : initialValue: 'Value -> struct (aval<'Value> * Action<Func<'Value, 'Value>>)
 
 
 /// <summary>
