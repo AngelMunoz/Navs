@@ -2,12 +2,151 @@ module Navs.Tests.Router
 
 #nowarn "25" // infomplete pattern match
 
+open System
+open System.Threading
+
 open Expecto
 open FSharp.Data.Adaptive
 
 open Navs
 open Navs.Router
 open UrlTemplates.RouteMatcher
+
+
+module NavigationState =
+
+  let tests =
+    testList "NavigationState tests" [
+      test "State should be Idle by default" {
+        let router = Router.get<string>([], (fun _ -> "Splash"))
+
+        let state = router.State |> AVal.force
+
+        Expect.equal state Idle "State should be Idle"
+      }
+
+      testTask "State should be Navigating when navigating" {
+        let routes = [
+          Route.define<string>(
+            "home",
+            "/",
+            fun _ _ -> async {
+              do! Async.Sleep(TimeSpan.FromSeconds(10))
+              return "Home"
+            }
+          )
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let state = router.State |> AVal.force
+
+        Expect.equal state Idle "State should be Idle"
+        let cts = new CancellationTokenSource()
+
+        router.Navigate("/", cts.Token)
+        |> Async.AwaitTask
+        |> Async.Ignore
+        |> Async.StartImmediate
+
+        let state = router.State |> AVal.force
+
+        Expect.equal state Navigating "State should be Navigating"
+
+        cts.Cancel() // cancel navigation
+
+        let state = router.State |> AVal.force
+
+        Expect.equal state Idle "State should be Idle"
+      }
+    ]
+
+module RouteContext =
+  open System.Threading.Tasks
+
+
+  let tests =
+    testList "RouteContext tests" [
+      testTask "RouteContext should contain the path" {
+        let router =
+          Router.get<string>(
+            [
+              Route.define("home", "/", (fun _ _ -> "Home"))
+              Route.define("about", "/about", (fun _ _ -> "About"))
+            ],
+            (fun _ -> "Splash")
+          )
+
+        let context = router.Route |> AVal.force
+
+        match context with
+        | ValueNone -> ()
+        | _ -> failtest "There should not be a route initially"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome context) = router.Route |> AVal.force
+
+        Expect.equal context.path "/" "Path should be /"
+
+        let! (Ok _) = router.Navigate("/about")
+
+        let (ValueSome context) = router.Route |> AVal.force
+
+        Expect.equal context.path "/about" "Path should be /about"
+      }
+
+      testTask "Context should be none if navigation is cancelled or fails" {
+        let router =
+          Router.get(
+            [
+              Route.define<string>(
+                "home",
+                "/?complete<bool>",
+                fun ctx _ -> async {
+                  match
+                    UrlMatch.getFromParams<bool> "complete" ctx.urlMatch
+                  with
+                  | ValueSome true -> return "Home"
+                  | _ ->
+                    do! Async.Sleep(TimeSpan.FromSeconds(10))
+                    return "Home"
+                }
+              )
+            ]
+          )
+
+
+        let context = router.Route |> AVal.force
+
+        match context with
+        | ValueNone -> ()
+        | _ -> failtest "There should not be a route initially"
+
+        let cts = new CancellationTokenSource()
+
+        let! (Ok _) = router.Navigate("/?complete=true")
+
+        let (ValueSome context) = router.Route |> AVal.force
+
+        Expect.equal
+          context.path
+          "/?complete=true"
+          "Path should be /?complete=true"
+
+        cts.CancelAfter(200)
+        let! _ = router.Navigate("/?complete=false", cts.Token)
+
+        let context = router.Route |> AVal.force
+
+        match context with
+        | ValueNone -> ()
+        | ValueSome value -> failtestf "There should not be a route %A" value
+
+        cts.Dispose()
+      }
+
+    ]
 
 module Navigation =
 
@@ -569,6 +708,8 @@ module Cancellation =
 [<Tests>]
 let tests =
   testList "Navs Router Tests" [
+    NavigationState.tests
+    RouteContext.tests
     Navigation.tests
     Guards.tests
     Cancellation.tests
