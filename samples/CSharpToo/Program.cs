@@ -10,6 +10,7 @@ using Navs.Avalonia;
 using Navs.Interop;
 using Route = Navs.Avalonia.Interop.Route;
 using static Navs.Avalonia.AVal.Interop;
+using static Navs.Avalonia.RouterOutletExtensions;
 
 AppBuilder
   .Configure<Application>()
@@ -78,7 +79,7 @@ static Window GetWindow()
 {
   IRouter<Control> router = new AvaloniaRouter(GetRoutes());
 
-  return new Window().Title("Hello World!").Content(
+  return Window().Title("Hello World!").Content(
     StackPanel().Children(
       Button().Content("Home").OnClickHandler((_, _) => NavigateTo("/", router)),
       Button().Content("About").OnClickHandler((_, _) => NavigateTo("/about", router)),
@@ -88,14 +89,7 @@ static Window GetWindow()
       Button()
         .Content("Navigate By Name Missing Param")
         .OnClickHandler((_, _) => NavigateByName("by-name", router)),
-      ContentControl()
-        .Content(
-          router.Content.Map(value =>
-          {
-            if (value.IsSome) { return value.Value; }
-            return new TextBlock().Text("No Content");
-          }).ToBinding()
-        )
+      RouterOutlet().Router(router)
     )
   );
 }
