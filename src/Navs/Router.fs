@@ -26,8 +26,8 @@ type ActiveRouteParams = {
 [<NoComparison; NoEquality>]
 type RoutingEnv<'View> = {
   routes: RouteTrack<'View> seq
-  history: IHistoryManager<RouteTrack<'View>>
-  viewCache: cmap<string, ActiveRouteParams list * 'View>
+  state: cval<NavigationState>
+  viewCache: cmap<string, ActiveRouteParams list * UrlInfo * 'View>
   activeRoute:
     cval<voption<(RouteContext * (RouteGuard * RouteDefinition<'View>) list)>>
   content: cval<voption<'View>>
@@ -142,7 +142,7 @@ module RoutingEnv =
 
     {
       routes = routes
-      history = HistoryManager()
+      state = cval Idle
       viewCache = cmap()
       activeRoute = cval(ValueNone)
       content =
@@ -299,11 +299,11 @@ module Navigable =
   }
 
   let tryGetFromCache
-    (liveNodes: cmap<string, ActiveRouteParams list * 'View>)
+    (liveNodes: cmap<string, ActiveRouteParams list * UrlInfo * 'View>)
     =
-    fun (key, nextRouteParams) ->
+    fun (key, nextRouteParams, nextUrlInfo) ->
       match liveNodes.TryGetValue key with
-      | Some(oldParams, oldView) ->
+      | Some(oldParams, oldUrlInfo, oldView) ->
         if nextRouteParams = oldParams then
           ValueSome oldView
         else
@@ -344,7 +344,8 @@ module Navigable =
         match
           tryGetFromCache(
             paramResolution.routeHit.pathPattern,
-            paramResolution.nextRouteParams
+            paramResolution.nextRouteParams,
+            paramResolution.nextContext.urlInfo
           )
         with
         | ValueSome view -> return view
@@ -395,10 +396,7 @@ module Navigable =
       let! resolveParams =
         resolveParams url
         |> AsyncResult.teeError(fun error ->
-          match error with
-          | RouteNotFound _ ->
-            transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
-          | _ -> ()
+          transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
         )
 
       // 3. Can Activate
@@ -420,7 +418,9 @@ module Navigable =
         transact(fun _ ->
           routingEnv.viewCache.Add(
             resolveParams.routeHit.pathPattern,
-            (resolveParams.nextRouteParams, rendered)
+            (resolveParams.nextRouteParams,
+             resolveParams.nextContext.urlInfo,
+             rendered)
           )
           |> ignore
 
@@ -468,30 +468,58 @@ module Navigable =
 
     navigable.Value <-
       { new INavigable<'View> with
+
+          override _.State = routingEnv.state
+
+          override _.StateSnapshot = routingEnv.state |> AVal.force
+
           override _.Navigate(url, ?cancellationToken) = task {
             try
-              return!
-                Async.StartImmediateAsTask(
-                  navigateByUrl url,
-                  ?cancellationToken = cancellationToken
-                )
-            with
-            | :? TaskCanceledException
-            | :? OperationCanceledException as ex ->
+              transact(fun _ -> routingEnv.state.Value <- Navigating)
 
-              return Error NavigationCancelled
+              try
+                return!
+                  Async.StartImmediateAsTask(
+                    navigateByUrl url,
+                    ?cancellationToken = cancellationToken
+                  )
+              with
+              | :? TaskCanceledException
+              | :? OperationCanceledException ->
+                transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
+
+                return Error NavigationCancelled
+              | ex ->
+                transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
+
+                return Error(NavigationFailed ex.Message)
+
+            finally
+              transact(fun _ -> routingEnv.state.Value <- Idle)
           }
 
           override _.NavigateByName(name, ?routeParams, ?cancellationToken) = task {
             try
-              return!
-                Async.StartImmediateAsTask(
-                  navigateByName routingEnv navigable name routeParams,
-                  ?cancellationToken = cancellationToken
-                )
-            with
-            | :? TaskCanceledException
-            | :? OperationCanceledException -> return Error NavigationCancelled
+              transact(fun _ -> routingEnv.state.Value <- Navigating)
+
+              try
+                return!
+                  Async.StartImmediateAsTask(
+                    navigateByName routingEnv navigable name routeParams,
+                    ?cancellationToken = cancellationToken
+                  )
+              with
+              | :? TaskCanceledException
+              | :? OperationCanceledException ->
+                transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
+
+                return Error NavigationCancelled
+              | ex ->
+                transact(fun _ -> routingEnv.activeRoute.Value <- ValueNone)
+
+                return Error(NavigationFailed ex.Message)
+            finally
+              transact(fun _ -> routingEnv.state.Value <- Idle)
           }
       }
 
@@ -502,6 +530,30 @@ type Router =
 
   static member get<'View>(env: RoutingEnv<'View>, nav: INavigable<'View>) =
     { new IRouter<'View> with
+
+        member _.State = nav.State
+
+        member _.StateSnapshot = nav.StateSnapshot
+
+        member _.Route =
+          env.activeRoute
+          |> AVal.map(
+            function
+            | ValueSome v -> ValueSome(fst v)
+            | ValueNone -> ValueNone
+          )
+
+        member _.RouteSnapshot =
+          env.activeRoute
+          |> AVal.map(
+            function
+            | ValueSome v -> ValueSome(fst v)
+            | ValueNone -> ValueNone
+          )
+          |> AVal.force
+
+        member _.ContentSnapshot = env.content |> AVal.force
+
         member _.Content = env.content
 
         member _.Navigate(url, ?cancellationToken) =
@@ -531,6 +583,29 @@ type Router =
 
 
     { new IRouter<'View> with
+
+        member _.State = navigable.State
+
+        member _.StateSnapshot = navigable.StateSnapshot
+
+        member _.Route =
+          env.activeRoute
+          |> AVal.map(
+            function
+            | ValueSome(v, _) -> ValueSome v
+            | ValueNone -> ValueNone
+          )
+
+        member _.RouteSnapshot =
+          env.activeRoute
+          |> AVal.map(
+            function
+            | ValueSome(v, _) -> ValueSome v
+            | ValueNone -> ValueNone
+          )
+          |> AVal.force
+
+        member _.ContentSnapshot = env.content |> AVal.force
 
         member _.Content = env.content
 

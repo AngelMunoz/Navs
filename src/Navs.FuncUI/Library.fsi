@@ -9,6 +9,8 @@ open System.Threading.Tasks
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Types
 
+open FSharp.Data.Adaptive
+
 open Navs
 open Navs.Router
 
@@ -30,7 +32,17 @@ type FuncUIRouter =
 type IComponentContexExtensions =
   /// Subscribes to the router and returns an IReadable that emits the view that is being rendered.
   [<Extension>]
-  static member inline useRouter: context: IComponentContext * router: IRouter<IView> -> IReadable<IView>
+  static member inline useRouter: context: IComponentContext * router: IRouter<IView> -> IReadable<IView voption>
+
+  /// Subscribes to an adaptive value and returns an IReadable that will emit changes any time
+  /// The adaptive value gets an update.
+  [<Extension>]
+  static member inline useAVal: context: IComponentContext * aVal: aval<'T> -> IReadable<'T>
+
+  /// Takes a changeable value and returns an IWritable that will allow you to update and read from it.
+  [<Extension>]
+  static member useCval: context: IComponentContext * cVal: cval<'T> -> IWritable<'T>
+
 
 [<Class>]
 type Route =
@@ -60,3 +72,11 @@ type Route =
   /// <returns>A route definition</returns>
   static member define:
     name: string * path: string * handler: (RouteContext -> INavigable<IView> -> #IView) -> RouteDefinition<IView>
+
+[<AutoOpen>]
+module DSL =
+  open Avalonia.Animation
+
+  [<Class>]
+  type RouterOutlet =
+    static member create: router: IRouter<IView> * ?noContent: IView * ?transition: IPageTransition -> IView<Component>

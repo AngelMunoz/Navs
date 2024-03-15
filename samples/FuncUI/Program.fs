@@ -7,10 +7,15 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.DSL
 
+open FSharp.Data.Adaptive
+
 open Navs
 open Navs.FuncUI
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Types
+
+// use external to FuncUI shared state
+let sharedState = cval 0
 
 let navbar (router: IRouter<IView>) : IView =
   StackPanel.create [
@@ -19,14 +24,36 @@ let navbar (router: IRouter<IView>) : IView =
     StackPanel.children [
       Button.create [
         Button.content "Books"
-        Button.onClick(fun _ -> router.Navigate "/books" |> ignore)
+        Button.onClick(fun _ ->
+          router.Navigate "/books" |> ignore
+          // example "external updates"
+          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+        )
       ]
       Button.create [
         Button.content "Guid"
-        Button.onClick(fun _ -> router.Navigate $"/{Guid.NewGuid()}" |> ignore)
+        Button.onClick(fun _ ->
+          router.Navigate $"/{Guid.NewGuid()}" |> ignore
+          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+        )
+      ]
+      Button.create [
+        Button.content "Counter"
+        Button.onClick(fun _ ->
+          router.Navigate $"/counter" |> ignore
+          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+        )
+      ]
+      Button.create [
+        Button.content "Readable counter"
+        Button.onClick(fun _ ->
+          router.Navigate $"/read-counter" |> ignore
+          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+        )
       ]
     ]
   ]
+
 
 let routes = [
   Route.define(
@@ -46,16 +73,71 @@ let routes = [
         ]
     }
   )
+  |> Route.cache NoCache
+  Route.define(
+    "read-counter",
+    "/read-counter",
+    fun _ _ ->
+      Component.create(
+        "read-counter",
+        fun ctx ->
+          // consume adaptive data in the standard FuncUI way
+          let counter = ctx.useAVal sharedState
+
+          StackPanel.create [
+            StackPanel.children [
+              TextBlock.create [ TextBlock.text(counter.Current |> string) ]
+            ]
+          ]
+      )
+  )
+  Route.define(
+    "counter",
+    "/counter",
+    fun _ _ ->
+      Component.create(
+        "counter",
+        fun ctx ->
+          let counter = ctx.useCval sharedState
+
+          let increment =
+            Button.create [
+              Button.content "Increment"
+              Button.onClick(fun _ ->
+                // values can also be updated using the standard FuncUI way
+                counter.Set(counter.Current + 1) |> ignore
+              )
+            ]
+
+          let decrement =
+            Button.create [
+              Button.content "Decrement"
+              Button.onClick(fun _ ->
+                counter.Set(counter.Current + 1) |> ignore
+              )
+            ]
+
+          StackPanel.create [
+            StackPanel.children [
+              increment
+              decrement
+              TextBlock.create [ TextBlock.text(counter.Current |> string) ]
+            ]
+          ]
+      )
+  )
 ]
 
 let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
   Component(fun ctx ->
-
-    let currentView = ctx.useRouter router
+    let noContent = TextBlock.create [ TextBlock.text "No content" ]
 
     DockPanel.create [
       DockPanel.lastChildFill true
-      DockPanel.children [ navbar router; currentView.Current ]
+      DockPanel.children [
+        navbar router
+        RouterOutlet.create(router, noContent)
+      ]
     ]
   )
 

@@ -6,8 +6,10 @@ open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 
+open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
+open Avalonia.Animation
 
 open FSharp.Data.Adaptive
 open Navs
@@ -146,3 +148,52 @@ module Interop =
     static member inline define:
       name: string * path: string * handler: Func<RouteContext, INavigable<Control>, CancellationToken, Task<#Control>> ->
         RouteDefinition<Control>
+
+[<Class>]
+type RouterOutlet =
+  inherit UserControl
+
+  static member RouterProperty: DirectProperty<RouterOutlet, IRouter<Control>>
+
+  static member PageTransitionProperty: DirectProperty<RouterOutlet, IPageTransition>
+
+  static member NoContentProperty: DirectProperty<RouterOutlet, Control>
+
+  new: unit -> RouterOutlet
+
+  member Router: IRouter<Control> with get, set
+
+  member PageTransition: IPageTransition with get, set
+
+  member NoContent: Control with get, set
+
+[<Class; Extension>]
+type RouterOutletExtensions =
+
+  [<Extension>]
+  static member RouterOutlet: unit -> RouterOutlet
+
+  [<Extension; CompiledName "Router">]
+  static member inline router: routerOutlet: RouterOutlet * router: IRouter<Control> -> RouterOutlet
+
+  [<Extension; CompiledName "PageTransition">]
+  static member inline pageTransition: routerOutlet: RouterOutlet * pageTransition: IPageTransition -> RouterOutlet
+
+  [<Extension; CompiledName "PageTransition">]
+  static member inline pageTransition:
+    routerOutlet: RouterOutlet *
+    pageTransition: aval<IPageTransition> *
+    [<Optional>] ?mode: BindingMode *
+    [<Optional>] ?priority: BindingPriority ->
+      RouterOutlet
+
+  [<Extension; CompiledName "NoContent">]
+  static member inline noContent: routerOutlet: RouterOutlet * noContent: Control -> RouterOutlet
+
+  [<Extension; CompiledName "NoContent">]
+  static member inline noContent:
+    routerOutlet: RouterOutlet *
+    noContent: aval<Control> *
+    [<Optional>] ?mode: BindingMode *
+    [<Optional>] ?priority: BindingPriority ->
+      RouterOutlet

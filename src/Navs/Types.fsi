@@ -37,11 +37,37 @@ type RouteContext =
 type NavigationError<'View> =
   | NavigationCancelled
   | RouteNotFound of url: string
+  | NavigationFailed of message: string
   | CantDeactivate of deactivatedRoute: string
   | CantActivate of activatedRoute: string
 
+[<Struct>]
+type NavigationState =
+  | Idle
+  | Navigating
+
 [<Interface>]
 type INavigable<'View> =
+
+  /// <summary>
+  /// The state of the router.
+  /// </summary>
+  /// <remarks>
+  /// This adaptive value will emit the current state of the router.
+  /// It will emit Navigating when the router is in the process of navigating to a route.
+  /// It will emit Idle when the router is not navigating to a route.
+  /// </remarks>
+  abstract member State: aval<NavigationState>
+
+  /// <summary>
+  /// The current state of the router.
+  /// </summary>
+  /// <remarks>
+  /// This property will return the current state of the router.
+  /// It will return Navigating when the router is in the process of navigating to a route.
+  /// It will return Idle when the router is not navigating to a route.
+  /// </remarks>
+  abstract member StateSnapshot: NavigationState
 
   /// <summary>
   /// Performs a navigation to the route that matches the URL.
@@ -86,11 +112,35 @@ type IRouter<'View> =
   /// It will also however emit None when the router is in a state where it doesn't have a route to render,
   /// this could be when the router is just starting up and hasn't navigated to any route yet or when the router
   /// failed to navigate.
-  ///
-  /// It is recommended to use the Content observable to track the view that is being rendered by the router
-  /// unless you are in an environment that supports adaptive values.
+  /// </remarks>
+  abstract member Route: aval<RouteContext voption>
+
+  /// <summary>
+  /// The current route that is being rendered by the router.
+  /// </summary>
+  /// <remarks>
+  /// This property will return the current route that is being rendered by the router.
+  /// It will also however return None when the router is in a state where it doesn't have a route to render,
+  /// this could be when the router is just starting up and hasn't navigated to any route yet or when the router
+  /// failed to navigate.
+  /// </remarks>
+  abstract member RouteSnapshot: RouteContext voption
+
+  /// <summary>
+  /// The current route that is being rendered by the router.
+  /// </summary>
+  /// <remarks>
+  /// This adaptive value will emit the current route that is being rendered by the router.
   /// </remarks>
   abstract member Content: aval<'View voption>
+
+  /// <summary>
+  /// The current route that is being rendered by the router.
+  /// </summary>
+  /// <remarks>
+  /// This is a single value that will return the current route that is being rendered by the router.
+  /// </remarks>
+  abstract member ContentSnapshot: 'View voption
 
 
 /// An alias for a function that takes a route context and a cancellation token
