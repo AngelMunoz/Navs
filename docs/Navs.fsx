@@ -24,8 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-006"
-#r "nuget: FSharp.Data.Adaptive, 1.2.14"
+#r "nuget: Navs, 1.0.0-beta-007"
 
 open FSharp.Data.Adaptive
 open System
@@ -113,11 +112,11 @@ let adaptiveContent () = adaptive {
   let! view = router.Content
   // the view will always be the most up to date view
   match view with
-  | Some view ->
+  | ValueSome view ->
     // ... do something with the view ...
     printfn "Current view: \n\n%A" view
     return ()
-  | None ->
+  | ValueNone ->
     printfn "No view currently"
     // ... do something else ...
     return ()
@@ -134,7 +133,7 @@ module AVal =
     }
 
 // subscribe to the router content
-router.Content |> toObservable
+router.Content |> AVal.toObservable
 
 
 (**
@@ -213,7 +212,7 @@ Route.define<Page>(
   "param",
   "/param/:id<guid>",
   fun ctx _ ->
-    let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
+    let guid = ctx.urlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
@@ -223,7 +222,7 @@ Route.define<Page>(
 )
 
 (**
-## The INavigable<'View> interface
+## The `INavigable<'View>` and `IRouter<'View>` interface
 
 The ``cref:T:Navs.INavigable`1`` is provided so you can perform `Navigate` and `NavigateByname` operations within your view handlers.
 Perhaps when a button is clicked, or when a link is clicked, you can use the `INavigable` interface to navigate to a different route.
@@ -232,21 +231,63 @@ Perhaps when a button is clicked, or when a link is clicked, you can use the `IN
 Route.define<Page>(
   "param",
   "/param/:id<guid>",
-  fun ctx _ ->
-    let guid = ctx.UrlMatch |> UrlMatch.getFromParams<Guid> "id"
+  fun ctx (nav: INavigable<Page>) ->
+    let guid = ctx.urlMatch |> UrlMatch.getFromParams<Guid> "id"
 
     {
       title = "Param"
       content = $"This is a route with a parameter: {guid}"
-      onAction = fun () -> Task.empty
+      onAction =
+        fun () -> task {
+          match! nav.Navigate("/home") with
+          | Ok _ -> ()
+          | Error errors -> printfn "Failed to navigate to home: %A" errors
+        }
     }
 )
-
-
 (**
 The UrlMatch property in the context has algo access to the QueryParams and the Hash of the URL that was matched for this route.
 
 > For more information about extracting parameters from the URL, please refer to the [UrlTemplates Document section](./UrlTemplates.fsx).
+
+### State and StateSnapshot
+
+Sometimes it is useful to know if the router is currently navigating to a route or if it's idle.
+You can use the ``cref:M:Navs.INavigable`1.State`` and ``cref:M:Navs.INavigable`1.StateSnapshot`` properties to get the current state of the router.
+
+The `State` property is an adaptive value that will emit the current state of the router.
+
+The `StateSnapshot` property is a property that will return the current state of the router.
+
+*)
+
+let state = router.StateSnapshot
+
+match state with
+| NavigationState.Idle -> printfn "The router is idle"
+| NavigationState.Navigating -> printfn "The router is navigating"
+
+(**
+The ``cref:T:Navs.IRouter`1`` interface is reserved to the router object and it provides a few more properties than the navigable interface.
+This is manly because the rotuer is likely to be used like a service in the application while the navigable interface is more of a route tied object.
+
+### Route and RouteSnapshot
+
+The ``cref:M:Navs.IRouter`1.Route`` property is an adaptive value that represents the actual context used by the active route.
+while the ``cref:M:Navs.IRouter`1.RouteSnapshot`` property is a stale version of the previous.
+
+*)
+
+let route = router.RouteSnapshot
+
+(*** hide ***)
+printfn "Current route: \n\n%A" route
+(*** include-output ***)
+
+(**
+
+This property can be useful if you want to make some decisions above the route's handler based on the current route
+like showing/hiding a navigation bar or a sidebar.
 
 ## Guards
 
@@ -278,6 +319,32 @@ asyncRoute
 
 The default behavior of the router is to obtain the view from an internal cache if it's available. However, you can change this behavior by using the `Route.cache` function.
 Which will make the router always re-execute the route handler when the route is activated.
+
+Even if you cache a route there are certain features that will always execute regardless.
+
+- Parameter parsing and route resolution.
+- Check for cancellation at the navigation level.
+- Route Guards.
+
 *)
 
 asyncRoute |> Route.cache CacheStrategy.NoCache
+
+
+
+(**
+The rule of thumb for cachign is:
+
+- [ ] Is the view stateful?
+- [ ] Is the user expecting to come back and see the same state in the view?
+- [ ] Is the view expensive to render?
+
+If any of the above checks true, then you should consider caching the view
+
+- [ ] Is the view state ephemeral and can be discarded when navigating away?
+- [ ] Do you want to avoid stale data any time the route is activated?
+
+If any of the above checks true, then you should consider not caching the view.
+
+Now keep in mind these are not golden rules written in stone. By default we cache the views, but you can change this behavior in the case it is not suitable for your application.
+*)

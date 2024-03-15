@@ -17,7 +17,7 @@ That being said...
 ## Usage
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-006"
+    #r "nuget: Navs.Avalonia, 1.0.0-beta-007"
     #r "nuget: FSharp.Data.Adaptive, 1.2.14"
 
 Using this library is very similar to using the base Navs library. The main difference is that the `Navs.Avalonia` library provides a less generic versions of the API.
@@ -57,9 +57,45 @@ Using this library is very similar to using the base Navs library. The main diff
 
     let app =
       Window()
-        .content(router.Content |> AVal.toBinding, BindingMode.OneWay)
+        .content(
+          DockPanel()
+            .lastChildFill(true)
+            .children(
+              navbar().DockTop() // or any othe component there,
+              // use the router outlet
+              RouterOutlet().router(router)
+            )
+        )
 
 From there you can use the `router` to navigate between the different components and any other usages you have with the base Navs library.
+
+## The RouterOutlet
+
+The `RouterOutlet` is a control that will render the current component based on the current route. It also provides page transitions so you can have a smooth experience when navigating between pages.
+
+The `cref:T:Navs.Avalonia.RouterOutlet` control provides three main properties:
+
+- `cref:M:Navs.Avalonia.RouterOutlet.Router` - The router to use to render the current component.
+- `cref:M:Navs.Avalonia.RouterOutlet.PageTransition` - The transition to use when the router content changes.
+- `cref:M:Navs.Avalonia.RouterOutlet.NoContent` - The content to render when the router content is `None` which can be when the navigation fails or the route is not found.
+
+The outlet is built to be used like any other Avalonia control so you should be able to do things like:
+
+    RouterOutlet()
+      .router(router)
+      .PageTransition(SlideInTransition())
+
+or in case you're using XAML and are interested in this project
+
+```xml
+<RouterOutlet
+  Router="{Binding Router}"
+  PageTransition="{Binding PageTransition}"
+  NoContent="{Binding NoContent}">
+</RouterOutlet>
+```
+
+Please keep in mind that if you try to modify the `Content` property of the `RouterOutlet` it most certainly will break the outlet's functionality.
 
 ## Adaptive Data
 

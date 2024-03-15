@@ -82,13 +82,6 @@ let routes = [
   Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
 ]
 
-let getMainContent (router: IRouter<Control>) =
-  ContentControl()
-    .DockTop()
-    // with NXUI you can use the .content method to bind the content
-    // to the observable in a seamless way
-    .content(router.Content |> AVal.toBinding)
-
 let navigate url (router: IRouter<Control>) _ _ =
   task {
     // navigation is asynchronous and returns a result
@@ -120,7 +113,7 @@ let app () =
                 .content("Guid")
                 .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
             ),
-          getMainContent(router)
+          RouterOutlet().router(router)
         )
     )
 
