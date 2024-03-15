@@ -12,6 +12,9 @@ open FSharp.Data.Adaptive
 
 open Navs
 open Navs.Router
+open Avalonia
+open Avalonia.Animation
+open Avalonia.Data
 
 // enable extensions for VB.NE
 [<assembly: Extension>]
@@ -194,3 +197,183 @@ module Interop =
           return value :> Control
         })
       )
+
+type RouterOutlet() as this =
+  inherit UserControl()
+
+  let router = ref Unchecked.defaultof<IRouter<_>>
+  let pageTransition = ref Unchecked.defaultof<IPageTransition>
+  let noContent = ref Unchecked.defaultof<Control>
+
+  let setupContent () =
+
+    match router.Value :> obj with
+    | null -> this.Content <- null
+    | _ ->
+      let noContent =
+        match noContent.Value with
+        | null -> TextBlock(Text = "No Content") :> Control
+        | value -> value
+
+      let content =
+        router.Value.Content
+        |> AVal.map(
+          function
+          | ValueSome value ->
+            printfn "Value: %A" value
+            value
+          | _ ->
+            printfn "No Content"
+            noContent
+        )
+        |> AVal.toBinding
+
+      let pageTransition =
+        match pageTransition.Value with
+        | null ->
+          CompositePageTransition(
+            PageTransitions =
+              ResizeArray(
+                [
+                  CrossFade(TimeSpan.FromMilliseconds(150)) :> IPageTransition
+                  PageSlide(
+                    TimeSpan.FromMilliseconds(300),
+                    PageSlide.SlideAxis.Horizontal
+                  )
+                ]
+              )
+          )
+          :> IPageTransition
+        | value -> value
+
+      let transitionContent =
+        let transitionContent =
+          TransitioningContentControl(PageTransition = pageTransition)
+
+        let binding =
+          TransitioningContentControl.ContentProperty
+            .Bind()
+            .WithMode(mode = BindingMode.OneWay)
+            .WithPriority(priority = BindingPriority.LocalValue)
+
+        transitionContent[binding] <- content
+        transitionContent
+
+      this[RouterOutlet.ContentProperty] <- transitionContent
+
+  member this.Router
+    with get (): IRouter<Control> = router.Value
+    and set (value: IRouter<Control>) =
+      this.SetAndRaise(RouterOutlet.RouterProperty, router, value) |> ignore
+      setupContent()
+
+  member this.PageTransition
+    with get () = pageTransition.Value
+    and set (value: IPageTransition) =
+      this.SetAndRaise(
+        RouterOutlet.PageTransitionProperty,
+        pageTransition,
+        value
+      )
+      |> ignore
+
+  member this.NoContent
+    with get () = noContent.Value
+    and set (value: Control) =
+      this.SetAndRaise(RouterOutlet.NoContentProperty, noContent, value)
+      |> ignore
+
+  static member RouterProperty =
+    AvaloniaProperty.RegisterDirect<RouterOutlet, IRouter<Control>>(
+      "Router",
+      (fun o -> o.Router),
+      (fun o v -> o.Router <- v)
+    )
+
+  static member PageTransitionProperty =
+    AvaloniaProperty.RegisterDirect<RouterOutlet, IPageTransition>(
+      "PageTransition",
+      (fun o -> o.PageTransition),
+      (fun o v -> o.PageTransition <- v)
+    )
+
+  static member NoContentProperty =
+    AvaloniaProperty.RegisterDirect<RouterOutlet, Control>(
+      "NoContent",
+      (fun o -> o.NoContent),
+      (fun o v -> o.NoContent <- v)
+    )
+
+[<Extension>]
+type RouterOutletExtensions =
+
+  [<Extension>]
+  static member RouterOutlet() = RouterOutlet()
+
+  [<Extension; CompiledName "Router">]
+  static member inline router
+    (
+      routerOutlet: RouterOutlet,
+      router: IRouter<Control>
+    ) =
+    routerOutlet[RouterOutlet.RouterProperty] <- router
+    routerOutlet
+
+  [<Extension; CompiledName "PageTransition">]
+
+  static member inline pageTransition
+    (
+      routerOutlet: RouterOutlet,
+      pageTransition: IPageTransition
+    ) =
+    routerOutlet[RouterOutlet.PageTransitionProperty] <- pageTransition
+    routerOutlet
+
+  [<Extension; CompiledName "PageTransition">]
+  static member inline pageTransition
+    (
+      routerOutlet: RouterOutlet,
+      pageTransition: aval<IPageTransition>,
+      [<Optional>] ?mode: BindingMode,
+      [<Optional>] ?priority: BindingPriority
+    ) =
+    let mode = defaultArg mode BindingMode.OneWay
+    let priority = defaultArg priority BindingPriority.LocalValue
+
+    let descriptor =
+      RouterOutlet.PageTransitionProperty
+        .Bind()
+        .WithMode(mode = mode)
+        .WithPriority(priority = priority)
+
+    routerOutlet[descriptor] <- AVal.toBinding pageTransition
+    routerOutlet
+
+  [<Extension; CompiledName "NoContent">]
+  static member inline noContent
+    (
+      routerOutlet: RouterOutlet,
+      noContent: Control
+    ) =
+    routerOutlet[RouterOutlet.NoContentProperty] <- noContent
+    routerOutlet
+
+  [<Extension; CompiledName "NoContent">]
+  static member inline noContent
+    (
+      routerOutlet: RouterOutlet,
+      noContent: aval<Control>,
+      [<Optional>] ?mode: BindingMode,
+      [<Optional>] ?priority: BindingPriority
+    ) =
+    let mode = defaultArg mode BindingMode.OneWay
+    let priority = defaultArg priority BindingPriority.LocalValue
+
+    let descriptor =
+      RouterOutlet.NoContentProperty
+        .Bind()
+        .WithMode(mode = mode)
+        .WithPriority(priority = priority)
+
+    routerOutlet[descriptor] <- AVal.toBinding noContent
+    routerOutlet
