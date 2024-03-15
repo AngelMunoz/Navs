@@ -24,7 +24,18 @@ type FuncUIRouter
 
 
   interface IRouter<IView> with
+
+    member _.State = router.State
+
+    member _.StateSnapshot = router.StateSnapshot
+
+    member _.Route = router.Route
+
+    member _.RouteSnapshot = router.RouteSnapshot
+
     member _.Content = router.Content
+
+    member _.ContentSnapshot = router.ContentSnapshot
 
     member _.Navigate(a, [<Optional>] ?b) =
       router.Navigate(a, ?cancellationToken = b)

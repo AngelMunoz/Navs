@@ -22,11 +22,21 @@ type RouteContext = {
 type NavigationError<'View> =
   | NavigationCancelled
   | RouteNotFound of url: string
+  | NavigationFailed of message: string
   | CantDeactivate of deactivatedRoute: string
   | CantActivate of activatedRoute: string
 
+[<Struct>]
+type NavigationState =
+  | Idle
+  | Navigating
+
 [<Interface>]
 type INavigable<'View> =
+
+  abstract member State: aval<NavigationState>
+
+  abstract member StateSnapshot: NavigationState
 
   abstract member Navigate:
     url: string * [<Optional>] ?cancellationToken: CancellationToken ->
@@ -42,7 +52,14 @@ type INavigable<'View> =
 type IRouter<'View> =
   inherit INavigable<'View>
 
+  abstract member Route: aval<RouteContext voption>
+
+  abstract member RouteSnapshot: RouteContext voption
+
   abstract member Content: aval<'View voption>
+
+  abstract member ContentSnapshot: 'View voption
+
 
 type RouteGuard = RouteContext -> CancellationToken -> Task<bool>
 

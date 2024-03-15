@@ -2,6 +2,7 @@ namespace Navs.Router
 
 open System.Runtime.InteropServices
 open FSharp.Data.Adaptive
+open UrlTemplates.UrlParser
 
 open Navs
 
@@ -26,8 +27,8 @@ type ActiveRouteParams =
 [<NoComparison; NoEquality>]
 type internal RoutingEnv<'View> =
   { routes: RouteTrack<'View> seq
-    history: IHistoryManager<RouteTrack<'View>>
-    viewCache: cmap<string, ActiveRouteParams list * 'View>
+    state: cval<NavigationState>
+    viewCache: cmap<string, ActiveRouteParams list * UrlInfo * 'View>
     activeRoute: cval<voption<(RouteContext * (RouteGuard * RouteDefinition<'View>) list)>>
     content: cval<voption<'View>> }
 
