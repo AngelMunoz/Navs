@@ -304,7 +304,7 @@ module Navigable =
     fun (key, nextRouteParams, nextUrlInfo) ->
       match liveNodes.TryGetValue key with
       | Some(oldParams, oldUrlInfo, oldView) ->
-        if nextRouteParams = oldParams && oldUrlInfo = nextUrlInfo then
+        if nextRouteParams = oldParams then
           ValueSome oldView
         else
           ValueNone
