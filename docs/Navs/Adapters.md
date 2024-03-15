@@ -7,7 +7,7 @@ category: Navs
 ## Creating an adapter.
 
     [hide]
-    #r "nuget: Navs, 1.0.0-beta-006"
+    #r "nuget: Navs, 1.0.0-beta-007"
 
 Sometimes you may want to create a custom adapter when you know the concrete types (or the interface) that you're targeting with your router and your definitions. This is a guide on how to create an adapter for a custom type.
 
@@ -16,8 +16,32 @@ Let's take a look at how we implemented the Plain Avalonia adapter. Normal Avalo
     open Navs
     open Navs.Router
 
-    type AvaloniaRouter(routes: RouteDefinition<Control> seq) =
-      inherit Router<Control>(rRouteTracks.fromDefinitions routesoutes)
+    type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
+      let router = Router.get<Control>(routes, ?splash = splash)
+        let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
+        Router.get<Control>(routes, ?splash = splash)
+
+
+      interface IRouter<Control> with
+
+        member _.State = router.State
+
+        member _.StateSnapshot = router.StateSnapshot
+
+        member _.Route = router.Route
+
+        member _.RouteSnapshot = router.RouteSnapshot
+
+        member _.Content = router.Content
+
+        member _.ContentSnapshot = router.ContentSnapshot
+
+
+        member _.Navigate(a, [<Optional>] ?b) =
+          router.Navigate(a, ?cancellationToken = b)
+
+        member _.NavigateByName(a, [<Optional>] ?b, [<Optional>] ?c) =
+          router.NavigateByName(a, ?routeParams = b, ?cancellationToken = c)
 
 In this case we've created a custom router that works with `Control` instances. so the user doesn't have to fight a bunch of `<>` brakets all over the place specially from C# where the type inference is not as good as in F#.
 

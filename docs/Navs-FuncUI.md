@@ -6,7 +6,7 @@ category: Libraries
 ---
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-006"
+    #r "nuget: Navs.Avalonia, 1.0.0-beta-007"
 
 ## Navs.FuncUI
 
@@ -76,20 +76,83 @@ let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
   )
 ```
 
-## useRouter Hook
+## Hooks and extensions
 
-The `useRouter` hook is a very simplistic one it takes a `cref:T:Navs.FuncUI.FuncUIRouter` and returns the current view based on the current route.
+FuncUI provides it's own ways to handle state and side effects. Given the usage we have with FSharp.Data.Adaptive we felt it was necessary to provide a way integrate Adaptive Data with FuncUI's usual way of handling state.
 
-```fsharp
+### useAVal Hook
 
-let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
-  Component(fun ctx ->
-    // The useRouter hook
-    let iView = ctx.useRouter router
+The `cref:M:Navs.FuncUI.IComponentContexExtensions.useAVal` hook converts any adaptive value into a FuncUI `IReadable<'Value>`
 
-    DockPanel.create [
-      DockPanel.lastChildFill true
-      DockPanel.children [ navbar router; iView.Current ]
-    ]
-  )
-```
+    // An external data store for the current component
+    let AuthStore = cval {| isAuthenticated = false |}
+
+    Component(fun ctx ->
+
+      let readableVal = ctx.useAVal isAuthenticated
+
+      TextBlock.create [
+        TextBlock.text ($"Value: %d{readableVal.Current.IsAuthenticated}")
+      ]
+    )
+
+In the example above, whenever the adaptive value `isAuthenticated` changes, the `TextBlock` will be updated with the new value. without the need to manually subscribe to the adaptive value.
+
+### useCval Hook
+
+In a similar fashion, the `cref:M:Navs.FuncUI.IComponentContexExtensions.useCval` hook converts any changeable value into a FuncUI `IWritable<'Value>`
+
+    // An external data store for the current component
+    let AuthStore = cval {| isAuthenticated = false |}
+
+    Component(fun ctx ->
+
+      let writableVal = ctx.useCval AuthStore
+
+      Button.create [
+        math writableVal.Current.IsAuthenticated with
+        | true ->
+          Button.content ("You're in!")
+        | false ->
+          Button.content ("Sign in!")
+          Button.onClick(fun _ -> writableVal.Set {| isAuthenticated = true |} |> ignore)
+      ]
+    )
+
+Given that the user clicks the button, the `isAuthenticated` value will be updated and the `Button` will be updated with the new value. in both components consuming the `isAuthenticated` value.
+
+### useRouter Hook
+
+The `useRouter` hook is a very simplistic one it takes a `cref:T:Navs.FuncUI.FuncUIRouter` and returns the current view based on the current route. This hook is available for custom abstractions where the provided router outlet is not enough.
+
+    let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
+      Component(fun ctx ->
+        // The useRouter hook
+        let iView = ctx.useRouter router
+
+        DockPanel.create [
+          DockPanel.lastChildFill true
+          DockPanel.children [ navbar router; iView.Current ]
+        ]
+      )
+
+## The RouterOutlet
+
+For most of the use cases out there, you don't need to keep a manual linking between the router and the view, the `cref:T:Navs.FuncUI.RouterOutlet` DSl will create a default control that can be used to render the router's current route. It includes a basic page transition and a no content view.
+
+    let windowContent() =
+      let router: IRouter<IView> = FuncUIRouter(routes)
+
+      DockPanel.create [
+        DockPanel.children [
+          Navbar.create router // custom navbar
+          // other layout components
+          RouterOutlet.create(
+            router,
+            // provide a fallback view if no content is present
+            noContent = TextBlock.create [
+              TextBlock.text "No Content"
+            ]
+          )
+        ]
+      ]
