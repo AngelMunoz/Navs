@@ -25,6 +25,7 @@ type NavigationError<'View> =
   | NavigationFailed of message: string
   | CantDeactivate of deactivatedRoute: string
   | CantActivate of activatedRoute: string
+  | GuardRedirect of redirectTo: string
 
 [<Struct>]
 type NavigationState =
@@ -61,7 +62,14 @@ type IRouter<'View> =
   abstract member ContentSnapshot: 'View voption
 
 
-type RouteGuard = RouteContext -> CancellationToken -> Task<bool>
+[<Struct>]
+type GuardResponse =
+  | Continue
+  | Stop
+  | Redirect of url: string
+
+type RouteGuard<'View> =
+  RouteContext -> INavigable<'View> -> CancellationToken -> Task<GuardResponse>
 
 type GetView<'View> =
   RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
@@ -82,9 +90,9 @@ type RouteDefinition<'View> = {
   [<CompiledName "Children">]
   children: RouteDefinition<'View> list
   [<CompiledName "CanActivate">]
-  canActivate: RouteGuard list
+  canActivate: RouteGuard<'View> list
   [<CompiledName "CanDeactivate">]
-  canDeactivate: RouteGuard list
+  canDeactivate: RouteGuard<'View> list
   [<CompiledName "CacheStrategy">]
   cacheStrategy: CacheStrategy
 }

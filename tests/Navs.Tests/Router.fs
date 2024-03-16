@@ -284,7 +284,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate((fun _ -> async { return false }))
+          |> Route.canActivate((fun _ _ -> async { return Stop }))
         ]
 
         let router = Router.get<string>(routes, (fun _ -> "Splash"))
@@ -325,7 +325,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ -> async { return false }))
+          |> Route.canDeactivate((fun _ _ -> async { return Stop }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -352,7 +352,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ -> async { return true }))
+          |> Route.canDeactivate((fun _ _ -> async { return Continue }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -375,7 +375,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ -> async { return false }))
+          |> Route.canActivate((fun _ _ -> async { return Stop }))
           |> Route.child(
             Route.define(
               "user",
@@ -409,7 +409,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ -> async { return true }))
+          |> Route.canActivate((fun _ _ -> async { return Continue }))
           |> Route.child(
             Route.define(
               "user",
@@ -452,7 +452,7 @@ module Guards =
                 $"User - %i{userId}"
               )
             )
-            |> Route.canActivate(fun _ -> async { return false })
+            |> Route.canActivate(fun _ _ -> async { return Stop })
           )
         ]
 
@@ -469,6 +469,88 @@ module Guards =
         Expect.equal view "Splash" "View should be Splash"
 
         Expect.equal definition "user" "Definition name should be user"
+      }
+
+      testCaseTask
+        $"Navigation canDeactivate redirections work the same as {nameof Stop}"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canDeactivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should be Home"
+
+        let! result = router.Navigate("/about")
+
+        match result with
+        | Error(CantDeactivate url) -> Expect.equal url "/" "Url should be /"
+        | _ -> failtest "Navigation should fail"
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should be Home"
+
+      }
+
+
+      testCaseTask "Navigation can be redirected from canActivate"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Login" "View should be Login"
+
+      }
+
+      testCaseTask "Navigation supports multiple forward redirections"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/about" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Login" "View should be Login"
+
       }
     ]
 
@@ -527,7 +609,7 @@ module Cancellation =
           )
           |> Route.canActivate(fun _ _ -> async {
             do! Async.Sleep 5000
-            return true
+            return Redirect "/login"
           })
         ]
 
@@ -703,7 +785,7 @@ module Cancellation =
           Route.define<string>("home", "/", (fun _ _ -> "Home"))
           |> Route.canDeactivate(fun _ _ -> async {
             do! Async.Sleep 5000
-            return true
+            return Continue
           })
           Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]

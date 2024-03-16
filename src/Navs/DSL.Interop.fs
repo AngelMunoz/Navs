@@ -14,11 +14,7 @@ do ()
 type Route =
 
   static member inline Define<'View>
-    (
-      name,
-      path,
-      getContent: Func<RouteContext, INavigable<'View>, 'View>
-    ) =
+    (name, path, getContent: Func<RouteContext, INavigable<'View>, 'View>) =
     {
       name = name
       pattern = path
@@ -46,16 +42,22 @@ type Route =
       cacheStrategy = Cache
     }
 
+
+[<RequireQualifiedAccess>]
+module Guard =
+  let inline Continue () = Continue
+  let inline Stop () = Stop
+
+  let inline Redirect url = Redirect url
+
+
 [<Extension>]
 type RouteDefinitionExtensions =
 
 
   [<Extension>]
   static member inline Child<'View>
-    (
-      routeDef: RouteDefinition<'View>,
-      child: RouteDefinition<'View>
-    ) =
+    (routeDef: RouteDefinition<'View>, child: RouteDefinition<'View>) =
     Route.child child routeDef
 
   [<Extension>]
@@ -71,7 +73,12 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<RouteContext, CancellationToken, Task<bool>> array
+        Func<
+          RouteContext,
+          INavigable<'View>,
+          CancellationToken,
+          Task<GuardResponse>
+         > array
     ) =
     {
       routeDef with
@@ -87,7 +94,12 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<RouteContext, CancellationToken, Task<bool>> array
+        Func<
+          RouteContext,
+          INavigable<'View>,
+          CancellationToken,
+          Task<GuardResponse>
+         > array
     ) =
     {
       routeDef with

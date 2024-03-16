@@ -96,7 +96,8 @@ type Route =
 
 module Route =
   let inline canActivateTask
-    ([<InlineIfLambda>] guard: RouteContext -> CancellationToken -> Task<bool>)
+    ([<InlineIfLambda>] guard:
+      RouteContext -> INavigable<_> -> CancellationToken -> Task<GuardResponse>)
     definition
     : RouteDefinition<_> =
     {
@@ -105,20 +106,25 @@ module Route =
     }
 
   let inline canActivate
-    ([<InlineIfLambda>] guard: RouteContext -> Async<bool>)
+    ([<InlineIfLambda>] guard:
+      RouteContext -> INavigable<_> -> Async<GuardResponse>)
     definition
     : RouteDefinition<_> =
     {
       definition with
           canActivate =
-            (fun ctx token ->
-              Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
+            (fun ctx nav token ->
+              Async.StartImmediateAsTask(
+                guard ctx nav,
+                cancellationToken = token
+              )
             )
             :: definition.canActivate
     }
 
   let inline canDeactivateTask
-    ([<InlineIfLambda>] guard: RouteContext -> CancellationToken -> Task<bool>)
+    ([<InlineIfLambda>] guard:
+      RouteContext -> INavigable<_> -> CancellationToken -> Task<GuardResponse>)
     definition
     : RouteDefinition<_> =
     {
@@ -127,14 +133,18 @@ module Route =
     }
 
   let inline canDeactivate
-    ([<InlineIfLambda>] guard: RouteContext -> Async<bool>)
+    ([<InlineIfLambda>] guard:
+      RouteContext -> INavigable<_> -> Async<GuardResponse>)
     definition
     : RouteDefinition<_> =
     {
       definition with
           canDeactivate =
-            (fun ctx token ->
-              Async.StartImmediateAsTask(guard ctx, cancellationToken = token)
+            (fun ctx nav token ->
+              Async.StartImmediateAsTask(
+                guard ctx nav,
+                cancellationToken = token
+              )
             )
             :: definition.canDeactivate
     }

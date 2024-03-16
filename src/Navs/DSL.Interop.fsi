@@ -32,6 +32,26 @@ type Route =
     name: string * path: string * getContent: Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>> ->
       RouteDefinition<'View>
 
+/// <summary>
+/// A module that provides functions for route guard responses
+/// </summary>
+[<RequireQualifiedAccess>]
+module Guard =
+
+  /// <summary>
+  /// A guard response that indicates that the navigation should continue
+  /// </summary>
+  val inline Continue: unit -> GuardResponse
+
+  /// <summary>
+  /// A guard response that indicates that the navigation should stop and fail the navigation
+  /// </summary>
+  val inline Stop: unit -> GuardResponse
+
+  /// <summary>
+  /// A guard response that indicates that the navigation should stop and redirect to the specified URL
+  /// </summary>
+  val inline Redirect: string -> GuardResponse
 
 /// <summary>
 /// Extensions for a builder-like API for defining routes in the application
@@ -57,7 +77,8 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanActivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext, CancellationToken, Task<bool>> array ->
+    routeDef: RouteDefinition<'View> *
+    [<ParamArray>] guards: Func<RouteContext, INavigable<'View>, CancellationToken, Task<GuardResponse>> array ->
       RouteDefinition<'View>
 
   /// <summary>
@@ -65,7 +86,8 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext, CancellationToken, Task<bool>> array ->
+    routeDef: RouteDefinition<'View> *
+    [<ParamArray>] guards: Func<RouteContext, INavigable<'View>, CancellationToken, Task<GuardResponse>> array ->
       RouteDefinition<'View>
 
   /// <summary>
