@@ -29,7 +29,7 @@ type internal RoutingEnv<'View> =
   { routes: RouteTrack<'View> seq
     state: cval<NavigationState>
     viewCache: cmap<string, ActiveRouteParams list * UrlInfo * 'View>
-    activeRoute: cval<voption<(RouteContext * (RouteGuard * RouteDefinition<'View>) list)>>
+    activeRoute: cval<voption<(RouteContext * (RouteGuard<'View> * RouteDefinition<'View>) list)>>
     content: cval<voption<'View>> }
 
 

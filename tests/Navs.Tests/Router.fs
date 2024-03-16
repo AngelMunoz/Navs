@@ -15,7 +15,7 @@ open UrlTemplates.RouteMatcher
 
 module NavigationState =
 
-  let tests =
+  let tests () =
     testList "NavigationState tests" [
       test "State should be Idle by default" {
         let router = Router.get<string>([], (fun _ -> "Splash"))
@@ -25,7 +25,8 @@ module NavigationState =
         Expect.equal state Idle "State should be Idle"
       }
 
-      testTask "State should be Navigating when navigating" {
+      testCaseTask "State should be Navigating when navigating"
+      <| fun () -> task {
         let routes = [
           Route.define<string>(
             "home",
@@ -65,9 +66,10 @@ module RouteContext =
   open System.Threading.Tasks
 
 
-  let tests =
+  let tests () =
     testList "RouteContext tests" [
-      testTask "RouteContext should contain the path" {
+      testCaseTask "RouteContext should contain the path"
+      <| fun () -> task {
         let router =
           Router.get<string>(
             [
@@ -96,7 +98,8 @@ module RouteContext =
         Expect.equal context.path "/about" "Path should be /about"
       }
 
-      testTask "Context should be none if navigation is cancelled or fails" {
+      ptestCaseTask "Context should be none if navigation is cancelled or fails"
+      <| fun () -> task {
         let router =
           Router.get(
             [
@@ -150,7 +153,7 @@ module RouteContext =
 
 module Navigation =
 
-  let tests =
+  let tests () =
     testList "Navs Navigation Tests" [
 
       test "Router is initialized without any views" {
@@ -171,7 +174,8 @@ module Navigation =
         Expect.equal "Splash" view "View should be Splash"
       }
 
-      testTask "The view should be updated when the route changes" {
+      testCaseTask "The view should be updated when the route changes"
+      <| fun () -> task {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
         let router = Router.get<string>(routes, (fun _ -> "Splash"))
@@ -186,7 +190,8 @@ module Navigation =
         Expect.equal view "Home" "View should be Home"
       }
 
-      testTask "The view should be the fallback if not found" {
+      testCaseTask "The view should be the fallback if not found"
+      <| fun () -> task {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
         let router = Router.get<string>(routes, (fun _ -> "Splash"))
@@ -205,7 +210,9 @@ module Navigation =
 
       }
 
-      testTask "The view should change any time there's a successful navigation" {
+      testCaseTask
+        "The view should change any time there's a successful navigation"
+      <| fun () -> task {
 
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
@@ -230,7 +237,8 @@ module Navigation =
         Expect.equal secondNavigation "Home" "Second navigation should be Home"
       }
 
-      testTask "Children can be navigated" {
+      testCaseTask "Children can be navigated"
+      <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.child(
@@ -269,12 +277,14 @@ module Navigation =
 
 module Guards =
 
-  let tests =
+  let tests () =
     testList "Guard Tests" [
-      testTask "Attempting to activate fails if canActivate returns false" {
+      testCaseTask
+        $"Attempting to activate fails if canActivate returns {nameof Stop}"
+      <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate((fun _ -> async { return false }))
+          |> Route.canActivate((fun _ _ -> async { return Stop }))
         ]
 
         let router = Router.get<string>(routes, (fun _ -> "Splash"))
@@ -289,10 +299,12 @@ module Guards =
 
       }
 
-      testTask "Attempting to activate succeeds if canActivate returns true" {
+      testCaseTask
+        $"Attempting to activate succeeds if canActivate returns {nameof Continue}"
+      <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate((fun _ -> async { return true }))
+          |> Route.canActivate((fun _ _ -> async { return Continue }))
         ]
 
         let router = Router.get<string>(routes, (fun _ -> "Splash"))
@@ -308,11 +320,12 @@ module Guards =
         Expect.equal view "Home" "View should be Home"
       }
 
-      testTask
-        "Attempting to navigate away fails if canDeactivate returns false" {
+      testCaseTask
+        $"Attempting to navigate away fails if canDeactivate returns {nameof Stop}"
+      <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ -> async { return false }))
+          |> Route.canDeactivate((fun _ _ -> async { return Stop }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -334,11 +347,12 @@ module Guards =
 
       }
 
-      testTask
-        "Attempting to navigate away succeeds if canDeactivate returns true" {
+      testCaseTask
+        $"Attempting to navigate away succeeds if canDeactivate returns {nameof Continue}"
+      <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ -> async { return true }))
+          |> Route.canDeactivate((fun _ _ -> async { return Continue }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -357,10 +371,11 @@ module Guards =
         Expect.equal view "About" "View should be About"
       }
 
-      testTask "Parent Guard can prevent child activation" {
+      testCaseTask "Parent Guard can prevent child activation"
+      <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ -> async { return false }))
+          |> Route.canActivate((fun _ _ -> async { return Stop }))
           |> Route.child(
             Route.define(
               "user",
@@ -390,10 +405,11 @@ module Guards =
         Expect.equal definition "users" "Definition name should be users"
       }
 
-      testTask "Parent Guard can allow child activation" {
+      testCaseTask "Parent Guard can allow child activation"
+      <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ -> async { return true }))
+          |> Route.canActivate((fun _ _ -> async { return Continue }))
           |> Route.child(
             Route.define(
               "user",
@@ -421,7 +437,8 @@ module Guards =
         Expect.equal view "User - 1" "View should be User - 1"
       }
 
-      testTask "Child Guard can prevent deactivation" {
+      testCaseTask "Child Guard can prevent deactivation"
+      <| fun () -> task {
         let routes = [
           Route.define("users", "/users", (fun _ _ -> "Users"))
           |> Route.child(
@@ -435,7 +452,7 @@ module Guards =
                 $"User - %i{userId}"
               )
             )
-            |> Route.canActivate(fun _ -> async { return false })
+            |> Route.canActivate(fun _ _ -> async { return Stop })
           )
         ]
 
@@ -453,6 +470,88 @@ module Guards =
 
         Expect.equal definition "user" "Definition name should be user"
       }
+
+      testCaseTask
+        $"Navigation canDeactivate redirections work the same as {nameof Stop}"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canDeactivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should be Home"
+
+        let! result = router.Navigate("/about")
+
+        match result with
+        | Error(CantDeactivate url) -> Expect.equal url "/" "Url should be /"
+        | _ -> failtest "Navigation should fail"
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should be Home"
+
+      }
+
+
+      testCaseTask "Navigation can be redirected from canActivate"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Login" "View should be Login"
+
+      }
+
+      testCaseTask "Navigation supports multiple forward redirections"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", (fun _ _ -> "Home"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/about" })
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
+          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
+        ]
+
+        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+
+        let (ValueSome splash) = router.Content |> AVal.force
+
+        Expect.equal splash "Splash" "Splash should be the initial view"
+
+        let! (Ok _) = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Login" "View should be Login"
+
+      }
     ]
 
 
@@ -460,10 +559,11 @@ module Cancellation =
   open System.Threading
   open System.Threading.Tasks
 
-  let tests =
+  let tests () =
     testList "Navigation cancellation tests" [
 
-      testTask "Navigation can be cancelled" {
+      testCaseTask "Navigation can be cancelled"
+      <| fun () -> task {
         let routes = [
           Route.define<string>(
             "home",
@@ -495,7 +595,8 @@ module Cancellation =
 
       }
 
-      testTask "Navigation can be cancelled while checking a guard" {
+      testCaseTask "Navigation can be cancelled while checking a guard"
+      <| fun () -> task {
 
         let routes = [
           Route.define<string>(
@@ -506,9 +607,9 @@ module Cancellation =
               return "Home"
             }
           )
-          |> Route.canActivate(fun _ -> async {
+          |> Route.canActivate(fun _ _ -> async {
             do! Async.Sleep 5000
-            return true
+            return Redirect "/login"
           })
         ]
 
@@ -531,7 +632,8 @@ module Cancellation =
 
       }
 
-      testTask "Route Token can cance inner navigations" {
+      testCaseTask "Route Token can cance inner navigations"
+      <| fun () -> task {
         let mutable count = 0
 
         let routes = [
@@ -578,8 +680,9 @@ module Cancellation =
         cts.Dispose()
 
       }
-      testTask
-        "Navigations are successful and inner navigations can be cancelled" {
+      testCaseTask
+        "Navigations are successful and inner navigations can be cancelled"
+      <| fun () -> task {
         let mutable count = 0
 
         let routes = [
@@ -644,7 +747,9 @@ module Cancellation =
 
       }
 
-      testTask "Navigation completes before cancellation and it doesn't throw" {
+      testCaseTask
+        "Navigation completes before cancellation and it doesn't throw"
+      <| fun () -> task {
         let routes = [
           Route.define<string>(
             "home",
@@ -673,12 +778,14 @@ module Cancellation =
         cts.Dispose()
       }
 
-      testTask "Navigation can be cancelled while checking deactivate guards" {
+      testCaseTask
+        "Navigation can be cancelled while checking deactivate guards"
+      <| fun () -> task {
         let routes = [
           Route.define<string>("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate(fun _ -> async {
+          |> Route.canDeactivate(fun _ _ -> async {
             do! Async.Sleep 5000
-            return true
+            return Continue
           })
           Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]
@@ -708,9 +815,9 @@ module Cancellation =
 [<Tests>]
 let tests =
   testList "Navs Router Tests" [
-    NavigationState.tests
-    RouteContext.tests
-    Navigation.tests
-    Guards.tests
-    Cancellation.tests
+    NavigationState.tests()
+    RouteContext.tests()
+    Navigation.tests()
+    Guards.tests()
+    Cancellation.tests()
   ]

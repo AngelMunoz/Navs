@@ -19,8 +19,9 @@ module Routes =
 
   [<Tests>]
   let tests =
-    testList "Navs Route Tests" [
-      testTask "define<View> should the correct route definition<view>" {
+    testList "Navs Route DSL Tests" [
+      testCaseTask "define<View> should the correct route definition<view> sync"
+      <| fun () -> task {
         let route = Route.define("home", "/", (fun _ _ -> "Home"))
 
         let expected = {
@@ -48,8 +49,9 @@ module Routes =
         Expect.equal actual expected "GetContent should be equal"
       }
 
-      testTask
-        "define<view> should create the correct route definition<view> Async" {
+      testCaseTask
+        "define<view> should create the correct route definition<view> Async"
+      <| fun () -> task {
         let route =
           Route.define<string>(
             "home",
@@ -83,8 +85,9 @@ module Routes =
 
       }
 
-      testTask
-        "define<view> should create the correct route definition<view> Task" {
+      testCaseTask
+        "define<view> should create the correct route definition<view> Task"
+      <| fun () -> task {
         let route =
           Route.define<string>(
             "home",
@@ -118,7 +121,3 @@ module Routes =
       }
 
     ]
-
-
-[<Tests>]
-let tests = testList "Navs DSL Tests" [ Routes.tests ]
