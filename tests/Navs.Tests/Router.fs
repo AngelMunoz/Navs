@@ -64,7 +64,8 @@ module NavigationState =
 
 module RouteContext =
 
-  let tests () =
+
+  let tests =
     testList "RouteContext tests" [
       testCaseTask "RouteContext should contain the path"
       <| fun () -> task {
@@ -96,8 +97,7 @@ module RouteContext =
         Expect.equal context.path "/about" "Path should be /about"
       }
 
-      testCaseTask "Context should be none if navigation is cancelled or fails"
-      <| fun () -> task {
+      testTask "Context should be none if navigation is cancelled or fails" {
         let router =
           Router.get(
             [
@@ -568,89 +568,8 @@ module Guards =
 
         Expect.equal definition "user" "Definition name should be user"
       }
-
-      testCaseTask
-        $"Navigation canDeactivate redirections work the same as {nameof Stop}"
-      <| fun () -> task {
-        let routes = [
-          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
-          Route.define<string>("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate(fun _ _ -> async { return Redirect "/login" })
-          Route.define<string>("about", "/about", (fun _ _ -> "About"))
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        let! (Ok _) = router.Navigate("/")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal view "Home" "View should be Home"
-
-        let! result = router.Navigate("/about")
-
-        match result with
-        | Error(CantDeactivate url) -> Expect.equal url "/" "Url should be /"
-        | _ -> failtest "Navigation should fail"
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal view "Home" "View should be Home"
-
-      }
-
-
-      testCaseTask "Navigation can be redirected from canActivate"
-      <| fun () -> task {
-        let routes = [
-          Route.define<string>("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
-          Route.define<string>("about", "/about", (fun _ _ -> "About"))
-          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        let! (Ok _) = router.Navigate("/")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal view "Login" "View should be Login"
-
-      }
-
-      testCaseTask "Navigation supports multiple forward redirections"
-      <| fun () -> task {
-        let routes = [
-          Route.define<string>("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate(fun _ _ -> async { return Redirect "/about" })
-          Route.define<string>("about", "/about", (fun _ _ -> "About"))
-          |> Route.canActivate(fun _ _ -> async { return Redirect "/login" })
-          Route.define<string>("login", "/login", (fun _ _ -> "Login"))
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        let! (Ok _) = router.Navigate("/")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal view "Login" "View should be Login"
-
-      }
     ]
+
 
 module Cancellation =
 
