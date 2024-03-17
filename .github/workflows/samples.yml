@@ -1,10 +1,17 @@
-name: dotnet
+name: Samples Build
 
 on:
   push:
     branches: [main]
+    paths:
+      - src/**
+      - tests/**
+      - samples/**
   pull_request:
     branches: [main]
+    paths:
+      - src/**
+      - samples/**
 
 jobs:
   build:
@@ -17,7 +24,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - run: dotnet restore
-      - run: dotnet build Navs.sln -f net8.0 --configuration Release --no-restore
+      - run: dotnet build samples/Samples.sln -f net8.0 --configuration Release --no-restore
   buildnet6:
     runs-on: ubuntu-latest
     name: Build dotnet 6.0
@@ -28,4 +35,4 @@ jobs:
         with:
           dotnet-version: "6.0.x"
       - run: dotnet restore
-      - run: dotnet build Navs.sln -f net6.0 --configuration Release --no-restore
+      - run: dotnet build samples/Samples.sln -f net6.0 --configuration Release --no-restore
