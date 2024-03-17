@@ -2,13 +2,17 @@ name: Samples Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - dev
     paths:
       - src/**
       - tests/**
       - samples/**
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - dev
     paths:
       - src/**
       - samples/**
