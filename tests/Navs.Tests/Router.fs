@@ -65,7 +65,7 @@ module NavigationState =
 module RouteContext =
 
 
-  let tests =
+  let tests () =
     testList "RouteContext tests" [
       testCaseTask "RouteContext should contain the path"
       <| fun () -> task {
