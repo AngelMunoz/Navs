@@ -8,7 +8,7 @@
       "name": "Debug Router Tests",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "Build: Navs.Tests.fsproj",
+      "preLaunchTask": "build:tests",
       "program": "${workspaceFolder}/tests/Navs.Tests/bin/Debug/net8.0/Navs.Tests.dll",
       "args": [],
       "cwd": "${workspaceFolder}",

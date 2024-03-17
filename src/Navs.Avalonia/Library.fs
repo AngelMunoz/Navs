@@ -124,11 +124,10 @@ type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
 type Route =
 
   static member define
-    (
-      name,
-      path,
-      handler: RouteContext -> INavigable<Control> -> Async<#Control>
-    ) : RouteDefinition<Control> =
+    (name, path, handler: RouteContext -> INavigable<Control> -> Async<#Control>) : RouteDefinition<
+                                                                                      Control
+                                                                                     >
+    =
     Navs.Route.define<Control>(
       name,
       path,
@@ -158,11 +157,10 @@ type Route =
     )
 
   static member define
-    (
-      name,
-      path,
-      handler: RouteContext -> INavigable<Control> -> #Control
-    ) : RouteDefinition<Control> =
+    (name, path, handler: RouteContext -> INavigable<Control> -> #Control) : RouteDefinition<
+                                                                               Control
+                                                                              >
+    =
     Navs.Route.define<Control>(name, path, (fun c n -> handler c n :> Control))
 
 module Interop =
@@ -170,11 +168,7 @@ module Interop =
   type Route =
     [<CompiledName "Define">]
     static member inline define
-      (
-        name,
-        path,
-        handler: Func<RouteContext, INavigable<Control>, #Control>
-      ) =
+      (name, path, handler: Func<RouteContext, INavigable<Control>, #Control>) =
       Navs.Route.define(
         name,
         path,
@@ -187,7 +181,12 @@ module Interop =
         name,
         path,
         handler:
-          Func<RouteContext, INavigable<Control>, CancellationToken, Task<#Control>>
+          Func<
+            RouteContext,
+            INavigable<Control>,
+            CancellationToken,
+            Task<#Control>
+           >
       ) =
       Navs.Route.define(
         name,
@@ -312,20 +311,16 @@ type RouterOutletExtensions =
 
   [<Extension; CompiledName "Router">]
   static member inline router
-    (
-      routerOutlet: RouterOutlet,
-      router: IRouter<Control>
-    ) =
+    (routerOutlet: RouterOutlet, router: IRouter<Control>)
+    =
     routerOutlet[RouterOutlet.RouterProperty] <- router
     routerOutlet
 
   [<Extension; CompiledName "PageTransition">]
 
   static member inline pageTransition
-    (
-      routerOutlet: RouterOutlet,
-      pageTransition: IPageTransition
-    ) =
+    (routerOutlet: RouterOutlet, pageTransition: IPageTransition)
+    =
     routerOutlet[RouterOutlet.PageTransitionProperty] <- pageTransition
     routerOutlet
 
@@ -351,10 +346,8 @@ type RouterOutletExtensions =
 
   [<Extension; CompiledName "NoContent">]
   static member inline noContent
-    (
-      routerOutlet: RouterOutlet,
-      noContent: Control
-    ) =
+    (routerOutlet: RouterOutlet, noContent: Control)
+    =
     routerOutlet[RouterOutlet.NoContentProperty] <- noContent
     routerOutlet
 

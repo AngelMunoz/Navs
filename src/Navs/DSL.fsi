@@ -72,7 +72,7 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canActivateTask:
-    [<InlineIfLambda>] guard: (RouteContext -> CancellationToken -> Task<bool>) ->
+    [<InlineIfLambda>] guard: (RouteContext -> INavigable<'a> -> CancellationToken -> Task<GuardResponse>) ->
     definition: RouteDefinition<'a> ->
       RouteDefinition<'a>
 
@@ -83,7 +83,9 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canActivate:
-    [<InlineIfLambda>] guard: (RouteContext -> Async<bool>) -> definition: RouteDefinition<'a> -> RouteDefinition<'a>
+    [<InlineIfLambda>] guard: (RouteContext -> INavigable<'a> -> Async<GuardResponse>) ->
+    definition: RouteDefinition<'a> ->
+      RouteDefinition<'a>
 
   /// <summary>
   /// A Task function to define if a route can be deactivated.
@@ -92,7 +94,7 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canDeactivateTask:
-    [<InlineIfLambda>] guard: (RouteContext -> CancellationToken -> Task<bool>) ->
+    [<InlineIfLambda>] guard: (RouteContext -> INavigable<'a> -> CancellationToken -> Task<GuardResponse>) ->
     definition: RouteDefinition<'a> ->
       RouteDefinition<'a>
 
@@ -103,4 +105,6 @@ module Route =
   /// <param name="definition">The route definition</param>
   /// <returns>The route definition with the guard added</returns>
   val inline canDeactivate:
-    [<InlineIfLambda>] guard: (RouteContext -> Async<bool>) -> definition: RouteDefinition<'a> -> RouteDefinition<'a>
+    [<InlineIfLambda>] guard: (RouteContext -> INavigable<'a> -> Async<GuardResponse>) ->
+    definition: RouteDefinition<'a> ->
+      RouteDefinition<'a>

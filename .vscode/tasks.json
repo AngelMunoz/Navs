@@ -2,11 +2,20 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "msbuild",
-      "problemMatcher": ["$msCompile"],
-      "group": "build",
-      "label": "Build: Navs.Tests.fsproj",
-      "detail": "Build the Navs.Tests.fsproj project using dotnet build"
+      "command": "dotnet",
+      "label": "build:tests",
+      "type": "shell",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile",
+      "args": [
+        "build",
+        "${workspaceFolder}/tests/Navs.Tests/Navs.Tests.fsproj",
+        "-f",
+        "net8.0"
+      ]
     }
   ]
 }

@@ -40,6 +40,7 @@ type NavigationError<'View> =
   | NavigationFailed of message: string
   | CantDeactivate of deactivatedRoute: string
   | CantActivate of activatedRoute: string
+  | GuardRedirect of redirectTo: string
 
 [<Struct>]
 type NavigationState =
@@ -142,10 +143,15 @@ type IRouter<'View> =
   /// </remarks>
   abstract member ContentSnapshot: 'View voption
 
+[<Struct>]
+type GuardResponse =
+  | Continue
+  | Stop
+  | Redirect of url: string
 
 /// An alias for a function that takes a route context and a cancellation token
 /// In order to determine if the route can be activated/deactivated or not.
-type RouteGuard = RouteContext -> CancellationToken -> Task<bool>
+type RouteGuard<'View> = RouteContext -> INavigable<'View> -> CancellationToken -> Task<GuardResponse>
 
 /// An alias for a function that takes a route context and a cancellation token
 /// in order to extract the view that will be rendered when the route is activated.
@@ -181,11 +187,11 @@ type RouteDefinition<'View> =
     /// The guards that will be executed when the route is activated.
     /// If any of them returns false, the route will not be activated.
     [<CompiledName "CanActivate">]
-    canActivate: RouteGuard list
+    canActivate: RouteGuard<'View> list
     /// The guards that will be executed when the route is deactivated.
     /// If any of them returns false, the route will not be deactivated.
     [<CompiledName "CanDeactivate">]
-    canDeactivate: RouteGuard list
+    canDeactivate: RouteGuard<'View> list
     /// The strategy that the router will use to cache the views that are rendered
     /// when the route is activated.
     [<CompiledName "CacheStrategy">]

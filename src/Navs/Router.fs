@@ -2,7 +2,6 @@ namespace Navs.Router
 
 open System
 open System.Collections.Generic
-open System.Threading
 open System.Runtime.InteropServices
 
 open FsToolkit.ErrorHandling
@@ -29,7 +28,9 @@ type RoutingEnv<'View> = {
   state: cval<NavigationState>
   viewCache: cmap<string, ActiveRouteParams list * UrlInfo * 'View>
   activeRoute:
-    cval<voption<(RouteContext * (RouteGuard * RouteDefinition<'View>) list)>>
+    cval<
+      voption<(RouteContext * (RouteGuard<'View> * RouteDefinition<'View>) list)>
+     >
   content: cval<voption<'View>>
 }
 
@@ -44,14 +45,33 @@ type ParamResoluton<'View> = {
 [<NoEquality; NoComparison>]
 type RouteResolution<'View> = {
   view: 'View
-  canDeactivateGuards: (RouteGuard * RouteDefinition<'View>) list
+  canDeactivateGuards: (RouteGuard<'View> * RouteDefinition<'View>) list
 }
 
 [<Struct; NoComparison>]
 type Guards<'View> = {
-  canActivate: list<RouteGuard * RouteDefinition<'View>>
-  canDeactivate: list<RouteGuard * RouteDefinition<'View>>
+  canActivate: list<RouteGuard<'View> * RouteDefinition<'View>>
+  canDeactivate: list<RouteGuard<'View> * RouteDefinition<'View>>
 }
+
+[<Struct; NoComparison>]
+type Redirection = { from: string; target: string }
+
+module Dictionary =
+
+  let areEqual (a: IDictionary<_, _>) (b: IDictionary<_, _>) =
+    if a = b then
+      true
+    else if a.Count <> b.Count then
+      false
+    else
+      a
+      |> Seq.forall(fun (KeyValue(k, v)) ->
+        match b.TryGetValue k with
+        | true, v' -> v = v'
+        | _ -> false
+      )
+
 
 
 module RouteTracks =
@@ -83,10 +103,12 @@ module RouteTracks =
     (track: RouteDefinition<'View>)
     =
     let queue =
-      Queue<string *
-      RouteTrack<'View> voption *
-      RouteDefinition<'View> *
-      RouteTrack<'View> list>()
+      Queue<
+        string *
+        RouteTrack<'View> voption *
+        RouteDefinition<'View> *
+        RouteTrack<'View> list
+       >()
 
     let result = ResizeArray<RouteTrack<'View>>()
 
@@ -134,10 +156,8 @@ module RouteTracks =
 module RoutingEnv =
 
   let get<'View>
-    (
-      routes: RouteDefinition<'View> seq,
-      splash: (unit -> 'View) option
-    ) =
+    (routes: RouteDefinition<'View> seq, splash: (unit -> 'View) option)
+    =
     let routes = RouteTracks.fromDefinitions routes
 
     {
@@ -148,8 +168,6 @@ module RoutingEnv =
       content =
         cval(splash |> ValueOption.ofOption |> ValueOption.map(fun f -> f()))
     }
-
-
 
 module Result =
   let inline requireValueSome (msg: string) (value: 'a voption) =
@@ -178,7 +196,6 @@ module RouteInfo =
           )
         | _ -> None
       )
-
 
   let digUpToRoot (track: RouteTrack<'View>) =
     let queue = Queue<RouteTrack<'View>>()
@@ -236,8 +253,8 @@ module RouteInfo =
 
   let extractGuards (activeGraph: RouteTrack<'View> seq) =
 
-    let canActivate = Stack<RouteGuard * RouteDefinition<'View>>()
-    let canDeactivate = Queue<RouteGuard * RouteDefinition<'View>>()
+    let canActivate = Stack<RouteGuard<'View> * RouteDefinition<'View>>()
+    let canDeactivate = Queue<RouteGuard<'View> * RouteDefinition<'View>>()
 
     activeGraph
     |> Seq.iter(fun route ->
@@ -262,8 +279,9 @@ module RouteInfo =
 module Navigable =
 
   let runGuards<'View>
-    (onFalsePredicate: string -> NavigationError<'View>)
-    (guards: (RouteGuard * RouteDefinition<'View>) list)
+    (navigable: INavigable<'View>)
+    (onStop: string -> NavigationError<'View>)
+    (guards: (RouteGuard<'View> * RouteDefinition<'View>) list)
     nextContext
     =
     async {
@@ -271,41 +289,54 @@ module Navigable =
 
       return!
         guards
-        |> List.traverseAsyncResultM(fun (guard, definition) ->
+        |> List.traverseAsyncResultM(fun (guard, definition) -> asyncResult {
           if token.IsCancellationRequested then
-            AsyncResult.error NavigationCancelled
+            return! Error NavigationCancelled
           else
-            guard nextContext token
-            |> Async.AwaitTask
-            |> AsyncResult.requireTrue(onFalsePredicate definition.name)
-        )
+            let! result = guard nextContext navigable token |> Async.AwaitTask
+
+            match result with
+            | Continue -> return ()
+            | Stop -> return! Error(onStop definition.name)
+            | Redirect url -> return! Error(GuardRedirect url)
+
+        })
         |> AsyncResult.ignore
     }
 
-  let canDeactivate (activeContext) = asyncResult {
+  let canDeactivate (nav: ref<INavigable<_>>) activeContext = async {
     match activeContext |> AVal.force with
+    | ValueNone -> return Ok()
     | ValueSome(activeContext, activeGuards) ->
 
-      do! runGuards CantDeactivate activeGuards activeContext
+      let! result =
+        runGuards nav.Value CantDeactivate activeGuards activeContext
 
-    | ValueNone -> ()
+      match result with
+      | Error(GuardRedirect _) ->
+        return Error(CantDeactivate activeContext.path)
+      | value -> return value
   }
 
-  let canActivate (nextContext, activeRouteNodes) = asyncResult {
+  let canActivate (nav: ref<INavigable<_>>) (nextContext, activeRouteNodes) = asyncResult {
     let guards = RouteInfo.extractGuards activeRouteNodes
 
-    do! runGuards CantActivate guards.canActivate nextContext
+    do! runGuards nav.Value CantActivate guards.canActivate nextContext
+
     return guards
   }
 
   let tryGetFromCache
     (liveNodes: cmap<string, ActiveRouteParams list * UrlInfo * 'View>)
     =
-    fun (key, nextRouteParams, nextUrlInfo) ->
+    fun (key, nextRouteParams, nextUrlInfo: UrlInfo) ->
       match liveNodes.TryGetValue key with
       | Some(oldParams, oldUrlInfo, oldView) ->
         if nextRouteParams = oldParams then
-          ValueSome oldView
+          if Dictionary.areEqual oldUrlInfo.Query nextUrlInfo.Query then
+            ValueSome oldView
+          else
+            ValueNone
         else
           ValueNone
       | None -> ValueNone
@@ -376,15 +407,28 @@ module Navigable =
     }
   }
 
+  type private CanDeactivateExecutor<'View> =
+    (voption<RouteContext * list<RouteGuard<'View> * RouteDefinition<'View>>>) cval
+      -> Async<Result<unit, NavigationError<'View>>>
+
+  type private CanActivateExecutor<'View> =
+    RouteContext * seq<RouteTrack<'View>>
+      -> Async<Result<Guards<'View>, NavigationError<'View>>>
+
+  type private ResolveViewExecutor<'View> =
+    ParamResoluton<'View> -> Async<Result<'View, NavigationError<'View>>>
+
   let navigateByUrl
     (
       routingEnv,
       resolveParams,
-      resolveView:
-        ParamResoluton<'View> -> Async<Result<'View, NavigationError<'View>>>
+      resolveView: ResolveViewExecutor<'View>,
+      canActivate: CanActivateExecutor<'View>,
+      canDeactivate: CanDeactivateExecutor<'View>
     ) =
     fun (url: string) -> asyncResult {
       let! token = Async.CancellationToken
+
       // 1. Can Deactivate
       do! canDeactivate routingEnv.activeRoute
 
@@ -431,14 +475,22 @@ module Navigable =
         )
     }
 
-  let navigateByName routingEnv nav =
+  let navigateByName routingEnv nav redirectionStack =
     fun name routeParams -> asyncResult {
-
       let tryGetFromCache = tryGetFromCache routingEnv.viewCache
       let resolveParams = resolveParams routingEnv
       let resolveView = resolveView tryGetFromCache nav
+      let canActivate = canActivate nav
+      let canDeactivate = canDeactivate nav
 
-      let navigateByUrl = navigateByUrl(routingEnv, resolveParams, resolveView)
+      let navigateByUrl =
+        navigateByUrl(
+          routingEnv,
+          resolveParams,
+          resolveView,
+          canActivate,
+          canDeactivate
+        )
 
       let routeParams: IReadOnlyDictionary<string, obj> =
         routeParams
@@ -464,7 +516,17 @@ module Navigable =
     let tryGetFromCache = tryGetFromCache routingEnv.viewCache
     let resolveParams = resolveParams routingEnv
     let resolveView = resolveView tryGetFromCache navigable
-    let navigateByUrl = navigateByUrl(routingEnv, resolveParams, resolveView)
+    let canActivate = canActivate navigable
+    let canDeactivate = canDeactivate navigable
+
+    let navigateByUrl =
+      navigateByUrl(
+        routingEnv,
+        resolveParams,
+        resolveView,
+        canActivate,
+        canDeactivate
+      )
 
     navigable.Value <-
       { new INavigable<'View> with
@@ -474,15 +536,51 @@ module Navigable =
           override _.StateSnapshot = routingEnv.state |> AVal.force
 
           override _.Navigate(url, ?cancellationToken) = task {
+            let redirectionStack = Stack<Redirection>()
+
             try
               transact(fun _ -> routingEnv.state.Value <- Navigating)
 
               try
-                return!
+                let! result =
                   Async.StartImmediateAsTask(
                     navigateByUrl url,
                     ?cancellationToken = cancellationToken
                   )
+
+                let mutable lastResult = result
+
+                match result with
+                | Ok _ -> ()
+                | Error(GuardRedirect redirectTo) ->
+                  redirectionStack.Push({ from = url; target = redirectTo })
+                | Error _ -> redirectionStack.Clear()
+
+                while redirectionStack.Count > 0 do
+                  let { from = from; target = target } = redirectionStack.Pop()
+
+                  let! result =
+                    Async.StartImmediateAsTask(
+                      navigateByUrl target,
+                      ?cancellationToken = cancellationToken
+                    )
+
+                  lastResult <- result
+
+                  match result with
+                  | Ok _ -> ()
+                  | Error(GuardRedirect redirectTo) ->
+
+                    if target = redirectTo then
+                      ()
+                    else
+                      redirectionStack.Push(
+                        { from = from; target = redirectTo }
+                      )
+                  | Error _ -> redirectionStack.Clear()
+
+                return lastResult
+
               with
               | :? TaskCanceledException
               | :? OperationCanceledException ->
@@ -499,15 +597,57 @@ module Navigable =
           }
 
           override _.NavigateByName(name, ?routeParams, ?cancellationToken) = task {
+            let redirectionStack = Stack<Redirection>()
+
             try
               transact(fun _ -> routingEnv.state.Value <- Navigating)
 
               try
-                return!
+                let! result =
                   Async.StartImmediateAsTask(
-                    navigateByName routingEnv navigable name routeParams,
+                    navigateByName
+                      routingEnv
+                      navigable
+                      redirectionStack
+                      name
+                      routeParams,
                     ?cancellationToken = cancellationToken
                   )
+
+                let mutable lastResult = result
+
+                match result with
+                | Ok _ -> ()
+                | Error(GuardRedirect redirectTo) ->
+                  printfn "Redirecting to %s" redirectTo
+                  redirectionStack.Push({ from = name; target = redirectTo })
+                | Error _ -> redirectionStack.Clear()
+
+                while redirectionStack.Count > 0 do
+                  let { from = from; target = target } = redirectionStack.Pop()
+
+                  let! result =
+                    Async.StartImmediateAsTask(
+                      navigateByUrl target,
+                      ?cancellationToken = cancellationToken
+                    )
+
+                  lastResult <- result
+
+                  match result with
+                  | Ok _ -> ()
+                  | Error(GuardRedirect redirectTo) ->
+                    printfn "Redirecting to %s" redirectTo
+
+                    if from = from && target = redirectTo then
+                      ()
+                    else
+                      redirectionStack.Push(
+                        { from = from; target = redirectTo }
+                      )
+                  | Error _ -> redirectionStack.Clear()
+
+                return lastResult
               with
               | :? TaskCanceledException
               | :? OperationCanceledException ->
