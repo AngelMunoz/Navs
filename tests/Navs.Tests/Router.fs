@@ -63,8 +63,6 @@ module NavigationState =
     ]
 
 module RouteContext =
-  open System.Threading.Tasks
-
 
   let tests () =
     testList "RouteContext tests" [
@@ -98,7 +96,7 @@ module RouteContext =
         Expect.equal context.path "/about" "Path should be /about"
       }
 
-      ptestCaseTask "Context should be none if navigation is cancelled or fails"
+      testCaseTask "Context should be none if navigation is cancelled or fails"
       <| fun () -> task {
         let router =
           Router.get(
@@ -152,6 +150,11 @@ module RouteContext =
     ]
 
 module Navigation =
+  type StatefulRoute = {
+    id: int
+    state: ref<int>
+    updateState: unit -> unit
+  }
 
   let tests () =
     testList "Navs Navigation Tests" [
@@ -271,6 +274,101 @@ module Navigation =
         Expect.equal users "Users" "Users should be the first navigation"
 
         Expect.equal view "User - 1" "View should be User - 1"
+      }
+
+      testCaseTask "State is preserved if the route is the same"
+      <| fun () -> task {
+
+        let routes = [
+          Route.define<StatefulRoute>(
+            "user",
+            "/?id<int>",
+            fun ctx _ -> async {
+              let (ValueSome userId) =
+                UrlMatch.getFromParams<int> "id" ctx.urlMatch
+
+              let state = ref 10
+
+              return {
+                id = userId
+                state = state
+                updateState = (fun () -> state.Value <- state.Value + 1)
+              }
+            }
+          )
+        ]
+
+        let router = Router.get<StatefulRoute>(routes)
+
+        let! (Ok _) = router.Navigate("/?id=1")
+
+        let (ValueSome {
+                         id = id
+                         state = state
+                         updateState = updateState
+                       }) =
+          router.Content |> AVal.force
+
+        Expect.equal id 1 "Id should be 1"
+        Expect.equal state.Value 10 "State should be 10"
+
+        updateState()
+
+        let! (Ok _) = router.Navigate("/?id=1")
+
+        let (ValueSome { id = id; state = state }) =
+          router.Content |> AVal.force
+
+        Expect.equal id 1 "Id should be 1"
+        Expect.equal state.Value 11 "State should be 11"
+      }
+
+      testCaseTask "State is not preserved if the query changes"
+      <| fun () -> task {
+
+        let routes = [
+          Route.define<StatefulRoute>(
+            "user",
+            "/?id<int>",
+            fun ctx _ -> async {
+              let (ValueSome userId) =
+                UrlMatch.getFromParams<int> "id" ctx.urlMatch
+
+              let state = ref 10
+
+              return {
+                id = userId
+                state = state
+                updateState = (fun () -> state.Value <- state.Value + 1)
+              }
+            }
+          )
+        ]
+
+        let router = Router.get<StatefulRoute>(routes)
+
+        let! (Ok _) = router.Navigate("/?id=1")
+
+        let (ValueSome {
+                         id = id
+                         state = state
+                         updateState = updateState
+                       }) =
+          router.Content |> AVal.force
+
+        Expect.equal id 1 "Id should be 1"
+
+        updateState()
+
+        Expect.equal state.Value 11 "State should be 11"
+
+        let! (Ok _) = router.Navigate("/?id=2")
+
+        let (ValueSome { id = id; state = state }) =
+          router.Content |> AVal.force
+
+        Expect.equal id 2 "Id should be 2"
+        Expect.equal state.Value 10 "State should be 10"
       }
 
     ]
@@ -554,10 +652,7 @@ module Guards =
       }
     ]
 
-
 module Cancellation =
-  open System.Threading
-  open System.Threading.Tasks
 
   let tests () =
     testList "Navigation cancellation tests" [

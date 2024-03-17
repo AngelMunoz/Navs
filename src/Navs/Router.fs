@@ -57,6 +57,22 @@ type Guards<'View> = {
 [<Struct; NoComparison>]
 type Redirection = { from: string; target: string }
 
+module Dictionary =
+
+  let areEqual (a: IDictionary<_, _>) (b: IDictionary<_, _>) =
+    if a = b then
+      true
+    else if a.Count <> b.Count then
+      false
+    else
+      a
+      |> Seq.forall(fun (KeyValue(k, v)) ->
+        match b.TryGetValue k with
+        | true, v' -> v = v'
+        | _ -> false
+      )
+
+
 
 module RouteTracks =
 
@@ -313,11 +329,14 @@ module Navigable =
   let tryGetFromCache
     (liveNodes: cmap<string, ActiveRouteParams list * UrlInfo * 'View>)
     =
-    fun (key, nextRouteParams, nextUrlInfo) ->
+    fun (key, nextRouteParams, nextUrlInfo: UrlInfo) ->
       match liveNodes.TryGetValue key with
       | Some(oldParams, oldUrlInfo, oldView) ->
         if nextRouteParams = oldParams then
-          ValueSome oldView
+          if Dictionary.areEqual oldUrlInfo.Query nextUrlInfo.Query then
+            ValueSome oldView
+          else
+            ValueNone
         else
           ValueNone
       | None -> ValueNone
