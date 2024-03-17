@@ -6,7 +6,7 @@ category: Libraries
 ---
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-007"
+    #r "nuget: Navs.Avalonia, 1.0.0-beta-008"
 
 ## Navs.FuncUI
 

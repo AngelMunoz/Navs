@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-007"
+#r "nuget: Navs, 1.0.0-beta-008"
 
 open FSharp.Data.Adaptive
 open System
@@ -299,22 +299,33 @@ the longer it takes to resolve the guard, the longer it will take to navigate to
 *)
 
 asyncRoute
-|> Route.canActivate(fun routeContext -> async {
+|> Route.canActivate(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
-  // return true to allow the navigation
-  // return false to prevent the navigation
-  return true
+  // return Continue to allow the navigation
+  // return Stop to prevent the navigation
+  return Continue
 })
-|> Route.canDeactivate(fun routeContext -> async {
+|> Route.canDeactivate(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
-  // return true to allow the navigation
-  // return false to prevent the navigation
-  return true
+  // return Continue to allow the navigation
+  // return Stop to prevent the navigation
+  return Stop
+})
+|> Route.canActivate(fun routeContext _ -> async {
+  let! token = Async.CancellationToken
+  do! Task.Delay(90, token) |> Async.AwaitTask
+  // CanActivate guards can also "Re-direct" to a different route
+  return Redirect "/home"
 })
 
 (**
+
+Route Can Activate Guards can also be used to redirect to a different route, for example you can protect a route and if the user is not authenticated you can redirect them to the login view.
+
+> ***Note***: Can Deactivate guards while accept the "Redirect" result, they will not redirect the user to a different route. It will behave the same as if the guard returned "Stop".
+
 ## Caching
 
 The default behavior of the router is to obtain the view from an internal cache if it's available. However, you can change this behavior by using the `Route.cache` function.

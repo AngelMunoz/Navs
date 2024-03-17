@@ -12,7 +12,7 @@ This library specializes itself in parsing URL-like strings into structured obje
 *)
 
 (*** hide ***)
-#r "nuget: UrlTemplates, 1.0.0-beta-007"
+#r "nuget: UrlTemplates, 1.0.0-beta-008"
 
 open System
 (**
