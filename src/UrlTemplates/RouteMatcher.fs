@@ -82,34 +82,26 @@ type UrlMatchExtensions =
 
   [<Extension; CompiledName "GetParamSeqFromQuery">]
   static member inline getParamSeqFromQuery<'CastedType>
-    (
-      urlMatch: UrlMatch,
-      name: string
-    ) =
+    (urlMatch: UrlMatch, name: string)
+    =
     UrlMatch.getParamSeqFromQuery<'CastedType> name urlMatch
 
   [<Extension; CompiledName "GetParamFromQuery">]
   static member inline getParamFromQuery<'CastedType>
-    (
-      urlMatch: UrlMatch,
-      name: string
-    ) =
+    (urlMatch: UrlMatch, name: string)
+    =
     UrlMatch.getParamFromQuery<'CastedType> name urlMatch
 
   [<Extension; CompiledName "GetParamFromPath">]
   static member inline getParamFromPath<'CastedType>
-    (
-      urlMatch: UrlMatch,
-      name: string
-    ) =
+    (urlMatch: UrlMatch, name: string)
+    =
     UrlMatch.getParamFromPath<'CastedType> name urlMatch
 
   [<Extension; CompiledName "GetFromParams">]
   static member inline getFromParams<'CastedType>
-    (
-      urlMatch: UrlMatch,
-      name: string
-    ) =
+    (urlMatch: UrlMatch, name: string)
+    =
     UrlMatch.getFromParams<'CastedType> name urlMatch
 
 
