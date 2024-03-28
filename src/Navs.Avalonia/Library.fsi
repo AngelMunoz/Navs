@@ -50,6 +50,18 @@ module AVal =
     /// </summary>
     val UseState<'Value> : initialValue: 'Value -> struct (aval<'Value> * Action<Func<'Value, 'Value>>)
 
+[<RequireQualifiedAccess>]
+module CVal =
+
+  /// <summary>
+  /// Provides a double way binding for changeable values
+  /// </summary>
+  /// <remarks>
+  /// This binding is read-write and can be used to bind to properties that support two-way binding.
+  /// If you're looking to just use a readonly binding, use the `toBinding` method with the AVal module instead.
+  /// </remarks>
+  [<CompiledName "ToBinding">]
+  val toBinding<'Value> : cval<'Value> -> IBinding
 
 /// <summary>
 /// dotnet interop friendly API for adaptive and changeable data
@@ -72,8 +84,21 @@ type AValExtensions =
   [<CompiledName "SetValue"; Extension>]
   static member inline setValue: adaptiveValue: cval<'Value> * setValue: Func<'Value, 'Value> -> unit
 
+  /// <summary>
+  /// Creates a one-way binding from an adaptive value which can be bound to Avalonia properties.
+  /// </summary>
   [<CompiledName "ToBinding"; Extension>]
   static member inline toBinding: value: aval<'Value> -> IBinding
+
+  /// <summary>
+  /// Creates a two-way binding from a changeable value which can be bound to Avalonia properties.
+  /// </summary>
+  /// <remarks>
+  /// This binding is read-write and can be used to bind to properties that support two-way binding.
+  /// If you're looking to just use a readonly binding, use the `toBinding` method with an aval instead.
+  /// </remarks>
+  [<CompiledName "ToBinding"; Extension>]
+  static member inline toBinding: value: cval<'Value> -> IBinding
 
 
 /// <summary>

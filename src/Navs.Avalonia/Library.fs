@@ -73,6 +73,41 @@ module AVal =
 
       struct (value :> aval<_>, action)
 
+[<RequireQualifiedAccess>]
+module CVal =
+
+  [<CompiledName "ToBinding">]
+  let toBinding<'Value> (value: cval<'Value>) =
+
+    { new IBinding with
+        member _.Initiate
+          (
+            target: Avalonia.AvaloniaObject,
+            targetProperty: Avalonia.AvaloniaProperty,
+            anchor: obj,
+            enableDataValidation: bool
+          ) : InstancedBinding =
+
+          InstancedBinding.TwoWay(
+            { new IObservable<obj> with
+                member _.Subscribe(observer) =
+                  value.AddCallback(observer.OnNext)
+            },
+            { new IObserver<obj> with
+                member _.OnNext(newValue) =
+                  match newValue with
+                  | :? 'Value as newValue ->
+                    transact(fun _ -> value.Value <- newValue)
+                  | _ -> ()
+
+                member _.OnError(_) = ()
+                member _.OnCompleted() = ()
+            },
+            BindingPriority.LocalValue
+          )
+    }
+
+
 [<Extension; Class>]
 type AValExtensions =
 
@@ -92,6 +127,9 @@ type AValExtensions =
 
   [<CompiledName "ToBinding"; Extension>]
   static member inline toBinding(value: aval<_>) = AVal.toBinding value
+
+  [<CompiledName "ToBinding"; Extension>]
+  static member inline toBinding(value: cval<_>) = CVal.toBinding value
 
 type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
   let router =
