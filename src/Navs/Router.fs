@@ -619,7 +619,6 @@ module Navigable =
                 match result with
                 | Ok _ -> ()
                 | Error(GuardRedirect redirectTo) ->
-                  printfn "Redirecting to %s" redirectTo
                   redirectionStack.Push({ from = name; target = redirectTo })
                 | Error _ -> redirectionStack.Clear()
 
@@ -637,7 +636,6 @@ module Navigable =
                   match result with
                   | Ok _ -> ()
                   | Error(GuardRedirect redirectTo) ->
-                    printfn "Redirecting to %s" redirectTo
 
                     if from = from && target = redirectTo then
                       ()
