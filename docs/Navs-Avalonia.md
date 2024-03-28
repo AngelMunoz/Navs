@@ -242,3 +242,32 @@ An alternative of course would be to hoist the updates to the parent and all of 
         )
 
 Hoisting events is a common pattern and tends to be the most flexible way to handle updates, changeable values can act also like stores however, so they can be passed around without much issue as updates are always predictable and transactional.
+
+For cases where you might want to _bind_ the value to a control and make changes propagate automatically, you can use `changeable values` which are adaptive values that can be set directly.
+
+    let myTextBox(value: cval<string>) =
+      TextBox()
+        .text(
+          value
+          |> CVal.toBinding
+        )
+
+    let parent() =
+      let sharedValue = cval "Hello"
+
+> **_Note_**: For double way binding we're using the `toBinding` function available in the `CVal` module rather than `AVal.toBinding` which is read-only.
+
+      StackPanel()
+        .spacing(4)
+        .children(
+          myTextBox(sharedValue)
+          TextBlock()
+            .text(
+              sharedValue
+              |> AVal.map(fun v -> $"Shared Value: %s{v}")
+              |> AVal.toBinding
+            )
+        )
+
+In that example, the `TextBox` will automatically update the `sharedValue` when the user types in it, and the `TextBlock` will update when the `sharedValue` changes.
+This can be very useful for cases where you want to share information that could be updated from multiple components in a reactive and functional way.
