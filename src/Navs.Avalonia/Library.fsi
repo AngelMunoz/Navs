@@ -38,6 +38,12 @@ module AVal =
   val useState: initialValue: 'Value -> aval<'Value> * (('Value -> 'Value) -> unit)
 
   /// <summary>
+  /// Converts an adaptive value into an observable
+  /// </summary>
+  [<CompiledName "ToObservable">]
+  val toObservable<'Value> : value: aval<'Value> -> IObservable<'Value>
+
+  /// <summary>
   /// Convert Adaptive data into a binding that can be handled by avalonia
   /// </summary>
   [<CompiledName "ToBinding">]
@@ -60,7 +66,8 @@ module CVal =
   /// This binding is read-write and can be used to bind to properties that support two-way binding.
   /// If you're looking to just use a readonly binding, use the `toBinding` method with the AVal module instead.
   /// </remarks>
-  [<CompiledName "ToBinding">]
+  [<CompiledName "ToBinding";
+    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
   val toBinding<'Value> : cval<'Value> -> IBinding
 
 /// <summary>
@@ -97,7 +104,9 @@ type AValExtensions =
   /// This binding is read-write and can be used to bind to properties that support two-way binding.
   /// If you're looking to just use a readonly binding, use the `toBinding` method with an aval instead.
   /// </remarks>
-  [<CompiledName "ToBinding"; Extension>]
+  [<CompiledName "ToBinding";
+    Extension;
+    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
   static member inline toBinding: value: cval<'Value> -> IBinding
 
 
@@ -192,7 +201,7 @@ type RouterOutlet =
 
   member NoContent: Control with get, set
 
-[<Class; Extension>]
+[<Extension; Class>]
 type RouterOutletExtensions =
 
   [<Extension>]

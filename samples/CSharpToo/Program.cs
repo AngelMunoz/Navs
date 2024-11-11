@@ -109,9 +109,5 @@ static async void NavigateTo(string path, IRouter<Control> router)
 {
   var result = await router.Navigate(path);
 
-  if (result.IsError) { Console.WriteLine($"Error: {result.ErrorValue}"); }
-  else
-  {
-    Console.WriteLine($"Navigated to: {path}");
-  }
+  Console.WriteLine(result.IsError ? $"Error: {result.ErrorValue}" : $"Navigated to: {path}");
 }

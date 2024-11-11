@@ -1,3 +1,5 @@
+#nowarn "57"
+
 namespace Navs.Avalonia
 
 open System
@@ -22,7 +24,6 @@ do ()
 
 [<RequireQualifiedAccess>]
 module AVal =
-  open Avalonia.Data
 
   let inline getValue (adaptiveValue: aval<_>) = AVal.force adaptiveValue
 
@@ -40,26 +41,15 @@ module AVal =
 
     v :> aval<_>, update
 
+  [<CompiledName "ToObservable">]
+  let toObservable (value: aval<_>) =
+    { new IObservable<_> with
+        member _.Subscribe(observer) = value.AddCallback(observer.OnNext)
+    }
+
   [<CompiledName "ToBinding">]
   let toBinding<'Value> (value: aval<'Value>) =
-
-    { new IBinding with
-        member _.Initiate
-          (
-            target: Avalonia.AvaloniaObject,
-            targetProperty: Avalonia.AvaloniaProperty,
-            anchor: obj,
-            enableDataValidation: bool
-          ) : InstancedBinding =
-
-          InstancedBinding.OneWay(
-            { new IObservable<obj> with
-                member _.Subscribe(observer) =
-                  value.AddCallback(observer.OnNext)
-            },
-            BindingPriority.LocalValue
-          )
-    }
+    (value |> toObservable).ToBinding()
 
   module Interop =
 
@@ -76,9 +66,9 @@ module AVal =
 [<RequireQualifiedAccess>]
 module CVal =
 
-  [<CompiledName "ToBinding">]
+  [<CompiledName "ToBinding";
+    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
   let toBinding<'Value> (value: cval<'Value>) =
-
     { new IBinding with
         member _.Initiate
           (
@@ -128,8 +118,13 @@ type AValExtensions =
   [<CompiledName "ToBinding"; Extension>]
   static member inline toBinding(value: aval<_>) = AVal.toBinding value
 
-  [<CompiledName "ToBinding"; Extension>]
+  [<CompiledName "ToBinding";
+    Extension;
+    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
   static member inline toBinding(value: cval<_>) = CVal.toBinding value
+
+  [<CompiledName "ToObservable">]
+  static member inline toObservable(value: aval<_>) = AVal.toObservable value
 
 type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
   let router =
@@ -254,15 +249,7 @@ type RouterOutlet() as this =
 
       let content =
         router.Value.Content
-        |> AVal.map(
-          function
-          | ValueSome value ->
-            printfn "Value: %A" value
-            value
-          | _ ->
-            printfn "No Content"
-            noContent
-        )
+        |> AVal.map(ValueOption.defaultValue noContent)
         |> AVal.toBinding
 
       let pageTransition =
@@ -379,7 +366,7 @@ type RouterOutletExtensions =
         .WithMode(mode = mode)
         .WithPriority(priority = priority)
 
-    routerOutlet[descriptor] <- AVal.toBinding pageTransition
+    routerOutlet[descriptor] <- (AVal.toObservable pageTransition).ToBinding()
     routerOutlet
 
   [<Extension; CompiledName "NoContent">]
@@ -406,5 +393,5 @@ type RouterOutletExtensions =
         .WithMode(mode = mode)
         .WithPriority(priority = priority)
 
-    routerOutlet[descriptor] <- AVal.toBinding noContent
+    routerOutlet[descriptor] <- (AVal.toObservable noContent).ToBinding()
     routerOutlet
