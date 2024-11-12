@@ -4,17 +4,13 @@
   "tools": {
     "fantomas": {
       "version": "6.3.16",
-      "commands": [
-        "fantomas"
-      ],
-      "rollForward": false
+      "commands": ["fantomas"],
+      "rollForward": true
     },
     "fsdocs-tool": {
       "version": "20.0.1",
-      "commands": [
-        "fsdocs"
-      ],
-      "rollForward": false
+      "commands": ["fsdocs"],
+      "rollForward": true
     }
   }
 }
