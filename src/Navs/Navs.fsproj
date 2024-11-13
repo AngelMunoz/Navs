@@ -15,8 +15,8 @@
     <Compile Include="DSL.Interop.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
-    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.15.1" />
+    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.16" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.18.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\UrlTemplates\UrlTemplates.fsproj" />
