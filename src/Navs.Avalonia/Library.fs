@@ -129,7 +129,7 @@ type AValExtensions =
 type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.get<Control>(routes, ?splash = splash)
+    Router.build<Control>(routes, ?splash = splash)
 
 
   interface IRouter<Control> with

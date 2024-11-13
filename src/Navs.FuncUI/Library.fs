@@ -20,7 +20,7 @@ type FuncUIRouter
 
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.get<IView>(routes, ?splash = splash)
+    Router.build<IView>(routes, ?splash = splash)
 
 
   interface IRouter<IView> with
