@@ -8,9 +8,12 @@ open System.Threading
 open Expecto
 open FSharp.Data.Adaptive
 
+open FsToolkit.ErrorHandling
+
 open Navs
 open Navs.Router
 open UrlTemplates.RouteMatcher
+open UrlTemplates.UrlTemplate
 
 
 module NavigationState =
@@ -18,7 +21,7 @@ module NavigationState =
   let tests () =
     testList "NavigationState tests" [
       test "State should be Idle by default" {
-        let router = Router.get<string>([], (fun _ -> "Splash"))
+        let router = Router.build<string>([], (fun _ -> "Splash"))
 
         let state = router.State |> AVal.force
 
@@ -38,15 +41,20 @@ module NavigationState =
           )
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let state = router.State |> AVal.force
 
         Expect.equal state Idle "State should be Idle"
         let cts = new CancellationTokenSource()
+        let mutable state = Unchecked.defaultof<NavigationState>
 
         router.Navigate("/", cts.Token)
         |> Async.AwaitTask
+        |> AsyncResult.teeError(fun v ->
+          if v.IsNavigationCancelled then
+            state <- router.State |> AVal.force
+        )
         |> Async.Ignore
         |> Async.StartImmediate
 
@@ -70,7 +78,7 @@ module RouteContext =
       testCaseTask "RouteContext should contain the path"
       <| fun () -> task {
         let router =
-          Router.get<string>(
+          Router.build<string>(
             [
               Route.define("home", "/", (fun _ _ -> "Home"))
               Route.define("about", "/about", (fun _ _ -> "About"))
@@ -97,9 +105,10 @@ module RouteContext =
         Expect.equal context.path "/about" "Path should be /about"
       }
 
-      testTask "Context should be none if navigation is cancelled or fails" {
+      testTask
+        "Context should equal to the last context if the next was cancelled" {
         let router =
-          Router.get(
+          Router.build(
             [
               Route.define<string>(
                 "home",
@@ -124,7 +133,6 @@ module RouteContext =
         | ValueNone -> ()
         | _ -> failtest "There should not be a route initially"
 
-        let cts = new CancellationTokenSource()
 
         let! (Ok _) = router.Navigate("/?complete=true")
 
@@ -135,14 +143,24 @@ module RouteContext =
           "/?complete=true"
           "Path should be /?complete=true"
 
-        cts.CancelAfter(200)
+        let cts = new CancellationTokenSource(100)
         let! _ = router.Navigate("/?complete=false", cts.Token)
 
-        let context = router.Route |> AVal.force
+        let context =
+          router.Route
+          |> AVal.force
+          |> ValueOption.defaultWith(fun _ ->
+            failtest "Context should not be None"
+          )
 
-        match context with
-        | ValueNone -> ()
-        | ValueSome value -> failtestf "There should not be a route %A" value
+        let value =
+          context.urlMatch
+          |> UrlMatch.getFromParams<bool> "complete"
+          |> ValueOption.defaultWith(fun _ ->
+            failtest "Complete should be in the params"
+          )
+
+        Expect.isTrue value "Complete should be true"
 
         cts.Dispose()
       }
@@ -161,7 +179,7 @@ module Navigation =
 
       test "Router is initialized without any views" {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
-        let router = Router.get<string>(routes)
+        let router = Router.build<string>(routes)
         let view = router.Content |> AVal.force
 
         Expect.equal ValueNone view "View should be None"
@@ -170,7 +188,7 @@ module Navigation =
       test "The Splash view should be provided before any navigation" {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome view) = router.Content |> AVal.force
 
@@ -181,7 +199,7 @@ module Navigation =
       <| fun () -> task {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -197,7 +215,7 @@ module Navigation =
       <| fun () -> task {
         let routes = [ Route.define("home", "/", (fun _ _ -> "Home")) ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -222,7 +240,7 @@ module Navigation =
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -238,42 +256,6 @@ module Navigation =
         Expect.equal firstNavigation "About" "First navigation should be About"
 
         Expect.equal secondNavigation "Home" "Second navigation should be Home"
-      }
-
-      testCaseTask "Children can be navigated"
-      <| fun () -> task {
-        let routes = [
-          Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.child(
-            Route.define(
-              "user",
-              "/:id<int>",
-              (fun ctx _ ->
-                let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
-
-                $"User - %i{userId}"
-              )
-            )
-          )
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        let! (Ok _) = router.Navigate("/users")
-        let (ValueSome users) = router.Content |> AVal.force
-
-        let! (Ok _) = router.Navigate("/users/1")
-        let (ValueSome view) = router.Content |> AVal.force
-
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        Expect.equal users "Users" "Users should be the first navigation"
-
-        Expect.equal view "User - 1" "View should be User - 1"
       }
 
       testCaseTask "State is preserved if the route is the same"
@@ -298,7 +280,7 @@ module Navigation =
           )
         ]
 
-        let router = Router.get<StatefulRoute>(routes)
+        let router = Router.build<StatefulRoute>(routes)
 
         let! (Ok _) = router.Navigate("/?id=1")
 
@@ -345,7 +327,7 @@ module Navigation =
           )
         ]
 
-        let router = Router.get<StatefulRoute>(routes)
+        let router = Router.build<StatefulRoute>(routes)
 
         let! (Ok _) = router.Navigate("/?id=1")
 
@@ -382,10 +364,10 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate((fun _ _ -> async { return Stop }))
+          |> Route.canActivateAsync((fun _ _ -> async { return Stop }))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -393,7 +375,7 @@ module Guards =
 
         Expect.equal splash "Splash" "Splash should be the initial view"
 
-        Expect.equal definition "home" "Definition name should be home"
+        Expect.equal definition "/" "Definition name should be home"
 
       }
 
@@ -402,10 +384,10 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivate((fun _ _ -> async { return Continue }))
+          |> Route.canActivateAsync((fun _ _ -> async { return Continue }))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -423,11 +405,11 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ _ -> async { return Stop }))
+          |> Route.canDeactivateAsync((fun _ _ -> async { return Stop }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -441,8 +423,7 @@ module Guards =
 
         Expect.equal view "Home" "View should be Home"
 
-        Expect.equal definition "home" "Definition name should be home"
-
+        Expect.equal definition "/" "Definition name should be home"
       }
 
       testCaseTask
@@ -450,11 +431,11 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate((fun _ _ -> async { return Continue }))
+          |> Route.canDeactivateAsync((fun _ _ -> async { return Continue }))
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -467,106 +448,6 @@ module Guards =
         Expect.equal splash "Splash" "Splash should be the initial view"
 
         Expect.equal view "About" "View should be About"
-      }
-
-      testCaseTask "Parent Guard can prevent child activation"
-      <| fun () -> task {
-        let routes = [
-          Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ _ -> async { return Stop }))
-          |> Route.child(
-            Route.define(
-              "user",
-              "/:id<int>",
-              (fun ctx _ ->
-                let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
-
-                $"User - %i{userId}"
-              )
-            )
-          )
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        let! Error(CantActivate definition) = router.Navigate("/users/1")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        Expect.equal view "Splash" "View should be Splash"
-
-        Expect.equal definition "users" "Definition name should be users"
-      }
-
-      testCaseTask "Parent Guard can allow child activation"
-      <| fun () -> task {
-        let routes = [
-          Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.canActivate((fun _ _ -> async { return Continue }))
-          |> Route.child(
-            Route.define(
-              "user",
-              "/:id<int>",
-              (fun ctx _ ->
-                let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
-
-                $"User - %i{userId}"
-              )
-            )
-          )
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        let! (Ok _) = router.Navigate("/users/1")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        Expect.equal view "User - 1" "View should be User - 1"
-      }
-
-      testCaseTask "Child Guard can prevent deactivation"
-      <| fun () -> task {
-        let routes = [
-          Route.define("users", "/users", (fun _ _ -> "Users"))
-          |> Route.child(
-            Route.define(
-              "user",
-              "/:id<int>",
-              (fun ctx _ ->
-                let (ValueSome userId) =
-                  UrlMatch.getFromParams<int> "id" ctx.urlMatch
-
-                $"User - %i{userId}"
-              )
-            )
-            |> Route.canActivate(fun _ _ -> async { return Stop })
-          )
-        ]
-
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
-
-        let (ValueSome splash) = router.Content |> AVal.force
-
-        let! Error(CantActivate definition) = router.Navigate("/users/1")
-
-        let (ValueSome view) = router.Content |> AVal.force
-
-        Expect.equal splash "Splash" "Splash should be the initial view"
-
-        Expect.equal view "Splash" "View should be Splash"
-
-        Expect.equal definition "user" "Definition name should be user"
       }
     ]
 
@@ -589,7 +470,7 @@ module Cancellation =
           )
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -621,13 +502,13 @@ module Cancellation =
               return "Home"
             }
           )
-          |> Route.canActivate(fun _ _ -> async {
+          |> Route.canActivateAsync(fun _ _ -> async {
             do! Async.Sleep 5000
             return Redirect "/login"
           })
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -675,7 +556,7 @@ module Cancellation =
           )
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -726,7 +607,7 @@ module Cancellation =
           )
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -776,7 +657,7 @@ module Cancellation =
           Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 
@@ -797,14 +678,14 @@ module Cancellation =
       <| fun () -> task {
         let routes = [
           Route.define<string>("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivate(fun _ _ -> async {
+          |> Route.canDeactivateAsync(fun _ _ -> async {
             do! Async.Sleep 5000
             return Continue
           })
           Route.define<string>("about", "/about", (fun _ _ -> "About"))
         ]
 
-        let router = Router.get<string>(routes, (fun _ -> "Splash"))
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
 
         let (ValueSome splash) = router.Content |> AVal.force
 

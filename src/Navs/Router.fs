@@ -115,7 +115,7 @@ module Navigable =
     url
     (env: RouteEnvironment<'View>)
     (nav: INavigable<'View>)
-    token
+    (token: CancellationToken)
     =
     taskResult {
 
@@ -125,90 +125,108 @@ module Navigable =
       // otherwise let's try to resolve the issue
       | false, _ ->
         // 1. resolve the route
+        if token.IsCancellationRequested then
+          return! Error(NavigationCancelled)
+        else
+          let! nextRoute =
+            RouteInfo.getActiveRouteInfo env.routes url
+            |> Result.mapError(fun _ -> RouteNotFound url)
 
-        let! nextRoute =
-          RouteInfo.getActiveRouteInfo env.routes url
-          |> Result.mapError(fun _ -> RouteNotFound url)
+          // 2. check deactivation guards
 
-        // 2. check deactivation guards
+          match env.activeRoute with
+          | ValueSome active ->
 
-        match env.activeRoute with
-        | ValueSome active ->
+            do!
+              active.definition.canDeactivate
+              |> List.traverseTaskResultM(fun guard -> taskResult {
+                if token.IsCancellationRequested then
+                  return! Error(NavigationCancelled)
+                else
+                  match!
+                    guard.Invoke
+                      (ValueSome active.context, nextRoute.context)
+                      token
+                  with
+                  | Continue -> return ()
+                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Stop ->
+                    return! Error(CantDeactivate active.definition.pattern)
+              })
+              |> TaskResult.ignore
 
-          do!
-            active.definition.canDeactivate
-            |> List.traverseTaskResultM(fun guard -> taskResult {
-              match!
-                guard.Invoke
-                  (ValueSome active.context, nextRoute.context)
+            // 2. Start deactivating the current route
+
+            match active.definition.cacheStrategy with
+            | NoCache -> active.context.disposables.Dispose()
+            | Cache -> ()
+            // 2.1. Check Next Route Activation Guards with active route
+            do!
+              nextRoute.definition.canActivate
+              |> List.traverseTaskResultM(fun guard -> taskResult {
+                if token.IsCancellationRequested then
+                  return! Error(NavigationCancelled)
+                else
+                  match!
+                    guard.Invoke
+                      (ValueSome active.context, nextRoute.context)
+                      token
+                  with
+                  | Continue -> return ()
+                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Stop ->
+                    return! Error(CantActivate nextRoute.definition.pattern)
+              })
+              |> TaskResult.ignore
+          | ValueNone ->
+            // 2.1 Check Next Route Activation Guards without active route
+            do!
+              nextRoute.definition.canActivate
+              |> List.traverseTaskResultM(fun guard -> taskResult {
+                if token.IsCancellationRequested then
+                  return! Error(NavigationCancelled)
+                else
+                  match! guard.Invoke (ValueNone, nextRoute.context) token with
+                  | Continue -> return ()
+                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Stop ->
+                    return! Error(CantActivate nextRoute.definition.pattern)
+              })
+              |> TaskResult.ignore
+
+          if token.IsCancellationRequested then
+            return! Error(NavigationCancelled)
+          else
+            // 3. Resolve the view content
+            match nextRoute.definition.cacheStrategy with
+            | NoCache ->
+              // 3.1 always resolve the content for no-cache
+
+              let! resolved =
+                nextRoute.definition.getContent.Invoke
+                  (nextRoute.context, nav)
                   token
-              with
-              | Continue -> return ()
-              | Redirect url -> return! Error(GuardRedirect url)
-              | Stop -> return! Error(CantDeactivate active.definition.pattern)
-            })
-            |> TaskResult.ignore
 
-          // 2. Start deactivating the current route
+              return nextRoute, resolved
+            | Cache ->
+              // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
 
-          match active.definition.cacheStrategy with
-          | NoCache -> active.context.disposables.Dispose()
-          | Cache -> ()
-          // 2.1. Check Next Route Activation Guards with active route
-          do!
-            nextRoute.definition.canActivate
-            |> List.traverseTaskResultM(fun guard -> taskResult {
-              match!
-                guard.Invoke
-                  (ValueSome active.context, nextRoute.context)
+              let! resolved =
+                nextRoute.definition.getContent.Invoke
+                  (nextRoute.context, nav)
                   token
-              with
-              | Continue -> return ()
-              | Redirect url -> return! Error(GuardRedirect url)
-              | Stop ->
-                return! Error(CantActivate nextRoute.definition.pattern)
-            })
-            |> TaskResult.ignore
-        | ValueNone ->
-          // 2.1 Check Next Route Activation Guards without active route
-          do!
-            nextRoute.definition.canActivate
-            |> List.traverseTaskResultM(fun guard -> taskResult {
-              match! guard.Invoke (ValueNone, nextRoute.context) token with
-              | Continue -> return ()
-              | Redirect url -> return! Error(GuardRedirect url)
-              | Stop ->
-                return! Error(CantActivate nextRoute.definition.pattern)
-            })
-            |> TaskResult.ignore
 
-        // 3. Resolve the view content
-        match nextRoute.definition.cacheStrategy with
-        | NoCache ->
-          // 3.1 always resolve the content for no-cache
+              match env.cache.TryAdd(url, (nextRoute, resolved)) with
+              | true -> () // Yeah we're good
+              | false ->
+                // Why though?
+                ()
 
-          let! resolved =
-            nextRoute.definition.getContent.Invoke
-              (nextRoute.context, nav)
-              token
-
-          return nextRoute, resolved
-        | Cache ->
-          // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
-
-          let! resolved =
-            nextRoute.definition.getContent.Invoke
-              (nextRoute.context, nav)
-              token
-
-          match env.cache.TryAdd(url, (nextRoute, resolved)) with
-          | true -> () // Yeah we're good
-          | false ->
-            // Why though?
-            ()
-
-          return nextRoute, resolved
+              return nextRoute, resolved
     }
+
+  let (|IsNavigationCancelled|_|) (error: NavigationError<_>) =
+    error.IsNavigationCancelled
 
 [<Sealed; Class>]
 type Router =
@@ -216,6 +234,7 @@ type Router =
   [<CompiledName "Build">]
   static member build<'View>
     (routes: RouteDefinition<'View> seq, [<Optional>] ?splash: unit -> 'View) =
+    let routes = routes |> Seq.toList
     let state = cval Idle
     let cache = Dictionary<string, RouteInfo.RouteUnit<'View> * 'View>()
     let activeRoute: RouteInfo.RouteUnit<'View> voption cval = cval ValueNone
@@ -230,19 +249,40 @@ type Router =
         member this.Navigate(url, ?cancellationToken) = taskResult {
           let token = defaultArg cancellationToken CancellationToken.None
 
+          use _ =
+            token.Register(fun _ -> transact(fun _ -> state.Value <- Idle))
+
+          transact(fun _ -> state.Value <- Navigating)
+
           let env: Navigable.RouteEnvironment<'View> = {
-            routes = routes |> List.ofSeq
-            state = state |> AVal.force
+            routes = routes
             cache = cache
+            state = state |> AVal.force
             activeRoute = activeRoute |> AVal.force
           }
 
           let nav = this :> INavigable<'View>
-          let! resolved = Navigable.navigate url env nav token
-          let (route, view) = resolved
-          transact(fun _ -> activeRoute.Value <- ValueSome route)
-          transact(fun _ -> activeView.Value <- ValueSome view)
-          return ()
+
+          if token.IsCancellationRequested then
+            return! Error(NavigationCancelled)
+
+          try
+            let! resolved = Navigable.navigate url env nav token
+
+            if token.IsCancellationRequested then
+              return! Error(NavigationCancelled)
+
+            let (route, view) = resolved
+            transact(fun _ -> activeRoute.Value <- ValueSome route)
+            transact(fun _ -> activeView.Value <- ValueSome view)
+            return ()
+          with
+          | :? Tasks.TaskCanceledException ->
+            transact(fun _ -> state.Value <- Idle)
+            return! Error NavigationCancelled
+          | err ->
+            transact(fun _ -> state.Value <- Idle)
+            return! Error(NavigationFailed err.Message)
         }
 
         member this.NavigateByName
@@ -271,7 +311,10 @@ type Router =
                 NavigationFailed(errors |> String.concat ", ")
               )
 
-            return! this.Navigate(url, token)
+            if token.IsCancellationRequested then
+              return! Error(NavigationCancelled)
+            else
+              return! this.Navigate(url, token)
           }
 
         member _.Route =
