@@ -60,17 +60,10 @@ module Guard =
 type RouteDefinitionExtensions =
 
   /// <summary>
-  /// Takes a route definition and adds it as a child of the parent route definition.
+  /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
   /// </summary>
   [<Extension>]
-  static member inline Child: routeDef: RouteDefinition<'View> * child: RouteDefinition<'View> -> RouteDefinition<'View>
-
-  /// <summary>
-  /// Takes a sequence of route definitions and adds them as children of the parent route definition.
-  /// </summary>
-  [<Extension>]
-  static member inline Children:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] children: RouteDefinition<'View> array -> RouteDefinition<'View>
+  static member inline CanActivate: routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array -> RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
@@ -78,16 +71,21 @@ type RouteDefinitionExtensions =
   [<Extension>]
   static member inline CanActivate:
     routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext, INavigable<'View>, CancellationToken, Task<GuardResponse>> array ->
+    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array ->
       RouteDefinition<'View>
 
+  /// <summary>
+  /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
+  /// </summary>
+  [<Extension>]
+  static member inline CanDeactivate: routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array -> RouteDefinition<'View>
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is deactivated.
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
     routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext, INavigable<'View>, CancellationToken, Task<GuardResponse>> array ->
+    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array ->
       RouteDefinition<'View>
 
   /// <summary>

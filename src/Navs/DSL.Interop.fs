@@ -1,11 +1,11 @@
 namespace Navs.Interop
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open System.Runtime.CompilerServices
-
+open IcedTasks
 open Navs
-open System.Threading
 
 // make sure extensions are visible in VB.NET
 [<assembly: Extension>]
@@ -18,8 +18,7 @@ type Route =
     {
       name = name
       pattern = path
-      getContent = fun ctx nav _ -> task { return getContent.Invoke(ctx, nav) }
-      children = []
+      getContent = GetView<'View>(fun ctx nav -> cancellableValueTask { return getContent.Invoke(ctx, nav) })
       canActivate = []
       canDeactivate = []
       cacheStrategy = Cache
@@ -35,8 +34,9 @@ type Route =
     {
       name = name
       pattern = path
-      getContent = fun ctx nav token -> getContent.Invoke(ctx, nav, token)
-      children = []
+      getContent = GetView<'View>(fun ctx nav -> cancellableValueTask {
+        let! token = CancellableValueTask.getCancellationToken()
+        return! getContent.Invoke(ctx, nav, token) })
       canActivate = []
       canDeactivate = []
       cacheStrategy = Cache
@@ -54,19 +54,21 @@ module Guard =
 [<Extension>]
 type RouteDefinitionExtensions =
 
-
   [<Extension>]
-  static member inline Child<'View>
-    (routeDef: RouteDefinition<'View>, child: RouteDefinition<'View>) =
-    Route.child child routeDef
-
-  [<Extension>]
-  static member inline Children<'View>
+  static member inline CanActivate<'View>
     (
       routeDef: RouteDefinition<'View>,
-      [<ParamArray>] children: RouteDefinition<'View> array
+      [<ParamArray>] guards:
+        Func<RouteContext | null, RouteContext, GuardResponse> array
     ) =
-    Route.children children routeDef
+    {
+      routeDef with
+          canActivate = [
+            yield! routeDef.canActivate
+            for guard in guards do
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {return guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx)})
+          ]
+    }
 
   [<Extension>]
   static member inline CanActivate<'View>
@@ -74,8 +76,8 @@ type RouteDefinitionExtensions =
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
         Func<
+          RouteContext | null,
           RouteContext,
-          INavigable<'View>,
           CancellationToken,
           Task<GuardResponse>
          > array
@@ -85,7 +87,9 @@ type RouteDefinitionExtensions =
           canActivate = [
             yield! routeDef.canActivate
             for guard in guards do
-              FuncConvert.FromFunc(guard)
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
+              let! token = CancellableValueTask.getCancellationToken()
+              return! guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx, token) })
           ]
     }
 
@@ -94,9 +98,24 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
+        Func<RouteContext | null, RouteContext, GuardResponse> array
+    ) =
+    {
+      routeDef with
+          canDeactivate = [
+            yield! routeDef.canDeactivate
+            for guard in guards do
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {return guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx)})
+          ]
+    }
+  [<Extension>]
+  static member inline CanDeactivate<'View>
+    (
+      routeDef: RouteDefinition<'View>,
+      [<ParamArray>] guards:
         Func<
+          RouteContext | null,
           RouteContext,
-          INavigable<'View>,
           CancellationToken,
           Task<GuardResponse>
          > array
@@ -106,7 +125,9 @@ type RouteDefinitionExtensions =
           canDeactivate = [
             yield! routeDef.canDeactivate
             for guard in guards do
-              FuncConvert.FromFunc(guard)
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
+                  let! token = CancellableValueTask.getCancellationToken()
+                  return! guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx, token) })
           ]
     }
 
