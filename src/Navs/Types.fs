@@ -8,6 +8,7 @@ open System.Collections.Generic
 open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
+open IcedTasks
 
 [<Interface>]
 type IDisposableBag =
@@ -88,12 +89,10 @@ type GuardResponse =
 
 type RouteGuard<'View> =
   delegate of
-    RouteContext voption * RouteContext * CancellationToken ->
-      ValueTask<GuardResponse>
+    RouteContext voption * RouteContext -> CancellableValueTask<GuardResponse>
 
 type GetView<'View> =
-  delegate of
-    RouteContext * INavigable<'View> * CancellationToken -> ValueTask<'View>
+  delegate of RouteContext * INavigable<'View> -> CancellableValueTask<'View>
 
 [<Struct>]
 type CacheStrategy =

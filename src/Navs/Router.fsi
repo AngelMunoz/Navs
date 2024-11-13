@@ -1,9 +1,6 @@
 namespace Navs.Router
 
 open System.Runtime.InteropServices
-open FSharp.Data.Adaptive
-open UrlTemplates.UrlParser
-
 open Navs
 
 /// <summary>

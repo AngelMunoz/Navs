@@ -5,6 +5,7 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.InteropServices
 open System.Collections.Generic
+open IcedTasks
 open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
@@ -171,11 +172,11 @@ type GuardResponse =
 
 /// An alias for a function that takes a route context and a cancellation token
 /// In order to determine if the route can be activated/deactivated or not.
-type RouteGuard<'View> = delegate of RouteContext voption * RouteContext * CancellationToken -> ValueTask<GuardResponse>
+type RouteGuard<'View> = delegate of RouteContext voption * RouteContext -> CancellableValueTask<GuardResponse>
 
 /// An alias for a function that takes a route context and a cancellation token
 /// in order to extract the view that will be rendered when the route is activated.
-type GetView<'View> = delegate of RouteContext * INavigable<'View> * CancellationToken -> ValueTask<'View>
+type GetView<'View> = delegate of RouteContext * INavigable<'View> -> CancellableValueTask<'View>
 
 /// The strategy that the router will use to cache the views that are rendered
 /// when the route is activated.

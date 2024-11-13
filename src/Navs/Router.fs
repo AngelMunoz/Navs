@@ -5,8 +5,9 @@ open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Threading
 
-open FsToolkit.ErrorHandling
 open FSharp.Data.Adaptive
+open IcedTasks
+open FsToolkit.ErrorHandling
 
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
@@ -110,7 +111,7 @@ module Navigable =
     activeRoute: RouteUnit<'View> voption
   }
 
-  let navigate url (env: RouteEnvironment<'View>) (nav: INavigable<'View>) = cancellableTaskResult {
+  let navigate url (env: RouteEnvironment<'View>) (nav: INavigable<'View>) token = taskResult {
 
     // if we have this in cache, let's jumpthe dance
     match env.cache.TryGetValue url with
@@ -127,13 +128,12 @@ module Navigable =
 
       match env.activeRoute with
       | ValueSome active ->
-        let! token = CancellableTaskResult.getCancellationToken()
 
         do!
           active.definition.canDeactivate
           |> List.traverseTaskResultM(fun guard -> taskResult {
             match!
-              guard.Invoke(ValueSome active.context, nextRoute.context, token)
+              guard.Invoke (ValueSome active.context, nextRoute.context) token
             with
             | Continue -> return ()
             | Redirect url -> return! Error(GuardRedirect url)
@@ -151,7 +151,7 @@ module Navigable =
           nextRoute.definition.canActivate
           |> List.traverseTaskResultM(fun guard -> taskResult {
             match!
-              guard.Invoke(ValueSome active.context, nextRoute.context, token)
+              guard.Invoke (ValueSome active.context, nextRoute.context) token
             with
             | Continue -> return ()
             | Redirect url -> return! Error(GuardRedirect url)
@@ -159,12 +159,11 @@ module Navigable =
           })
           |> TaskResult.ignore
       | ValueNone ->
-        let! token = CancellableTaskResult.getCancellationToken()
         // 2.1 Check Next Route Activation Guards without active route
         do!
           nextRoute.definition.canActivate
           |> List.traverseTaskResultM(fun guard -> taskResult {
-            match! guard.Invoke(ValueNone, nextRoute.context, token) with
+            match! guard.Invoke (ValueNone, nextRoute.context) token with
             | Continue -> return ()
             | Redirect url -> return! Error(GuardRedirect url)
             | Stop -> return! Error(CantActivate nextRoute.definition.pattern)
@@ -175,18 +174,16 @@ module Navigable =
       match nextRoute.definition.cacheStrategy with
       | NoCache ->
         // 3.1 always resolve the content for no-cache
-        let! token = CancellableTaskResult.getCancellationToken()
 
         let! resolved =
-          nextRoute.definition.getContent.Invoke(nextRoute.context, nav, token)
+          nextRoute.definition.getContent.Invoke (nextRoute.context, nav) token
 
         return nextRoute, resolved
       | Cache ->
         // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
-        let! token = CancellableTaskResult.getCancellationToken()
 
         let! resolved =
-          nextRoute.definition.getContent.Invoke(nextRoute.context, nav, token)
+          nextRoute.definition.getContent.Invoke (nextRoute.context, nav) token
 
         match env.cache.TryAdd(url, (nextRoute, resolved)) with
         | true -> () // Yeah we're good
