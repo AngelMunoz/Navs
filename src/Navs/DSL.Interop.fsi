@@ -63,7 +63,9 @@ type RouteDefinitionExtensions =
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
   /// </summary>
   [<Extension>]
-  static member inline CanActivate: routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array -> RouteDefinition<'View>
+  static member inline CanActivate:
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
+      RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
@@ -78,7 +80,10 @@ type RouteDefinitionExtensions =
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
   /// </summary>
   [<Extension>]
-  static member inline CanDeactivate: routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array -> RouteDefinition<'View>
+  static member inline CanDeactivate:
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
+      RouteDefinition<'View>
+
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is deactivated.
   /// </summary>

@@ -111,88 +111,104 @@ module Navigable =
     activeRoute: RouteUnit<'View> voption
   }
 
-  let navigate url (env: RouteEnvironment<'View>) (nav: INavigable<'View>) token = taskResult {
+  let navigate
+    url
+    (env: RouteEnvironment<'View>)
+    (nav: INavigable<'View>)
+    token
+    =
+    taskResult {
 
-    // if we have this in cache, let's jumpthe dance
-    match env.cache.TryGetValue url with
-    | true, value -> return value
-    // otherwise let's try to resolve the issue
-    | false, _ ->
-      // 1. resolve the route
+      // if we have this in cache, let's jumpthe dance
+      match env.cache.TryGetValue url with
+      | true, value -> return value
+      // otherwise let's try to resolve the issue
+      | false, _ ->
+        // 1. resolve the route
 
-      let! nextRoute =
-        RouteInfo.getActiveRouteInfo env.routes url
-        |> Result.mapError(fun _ -> RouteNotFound url)
+        let! nextRoute =
+          RouteInfo.getActiveRouteInfo env.routes url
+          |> Result.mapError(fun _ -> RouteNotFound url)
 
-      // 2. check deactivation guards
+        // 2. check deactivation guards
 
-      match env.activeRoute with
-      | ValueSome active ->
+        match env.activeRoute with
+        | ValueSome active ->
 
-        do!
-          active.definition.canDeactivate
-          |> List.traverseTaskResultM(fun guard -> taskResult {
-            match!
-              guard.Invoke (ValueSome active.context, nextRoute.context) token
-            with
-            | Continue -> return ()
-            | Redirect url -> return! Error(GuardRedirect url)
-            | Stop -> return! Error(CantDeactivate active.definition.pattern)
-          })
-          |> TaskResult.ignore
+          do!
+            active.definition.canDeactivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              match!
+                guard.Invoke
+                  (ValueSome active.context, nextRoute.context)
+                  token
+              with
+              | Continue -> return ()
+              | Redirect url -> return! Error(GuardRedirect url)
+              | Stop -> return! Error(CantDeactivate active.definition.pattern)
+            })
+            |> TaskResult.ignore
 
-        // 2. Start deactivating the current route
+          // 2. Start deactivating the current route
 
-        match active.definition.cacheStrategy with
-        | NoCache -> active.context.disposables.Dispose()
-        | Cache -> ()
-        // 2.1. Check Next Route Activation Guards with active route
-        do!
-          nextRoute.definition.canActivate
-          |> List.traverseTaskResultM(fun guard -> taskResult {
-            match!
-              guard.Invoke (ValueSome active.context, nextRoute.context) token
-            with
-            | Continue -> return ()
-            | Redirect url -> return! Error(GuardRedirect url)
-            | Stop -> return! Error(CantActivate nextRoute.definition.pattern)
-          })
-          |> TaskResult.ignore
-      | ValueNone ->
-        // 2.1 Check Next Route Activation Guards without active route
-        do!
-          nextRoute.definition.canActivate
-          |> List.traverseTaskResultM(fun guard -> taskResult {
-            match! guard.Invoke (ValueNone, nextRoute.context) token with
-            | Continue -> return ()
-            | Redirect url -> return! Error(GuardRedirect url)
-            | Stop -> return! Error(CantActivate nextRoute.definition.pattern)
-          })
-          |> TaskResult.ignore
+          match active.definition.cacheStrategy with
+          | NoCache -> active.context.disposables.Dispose()
+          | Cache -> ()
+          // 2.1. Check Next Route Activation Guards with active route
+          do!
+            nextRoute.definition.canActivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              match!
+                guard.Invoke
+                  (ValueSome active.context, nextRoute.context)
+                  token
+              with
+              | Continue -> return ()
+              | Redirect url -> return! Error(GuardRedirect url)
+              | Stop ->
+                return! Error(CantActivate nextRoute.definition.pattern)
+            })
+            |> TaskResult.ignore
+        | ValueNone ->
+          // 2.1 Check Next Route Activation Guards without active route
+          do!
+            nextRoute.definition.canActivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              match! guard.Invoke (ValueNone, nextRoute.context) token with
+              | Continue -> return ()
+              | Redirect url -> return! Error(GuardRedirect url)
+              | Stop ->
+                return! Error(CantActivate nextRoute.definition.pattern)
+            })
+            |> TaskResult.ignore
 
-      // 3. Resolve the view content
-      match nextRoute.definition.cacheStrategy with
-      | NoCache ->
-        // 3.1 always resolve the content for no-cache
+        // 3. Resolve the view content
+        match nextRoute.definition.cacheStrategy with
+        | NoCache ->
+          // 3.1 always resolve the content for no-cache
 
-        let! resolved =
-          nextRoute.definition.getContent.Invoke (nextRoute.context, nav) token
+          let! resolved =
+            nextRoute.definition.getContent.Invoke
+              (nextRoute.context, nav)
+              token
 
-        return nextRoute, resolved
-      | Cache ->
-        // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
+          return nextRoute, resolved
+        | Cache ->
+          // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
 
-        let! resolved =
-          nextRoute.definition.getContent.Invoke (nextRoute.context, nav) token
+          let! resolved =
+            nextRoute.definition.getContent.Invoke
+              (nextRoute.context, nav)
+              token
 
-        match env.cache.TryAdd(url, (nextRoute, resolved)) with
-        | true -> () // Yeah we're good
-        | false ->
-          // Why though?
-          ()
+          match env.cache.TryAdd(url, (nextRoute, resolved)) with
+          | true -> () // Yeah we're good
+          | false ->
+            // Why though?
+            ()
 
-        return nextRoute, resolved
-  }
+          return nextRoute, resolved
+    }
 
 [<Sealed; Class>]
 type Router =

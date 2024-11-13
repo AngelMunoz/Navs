@@ -18,7 +18,10 @@ type Route =
     {
       name = name
       pattern = path
-      getContent = GetView<'View>(fun ctx nav -> cancellableValueTask { return getContent.Invoke(ctx, nav) })
+      getContent =
+        GetView<'View>(fun ctx nav -> cancellableValueTask {
+          return getContent.Invoke(ctx, nav)
+        })
       canActivate = []
       canDeactivate = []
       cacheStrategy = Cache
@@ -34,9 +37,11 @@ type Route =
     {
       name = name
       pattern = path
-      getContent = GetView<'View>(fun ctx nav -> cancellableValueTask {
-        let! token = CancellableValueTask.getCancellationToken()
-        return! getContent.Invoke(ctx, nav, token) })
+      getContent =
+        GetView<'View>(fun ctx nav -> cancellableValueTask {
+          let! token = CancellableValueTask.getCancellationToken()
+          return! getContent.Invoke(ctx, nav, token)
+        })
       canActivate = []
       canDeactivate = []
       cacheStrategy = Cache
@@ -66,7 +71,14 @@ type RouteDefinitionExtensions =
           canActivate = [
             yield! routeDef.canActivate
             for guard in guards do
-              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {return guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx)})
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
+                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+                return
+                  guard.Invoke(
+                    value,
+                    nextCtx
+                  )
+              })
           ]
     }
 
@@ -75,12 +87,7 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<
-          RouteContext | null,
-          RouteContext,
-          CancellationToken,
-          Task<GuardResponse>
-         > array
+        Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array
     ) =
     {
       routeDef with
@@ -88,8 +95,15 @@ type RouteDefinitionExtensions =
             yield! routeDef.canActivate
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
-              let! token = CancellableValueTask.getCancellationToken()
-              return! guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx, token) })
+                let! token = CancellableValueTask.getCancellationToken()
+                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+                return!
+                  guard.Invoke(
+                    value,
+                    nextCtx,
+                    token
+                  )
+              })
           ]
     }
 
@@ -105,20 +119,23 @@ type RouteDefinitionExtensions =
           canDeactivate = [
             yield! routeDef.canDeactivate
             for guard in guards do
-              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {return guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx)})
+              RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
+                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+                return
+                  guard.Invoke(
+                    value,
+                    nextCtx
+                  )
+              })
           ]
     }
+
   [<Extension>]
   static member inline CanDeactivate<'View>
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<
-          RouteContext | null,
-          RouteContext,
-          CancellationToken,
-          Task<GuardResponse>
-         > array
+        Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array
     ) =
     {
       routeDef with
@@ -126,8 +143,15 @@ type RouteDefinitionExtensions =
             yield! routeDef.canDeactivate
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
-                  let! token = CancellableValueTask.getCancellationToken()
-                  return! guard.Invoke(ctx |> ValueOption.defaultValue (unbox null), nextCtx, token) })
+                let! token = CancellableValueTask.getCancellationToken()
+                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+                return!
+                  guard.Invoke(
+                    value,
+                    nextCtx,
+                    token
+                  )
+              })
           ]
     }
 
