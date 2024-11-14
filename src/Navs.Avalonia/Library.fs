@@ -90,7 +90,7 @@ module CVal =
                     transact(fun _ -> value.Value <- newValue)
                   | _ -> ()
 
-                member _.OnError(_) = ()
+                member _.OnError _ = ()
                 member _.OnCompleted() = ()
             },
             BindingPriority.LocalValue

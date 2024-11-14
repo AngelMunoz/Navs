@@ -1,6 +1,6 @@
 module Navs.Tests.Router
 
-#nowarn "25" // infomplete pattern match
+#nowarn "25" // incomplete pattern match
 
 open System
 open System.Threading
@@ -13,8 +13,6 @@ open FsToolkit.ErrorHandling
 open Navs
 open Navs.Router
 open UrlTemplates.RouteMatcher
-open UrlTemplates.UrlTemplate
-
 
 module NavigationState =
 
@@ -364,7 +362,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivateAsync((fun _ _ -> async { return Stop }))
+          |> Route.canActivateAsync(fun _ _ -> async { return Stop })
         ]
 
         let router = Router.build<string>(routes, (fun _ -> "Splash"))
@@ -384,7 +382,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canActivateAsync((fun _ _ -> async { return Continue }))
+          |> Route.canActivateAsync(fun _ _ -> async { return Continue })
         ]
 
         let router = Router.build<string>(routes, (fun _ -> "Splash"))
@@ -405,7 +403,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivateAsync((fun _ _ -> async { return Stop }))
+          |> Route.canDeactivateAsync(fun _ _ -> async { return Stop })
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -431,7 +429,7 @@ module Guards =
       <| fun () -> task {
         let routes = [
           Route.define("home", "/", (fun _ _ -> "Home"))
-          |> Route.canDeactivateAsync((fun _ _ -> async { return Continue }))
+          |> Route.canDeactivateAsync(fun _ _ -> async { return Continue })
           Route.define("about", "/about", (fun _ _ -> "About"))
         ]
 
@@ -527,7 +525,7 @@ module Cancellation =
 
       }
 
-      testCaseTask "Route Token can cance inner navigations"
+      testCaseTask "Route Token can cancel inner navigations"
       <| fun () -> task {
         let mutable count = 0
 
@@ -620,7 +618,7 @@ module Cancellation =
         // inner navigation cancels, count remains the same
         match! router.Navigate("/", cts.Token) with
         | Ok _ -> ()
-        | Error e -> failtestf "Navigation should not fail %A" e
+        | Error e -> failtestf $"Navigation should not fail %A{e}"
 
         match router.Content |> AVal.force with
         | ValueSome view ->
@@ -707,6 +705,74 @@ module Cancellation =
     ]
 
 
+module Redirect =
+  let tests () =
+    testList "Redirection Tests" [
+      testCaseTask "Navigation can be redirected to another route"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", fun _ _ -> "Home")
+          |> Route.canActivate(fun _ _ -> Redirect "/about")
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        let! Ok _ = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "About" "View should be About"
+      }
+
+      testCaseTask "Navigation can be redirected to another when deactivating"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", fun _ _ -> "Home")
+          |> Route.canDeactivate(fun _ _ -> Redirect "/about")
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          Route.define("other", "/other", (fun _ _ -> "Other"))
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        let! Ok _ = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should be Home"
+
+        let! Ok _ = router.Navigate("/other")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "About" "View should be About"
+      }
+
+      testCaseTask "Redirection Follows at least 3 navigations"
+      <| fun () -> task {
+        let routes = [
+          Route.define<string>("home", "/", fun _ _ -> "Home")
+          |> Route.canActivate(fun _ _ -> Redirect "/about")
+          Route.define<string>("about", "/about", (fun _ _ -> "About"))
+          |> Route.canActivate(fun _ _ -> Redirect "/other")
+          Route.define("other", "/other", (fun _ _ -> "Other"))
+          |> Route.canActivate(fun _ _ -> Redirect "/other2")
+          Route.define("other2", "/other2", (fun _ _ -> "Other2"))
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        let! Ok _ = router.Navigate("/")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Other2" "View should be Other2"
+
+      }
+    ]
+
+
 [<Tests>]
 let tests =
   testList "Navs Router Tests" [
@@ -715,4 +781,5 @@ let tests =
     Navigation.tests()
     Guards.tests()
     Cancellation.tests()
+    Redirect.tests()
   ]

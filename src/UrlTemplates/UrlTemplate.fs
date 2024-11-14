@@ -89,7 +89,7 @@ module UrlTemplate =
 
   let queryKey =
 
-    (manyChars(asciiLetter <|> anyOf [ '-'; '_' ]))
+    manyChars(asciiLetter <|> anyOf [ '-'; '_' ])
     .>>. opt typed
     .>>. opt required
     >>= (fun ((name, tipe), required) ->
