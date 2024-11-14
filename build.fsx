@@ -1,10 +1,9 @@
-#r "nuget: Fun.Result, 2.0.9"
-#r "nuget: Fun.Build, 1.0.9"
+#r "nuget: Fun.Build, 1.1.14"
 
 open System.IO
 open Fun.Build
 
-let version = "1.0.0-rc-002"
+let version = "1.0.0-rc-003"
 
 
 let build name = stage $"Build {name}" { run $"dotnet build src/{name}" }
