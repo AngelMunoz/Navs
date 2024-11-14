@@ -8,7 +8,14 @@ open System.Collections.Generic
 open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
+open IcedTasks
 
+[<Interface>]
+type IDisposableBag =
+  inherit IDisposable
+  abstract AddDisposable: IDisposable -> unit
+
+[<NoComparison; NoEquality>]
 type RouteContext = {
   [<CompiledName "Path">]
   path: string
@@ -16,10 +23,21 @@ type RouteContext = {
   urlMatch: UrlMatch
   [<CompiledName "UrlInfo">]
   urlInfo: UrlInfo
-}
+  [<CompiledName "Disposables">]
+  disposables: IDisposableBag
 
-[<Struct; NoComparison; NoEquality>]
+} with
+
+  [<CompiledName "AddDisposable">]
+  member this.addDisposable disposable =
+    this.disposables.AddDisposable disposable
+
+module RouteContext =
+  let addDisposable disposable (ctx: RouteContext) =
+    ctx.addDisposable disposable
+
 type NavigationError<'View> =
+  | SameRouteNavigation
   | NavigationCancelled
   | RouteNotFound of url: string
   | NavigationFailed of message: string
@@ -27,7 +45,7 @@ type NavigationError<'View> =
   | CantActivate of activatedRoute: string
   | GuardRedirect of redirectTo: string
 
-[<Struct>]
+[<Struct; NoComparison>]
 type NavigationState =
   | Idle
   | Navigating
@@ -62,17 +80,18 @@ type IRouter<'View> =
   abstract member ContentSnapshot: 'View voption
 
 
-[<Struct>]
+[<Struct; NoComparison>]
 type GuardResponse =
   | Continue
   | Stop
   | Redirect of url: string
 
 type RouteGuard<'View> =
-  RouteContext -> INavigable<'View> -> CancellationToken -> Task<GuardResponse>
+  delegate of
+    RouteContext voption * RouteContext -> CancellableValueTask<GuardResponse>
 
 type GetView<'View> =
-  RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
+  delegate of RouteContext * INavigable<'View> -> CancellableValueTask<'View>
 
 [<Struct>]
 type CacheStrategy =
@@ -87,24 +106,10 @@ type RouteDefinition<'View> = {
   pattern: string
   [<CompiledName "GetContent">]
   getContent: GetView<'View>
-  [<CompiledName "Children">]
-  children: RouteDefinition<'View> list
   [<CompiledName "CanActivate">]
   canActivate: RouteGuard<'View> list
   [<CompiledName "CanDeactivate">]
   canDeactivate: RouteGuard<'View> list
   [<CompiledName "CacheStrategy">]
   cacheStrategy: CacheStrategy
-}
-
-[<NoComparison; NoEquality>]
-type RouteTrack<'View> = {
-  [<CompiledName "PathPattern">]
-  pathPattern: string
-  [<CompiledName "RouteDefinition">]
-  routeDefinition: RouteDefinition<'View>
-  [<CompiledName "ParentTrack">]
-  parentTrack: RouteTrack<'View> voption
-  [<CompiledName "Children">]
-  children: RouteTrack<'View> list
 }

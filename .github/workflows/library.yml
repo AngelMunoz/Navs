@@ -17,25 +17,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Build dotnet 8.0
+    name: Build
     steps:
       - uses: actions/checkout@v4
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "9.0.x"
       - run: dotnet restore
-      - run: dotnet build Navs.sln -f net8.0 --configuration Release --no-restore
-      - run: dotnet test Navs.sln -f net8.0 --no-restore
-  buildnet6:
-    runs-on: ubuntu-latest
-    name: Build dotnet 6.0
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "6.0.x"
-      - run: dotnet restore
-      - run: dotnet build Navs.sln -f net6.0 --configuration Release --no-restore
-      - run: dotnet test Navs.sln -f net6.0 --no-restore
+      - run: dotnet build Navs.sln --configuration Release --no-restore
+      - run: dotnet test Navs.sln --no-restore

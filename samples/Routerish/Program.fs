@@ -3,10 +3,10 @@ open System
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
-
 open NXUI.Desktop
 open NXUI.FSharp.Extensions
 
+open FSharp.Data.Adaptive
 open Navs
 open Navs.Avalonia
 
@@ -15,6 +15,7 @@ let routes = [
     "guid",
     "/:id<guid>",
     fun context _ -> async {
+
       return
         match context.urlMatch.Params.TryGetValue "id" with
         | true, id -> TextBlock().text($"%O{id}")
@@ -24,10 +25,6 @@ let routes = [
   Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
 ]
 
-let getMainContent (router: IRouter<Control>) =
-  ContentControl()
-    .DockTop()
-    .content(router.Content |> AVal.toBinding, BindingMode.OneWay)
 
 let navigate url (router: IRouter<Control>) _ _ =
   async {
@@ -59,7 +56,7 @@ let app () =
                 .content("Guid")
                 .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
             ),
-          getMainContent(router)
+          RouterOutlet().DockTop().router(router)
         )
     )
 

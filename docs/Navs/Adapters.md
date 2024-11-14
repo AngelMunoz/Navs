@@ -7,7 +7,7 @@ category: Navs
 ## Creating an adapter.
 
     [hide]
-    #r "nuget: Navs, 1.0.0-beta-008"
+    #r "nuget: Navs, 1.0.0-rc-002"
 
 Sometimes you may want to create a custom adapter when you know the concrete types (or the interface) that you're targeting with your router and your definitions. This is a guide on how to create an adapter for a custom type.
 
@@ -17,9 +17,9 @@ Let's take a look at how we implemented the Plain Avalonia adapter. Normal Avalo
     open Navs.Router
 
     type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
-      let router = Router.get<Control>(routes, ?splash = splash)
+      let router = Router.build<Control>(routes, ?splash = splash)
         let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-        Router.get<Control>(routes, ?splash = splash)
+        Router.build<Control>(routes, ?splash = splash)
 
 
       interface IRouter<Control> with
@@ -71,7 +71,7 @@ Once that is done, we can convert our route definitions to the custom type and u
 
 From
 
-    let router = Router.get<Control>([
+    let router = Router.build<Control>([
       Route.define<Control>("Home", "/", fun ctx _ -> async {
         do! Async.Sleep 90
         return UserControl()

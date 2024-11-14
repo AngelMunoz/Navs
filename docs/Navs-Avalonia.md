@@ -17,7 +17,7 @@ That being said...
 ## Usage
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-beta-008"
+    #r "nuget: Navs.Avalonia, 1.0.0-rc-002"
     #r "nuget: FSharp.Data.Adaptive, 1.2.14"
 
 Using this library is very similar to using the base Navs library. The main difference is that the `Navs.Avalonia` library provides a less generic versions of the API.
@@ -246,11 +246,10 @@ Hoisting events is a common pattern and tends to be the most flexible way to han
 For cases where you might want to _bind_ the value to a control and make changes propagate automatically, you can use `changeable values` which are adaptive values that can be set directly.
 
     let myTextBox(value: cval<string>) =
+      // requires open Navs.Avalonia
       TextBox()
-        .text(
-          value
-          |> CVal.toBinding
-        )
+        .text(value |> AVal.toBinding)
+        .OnTextChangedHandler(fun sender _ -> sender.Text |> AVal.setValue value)
 
     let parent() =
       let sharedValue = cval "Hello"

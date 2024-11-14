@@ -5,15 +5,26 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.InteropServices
 open System.Collections.Generic
+open IcedTasks
 open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
 open UrlTemplates.UrlParser
+
+/// <summary>
+/// An object that contains multiple disposable objects that can be disposed of
+/// when the route is not cached and deactivated.
+/// </summary>
+[<Interface>]
+type IDisposableBag =
+  inherit IDisposable
+  abstract AddDisposable: IDisposable -> unit
 
 /// <summary>
 /// The context of the route that is being activated.
 /// This can be used to extract the parameters from the URL and extract information
 /// about the templated route that is being activated.
 /// </summary>
+[<NoComparison; NoEquality>]
 type RouteContext =
   {
     /// RAW URL that is being activated
@@ -27,14 +38,23 @@ type RouteContext =
     /// An object that contains the segments, query and hash of the URL in a string form.
     [<CompiledName "UrlInfo">]
     urlInfo: UrlInfo
+    /// An object that contains objects that should be disposed of when the route is deactivated.
+    [<CompiledName "Disposables">]
+    disposables: IDisposableBag
   }
+
+  [<CompiledName "AddDisposable">]
+  member addDisposable: IDisposable -> unit
+
+module RouteContext =
+  val addDisposable: IDisposable -> RouteContext -> unit
 
 /// <summary>
 /// This object contains the contextual information about why a navigation
 /// could not be performed.
 /// </summary>
-[<Struct; NoComparison; NoEquality>]
 type NavigationError<'View> =
+  | SameRouteNavigation
   | NavigationCancelled
   | RouteNotFound of url: string
   | NavigationFailed of message: string
@@ -42,7 +62,7 @@ type NavigationError<'View> =
   | CantActivate of activatedRoute: string
   | GuardRedirect of redirectTo: string
 
-[<Struct>]
+[<Struct; NoComparison>]
 type NavigationState =
   | Idle
   | Navigating
@@ -143,7 +163,7 @@ type IRouter<'View> =
   /// </remarks>
   abstract member ContentSnapshot: 'View voption
 
-[<Struct>]
+[<Struct; NoComparison>]
 type GuardResponse =
   | Continue
   | Stop
@@ -151,15 +171,15 @@ type GuardResponse =
 
 /// An alias for a function that takes a route context and a cancellation token
 /// In order to determine if the route can be activated/deactivated or not.
-type RouteGuard<'View> = RouteContext -> INavigable<'View> -> CancellationToken -> Task<GuardResponse>
+type RouteGuard<'View> = delegate of RouteContext voption * RouteContext -> CancellableValueTask<GuardResponse>
 
 /// An alias for a function that takes a route context and a cancellation token
 /// in order to extract the view that will be rendered when the route is activated.
-type GetView<'View> = RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
+type GetView<'View> = delegate of RouteContext * INavigable<'View> -> CancellableValueTask<'View>
 
 /// The strategy that the router will use to cache the views that are rendered
 /// when the route is activated.
-[<Struct>]
+[<Struct; NoComparison>]
 type CacheStrategy =
   /// The Cache strategy makes that the rendered view will be stored in memory
   /// and will be re-used when the route is activated again.
@@ -181,9 +201,6 @@ type RouteDefinition<'View> =
     /// The delegate that will be called to render the view when the route is activated.
     [<CompiledName "GetContent">]
     getContent: GetView<'View>
-    /// The children routes that this route contains.
-    [<CompiledName "Children">]
-    children: RouteDefinition<'View> list
     /// The guards that will be executed when the route is activated.
     /// If any of them returns false, the route will not be activated.
     [<CompiledName "CanActivate">]
@@ -197,14 +214,3 @@ type RouteDefinition<'View> =
     [<CompiledName "CacheStrategy">]
     cacheStrategy: CacheStrategy
   }
-
-/// This is an object used to keep track of the routes that are defined in the application.
-/// and contextual information about the route that is being activated.
-/// This is used to match the URL and render the view.
-/// It also contains the children routes that are defined in the application.
-[<NoComparison; NoEquality>]
-type internal RouteTrack<'View> =
-  { pathPattern: string
-    routeDefinition: RouteDefinition<'View>
-    parentTrack: RouteTrack<'View> voption
-    children: RouteTrack<'View> list }

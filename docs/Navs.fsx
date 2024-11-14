@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-008"
+#r "nuget: Navs, 1.0.0-rc-002"
 
 open FSharp.Data.Adaptive
 open System
@@ -68,7 +68,7 @@ let routes = [
 ]
 
 let router =
-  Router.get<Page>(
+  Router.build<Page>(
     routes,
     fun () -> {
       title = "Splash"
@@ -299,21 +299,21 @@ the longer it takes to resolve the guard, the longer it will take to navigate to
 *)
 
 asyncRoute
-|> Route.canActivate(fun routeContext _ -> async {
+|> Route.canActivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // return Continue to allow the navigation
   // return Stop to prevent the navigation
   return Continue
 })
-|> Route.canDeactivate(fun routeContext _ -> async {
+|> Route.canDeactivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // return Continue to allow the navigation
   // return Stop to prevent the navigation
   return Stop
 })
-|> Route.canActivate(fun routeContext _ -> async {
+|> Route.canActivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // CanActivate guards can also "Re-direct" to a different route
@@ -354,6 +354,7 @@ If any of the above checks true, then you should consider caching the view
 
 - [ ] Is the view state ephemeral and can be discarded when navigating away?
 - [ ] Do you want to avoid stale data any time the route is activated?
+- [ ] Do you need to dispose of resources when the route is deactivated?
 
 If any of the above checks true, then you should consider not caching the view.
 
