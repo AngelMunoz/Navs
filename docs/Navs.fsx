@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-beta-008"
+#r "nuget: Navs, 1.0.0-rc-002"
 
 open FSharp.Data.Adaptive
 open System
@@ -354,6 +354,7 @@ If any of the above checks true, then you should consider caching the view
 
 - [ ] Is the view state ephemeral and can be discarded when navigating away?
 - [ ] Do you want to avoid stale data any time the route is activated?
+- [ ] Do you need to dispose of resources when the route is deactivated?
 
 If any of the above checks true, then you should consider not caching the view.
 

@@ -39,7 +39,7 @@ let routes = [
   )
 ]
 
-let router = Router.get<string>(routes)
+let router = Router.build<string>(routes)
 
 router.Content.AddCallback(fun content -> printfn $"%A{content}")
 
