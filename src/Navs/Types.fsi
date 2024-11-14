@@ -53,7 +53,6 @@ module RouteContext =
 /// This object contains the contextual information about why a navigation
 /// could not be performed.
 /// </summary>
-[<Struct; NoComparison; NoEquality>]
 type NavigationError<'View> =
   | SameRouteNavigation
   | NavigationCancelled

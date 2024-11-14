@@ -36,7 +36,6 @@ module RouteContext =
   let addDisposable disposable (ctx: RouteContext) =
     ctx.addDisposable disposable
 
-[<Struct; NoComparison; NoEquality>]
 type NavigationError<'View> =
   | SameRouteNavigation
   | NavigationCancelled

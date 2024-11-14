@@ -45,6 +45,8 @@ module RouteInfo =
     context: RouteContext
   }
 
+  type Redirect = { from: string; target: string }
+
   let getParamDiff (urlInfo: UrlInfo) (tplInfo: UrlTemplate) =
     if urlInfo.Segments.Length <> tplInfo.Segments.Length then
       []
@@ -69,7 +71,7 @@ module RouteInfo =
       routes
       |> List.tryPick(fun route ->
         result {
-          let! (template, urlInfo, matchInfo) =
+          let! template, urlInfo, matchInfo =
             RouteMatcher.matchStrings route.pattern url
 
           return
@@ -115,6 +117,7 @@ module Navigable =
     url
     (env: RouteEnvironment<'View>)
     (nav: INavigable<'View>)
+    (stack: Redirect voption)
     (token: CancellationToken)
     =
     taskResult {
@@ -149,7 +152,14 @@ module Navigable =
                       token
                   with
                   | Continue -> return ()
-                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Redirect redirect ->
+                    match stack with
+                    | ValueSome { from = from; target = target } ->
+                      if from <> url && redirect = target then
+                        return ()
+                      else
+                        return! Error(GuardRedirect redirect)
+                    | ValueNone -> return! Error(GuardRedirect redirect)
                   | Stop ->
                     return! Error(CantDeactivate active.definition.pattern)
               })
@@ -228,6 +238,56 @@ module Navigable =
   let (|IsNavigationCancelled|_|) (error: NavigationError<_>) =
     error.IsNavigationCancelled
 
+  [<return: Struct>]
+  let (|IsRedirection|_|) (error: NavigationError<_>) =
+    match error with
+    | GuardRedirect route -> ValueSome route
+    | _ -> ValueNone
+
+  let attemptRedirect (env, nav) origin target = cancellableTask {
+    let mutable lastResult = ValueNone
+    let mutable lastError = ValueNone
+    let mutable lastRedirect = ValueNone
+    let redirectStack = Stack<RouteInfo.Redirect>()
+    redirectStack.Push({ from = origin; target = target })
+    let! token = CancellableTask.getCancellationToken()
+
+    while redirectStack.Count > 0 do
+      let redirect = redirectStack.Pop()
+      lastRedirect <- ValueSome redirect
+      let! result = navigate redirect.target env nav (ValueSome redirect) token
+
+      match result with
+      | Error(IsRedirection route) ->
+        redirectStack.Push(
+          {
+            from = redirect.target
+            target = route
+          }
+        )
+
+        lastError <- ValueNone
+      | Error errors ->
+        lastError <- ValueSome errors
+        redirectStack.Clear()
+      | Ok result -> lastResult <- ValueSome result
+
+    if lastError.IsSome then
+      return Error lastError.Value
+    else
+      match lastResult with
+      | ValueNone ->
+        match lastRedirect with
+        | ValueSome { from = origin; target = target } ->
+          return
+            Error(
+              NavigationFailed
+                $"Unable to resolve route, last redirect attempt from %s{origin} to %s{target}"
+            )
+        | ValueNone -> return Error(NavigationFailed "Unable to resolve route")
+      | ValueSome result -> return Ok result
+  }
+
 [<Sealed; Class>]
 type Router =
 
@@ -263,18 +323,32 @@ type Router =
 
           let nav = this :> INavigable<'View>
 
+          let attemptRedirect = Navigable.attemptRedirect(env, nav)
+
           if token.IsCancellationRequested then
             return! Error(NavigationCancelled)
 
           try
-            let! resolved = Navigable.navigate url env nav token
+            let! resolved = task {
+              let! result = Navigable.navigate url env nav ValueNone token
+
+              match result with
+              | Ok value -> return Ok value
+              | Error(Navigable.IsRedirection route) ->
+                return! attemptRedirect url route token
+              | Error error -> return Error error
+            }
 
             if token.IsCancellationRequested then
               return! Error(NavigationCancelled)
 
-            let (route, view) = resolved
-            transact(fun _ -> activeRoute.Value <- ValueSome route)
-            transact(fun _ -> activeView.Value <- ValueSome view)
+            let route, view = resolved
+
+            transact(fun _ ->
+              activeRoute.Value <- ValueSome route
+              activeView.Value <- ValueSome view
+            )
+
             return ()
           with
           | :? Tasks.TaskCanceledException ->
