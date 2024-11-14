@@ -68,7 +68,7 @@ let routes = [
 ]
 
 let router =
-  Router.get<Page>(
+  Router.build<Page>(
     routes,
     fun () -> {
       title = "Splash"
@@ -299,21 +299,21 @@ the longer it takes to resolve the guard, the longer it will take to navigate to
 *)
 
 asyncRoute
-|> Route.canActivate(fun routeContext _ -> async {
+|> Route.canActivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // return Continue to allow the navigation
   // return Stop to prevent the navigation
   return Continue
 })
-|> Route.canDeactivate(fun routeContext _ -> async {
+|> Route.canDeactivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // return Continue to allow the navigation
   // return Stop to prevent the navigation
   return Stop
 })
-|> Route.canActivate(fun routeContext _ -> async {
+|> Route.canActivateAsync(fun routeContext _ -> async {
   let! token = Async.CancellationToken
   do! Task.Delay(90, token) |> Async.AwaitTask
   // CanActivate guards can also "Re-direct" to a different route
