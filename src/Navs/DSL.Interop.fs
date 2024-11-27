@@ -14,7 +14,8 @@ do ()
 type Route =
 
   static member inline Define<'View>
-    (name, path, getContent: Func<RouteContext, INavigable<'View>, 'View>) =
+    (name, path, getContent: Func<RouteContext, INavigable<'View>, 'View>)
+    =
     {
       name = name
       pattern = path
@@ -72,12 +73,10 @@ type RouteDefinitionExtensions =
             yield! routeDef.canActivate
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
-                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
-                return
-                  guard.Invoke(
-                    value,
-                    nextCtx
-                  )
+                let value =
+                  ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+
+                return guard.Invoke(value, nextCtx)
               })
           ]
     }
@@ -87,7 +86,12 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array
+        Func<
+          RouteContext | null,
+          RouteContext,
+          CancellationToken,
+          Task<GuardResponse>
+         > array
     ) =
     {
       routeDef with
@@ -96,13 +100,11 @@ type RouteDefinitionExtensions =
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
                 let! token = CancellableValueTask.getCancellationToken()
-                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
-                return!
-                  guard.Invoke(
-                    value,
-                    nextCtx,
-                    token
-                  )
+
+                let value =
+                  ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+
+                return! guard.Invoke(value, nextCtx, token)
               })
           ]
     }
@@ -120,12 +122,10 @@ type RouteDefinitionExtensions =
             yield! routeDef.canDeactivate
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
-                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
-                return
-                  guard.Invoke(
-                    value,
-                    nextCtx
-                  )
+                let value =
+                  ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+
+                return guard.Invoke(value, nextCtx)
               })
           ]
     }
@@ -135,7 +135,12 @@ type RouteDefinitionExtensions =
     (
       routeDef: RouteDefinition<'View>,
       [<ParamArray>] guards:
-        Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array
+        Func<
+          RouteContext | null,
+          RouteContext,
+          CancellationToken,
+          Task<GuardResponse>
+         > array
     ) =
     {
       routeDef with
@@ -144,13 +149,11 @@ type RouteDefinitionExtensions =
             for guard in guards do
               RouteGuard<'View>(fun ctx nextCtx -> cancellableValueTask {
                 let! token = CancellableValueTask.getCancellationToken()
-                let value = ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
-                return!
-                  guard.Invoke(
-                    value,
-                    nextCtx,
-                    token
-                  )
+
+                let value =
+                  ctx |> ValueOption.defaultValue(Unchecked.defaultof<_>)
+
+                return! guard.Invoke(value, nextCtx, token)
               })
           ]
     }

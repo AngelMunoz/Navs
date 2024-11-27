@@ -100,10 +100,8 @@ type IComponentContexExtensions =
 type Route =
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> Async<#IView>) : RouteDefinition<
-                                                                                  IView
-                                                                                 >
-    =
+    (name, path, handler: RouteContext -> INavigable<IView> -> Async<#IView>)
+    : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
@@ -130,10 +128,8 @@ type Route =
     )
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> #IView) : RouteDefinition<
-                                                                           IView
-                                                                          >
-    =
+    (name, path, handler: RouteContext -> INavigable<IView> -> #IView)
+    : RouteDefinition<IView> =
     Navs.Route.define<IView>(name, path, (fun c n -> handler c n :> IView))
 
 
@@ -146,7 +142,8 @@ module DSL =
   type RouterOutlet =
 
     static member create
-      (router: IRouter<IView>, ?noContent: IView, ?transition: IPageTransition) =
+      (router: IRouter<IView>, ?noContent: IView, ?transition: IPageTransition)
+      =
       Component.create(
         "router-outlet",
         fun ctx ->

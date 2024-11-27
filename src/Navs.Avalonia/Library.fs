@@ -190,10 +190,8 @@ type Route =
     )
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<Control> -> #Control) : RouteDefinition<
-                                                                               Control
-                                                                              >
-    =
+    (name, path, handler: RouteContext -> INavigable<Control> -> #Control)
+    : RouteDefinition<Control> =
     Navs.Route.define<Control>(name, path, (fun c n -> handler c n :> Control))
 
 module Interop =
@@ -201,7 +199,8 @@ module Interop =
   type Route =
     [<CompiledName "Define">]
     static member inline define
-      (name, path, handler: Func<RouteContext, INavigable<Control>, #Control>) =
+      (name, path, handler: Func<RouteContext, INavigable<Control>, #Control>)
+      =
       Navs.Route.define(
         name,
         path,
@@ -234,7 +233,10 @@ type RouterOutlet() as this =
   inherit UserControl()
 
   let router: (IRouter<_> | null) ref = ref Unchecked.defaultof<IRouter<_>>
-  let pageTransition: (IPageTransition | null) ref = ref Unchecked.defaultof<IPageTransition>
+
+  let pageTransition: (IPageTransition | null) ref =
+    ref Unchecked.defaultof<IPageTransition>
+
   let noContent: (Control | null) ref = ref Unchecked.defaultof<Control>
 
   let setupContent () =

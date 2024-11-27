@@ -64,7 +64,8 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanActivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
+    routeDef: RouteDefinition<'View> *
+    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
       RouteDefinition<'View>
 
   /// <summary>
@@ -81,7 +82,8 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
-    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
+    routeDef: RouteDefinition<'View> *
+    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
       RouteDefinition<'View>
 
   /// <summary>
