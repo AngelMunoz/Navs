@@ -5,8 +5,6 @@
   <ItemGroup>
     <Compile Include="Types.fsi" />
     <Compile Include="Types.fs" />
-    <Compile Include="History.fsi" />
-    <Compile Include="History.fs" />
     <Compile Include="Router.fsi" />
     <Compile Include="Router.fs" />
     <Compile Include="DSL.fsi" />
