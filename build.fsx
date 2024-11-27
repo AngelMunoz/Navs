@@ -3,7 +3,7 @@
 open System.IO
 open Fun.Build
 
-let version = "1.0.0-rc-003"
+let version = "1.0.0-rc-004"
 
 
 let build name = stage $"Build {name}" { run $"dotnet build src/{name}" }
@@ -38,10 +38,12 @@ pipeline "nuget" {
   build "Navs"
   build "Navs.Avalonia"
   build "Navs.FuncUI"
+  build "Navs.Terminal.Gui"
   pack "UrlTemplates"
   pack "Navs"
   pack "Navs.Avalonia"
   pack "Navs.FuncUI"
+  pack "Navs.Terminal.Gui"
   pushNugets
   runIfOnlySpecified true
 }
@@ -52,6 +54,7 @@ pipeline "build" {
   build "Navs"
   build "Navs.Avalonia"
   build "Navs.FuncUI"
+  build "Navs.Terminal.Gui"
   runIfOnlySpecified false
 }
 
@@ -59,10 +62,12 @@ pipeline "nuget:local" {
   build "UrlTemplates"
   build "Navs"
   build "Navs.Avalonia"
+  build "Navs.Terminal.Gui"
   pack "UrlTemplates"
   pack "Navs"
   pack "Navs.Avalonia"
   pack "Navs.FuncUI"
+  pack "Navs.Terminal.Gui"
   runIfOnlySpecified true
 }
 
