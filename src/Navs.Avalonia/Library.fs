@@ -72,8 +72,8 @@ module CVal =
     { new IBinding with
         member _.Initiate
           (
-            target: Avalonia.AvaloniaObject,
-            targetProperty: Avalonia.AvaloniaProperty,
+            target: AvaloniaObject,
+            targetProperty: AvaloniaProperty,
             anchor: obj,
             enableDataValidation: bool
           ) : InstancedBinding =
@@ -98,7 +98,7 @@ module CVal =
     }
 
 
-[<Extension; Class>]
+[<Class>]
 type AValExtensions =
 
   [<CompiledName "GetValue"; Extension>]
@@ -233,22 +233,22 @@ module Interop =
 type RouterOutlet() as this =
   inherit UserControl()
 
-  let router = ref Unchecked.defaultof<IRouter<_>>
-  let pageTransition = ref Unchecked.defaultof<IPageTransition>
-  let noContent = ref Unchecked.defaultof<Control>
+  let router: (IRouter<_> | null) ref = ref Unchecked.defaultof<IRouter<_>>
+  let pageTransition: (IPageTransition | null) ref = ref Unchecked.defaultof<IPageTransition>
+  let noContent: (Control | null) ref = ref Unchecked.defaultof<Control>
 
   let setupContent () =
 
-    match router.Value :> obj with
+    match router.Value with
     | null -> this.Content <- null
-    | _ ->
+    | router ->
       let noContent =
         match noContent.Value with
         | null -> TextBlock(Text = "No Content") :> Control
         | value -> value
 
       let content =
-        router.Value.Content
+        router.Content
         |> AVal.map(ValueOption.defaultValue noContent)
         |> AVal.toBinding
 
@@ -286,14 +286,14 @@ type RouterOutlet() as this =
       this[RouterOutlet.ContentProperty] <- transitionContent
 
   member this.Router
-    with get (): IRouter<Control> = router.Value
-    and set (value: IRouter<Control>) =
+    with get (): IRouter<Control> | null = router.Value
+    and set (value: IRouter<Control> | null) =
       this.SetAndRaise(RouterOutlet.RouterProperty, router, value) |> ignore
       setupContent()
 
   member this.PageTransition
     with get () = pageTransition.Value
-    and set (value: IPageTransition) =
+    and set (value: IPageTransition | null) =
       this.SetAndRaise(
         RouterOutlet.PageTransitionProperty,
         pageTransition,
@@ -303,32 +303,31 @@ type RouterOutlet() as this =
 
   member this.NoContent
     with get () = noContent.Value
-    and set (value: Control) =
+    and set (value: Control | null) =
       this.SetAndRaise(RouterOutlet.NoContentProperty, noContent, value)
       |> ignore
 
   static member RouterProperty =
-    AvaloniaProperty.RegisterDirect<RouterOutlet, IRouter<Control>>(
+    AvaloniaProperty.RegisterDirect<RouterOutlet, IRouter<Control> | null>(
       "Router",
-      (fun o -> o.Router),
+      _.Router,
       (fun o v -> o.Router <- v)
     )
 
   static member PageTransitionProperty =
-    AvaloniaProperty.RegisterDirect<RouterOutlet, IPageTransition>(
+    AvaloniaProperty.RegisterDirect<RouterOutlet, IPageTransition | null>(
       "PageTransition",
-      (fun o -> o.PageTransition),
+      _.PageTransition,
       (fun o v -> o.PageTransition <- v)
     )
 
   static member NoContentProperty =
-    AvaloniaProperty.RegisterDirect<RouterOutlet, Control>(
+    AvaloniaProperty.RegisterDirect<RouterOutlet, Control | null>(
       "NoContent",
-      (fun o -> o.NoContent),
+      _.NoContent,
       (fun o v -> o.NoContent <- v)
     )
 
-[<Extension>]
 type RouterOutletExtensions =
 
   [<Extension>]

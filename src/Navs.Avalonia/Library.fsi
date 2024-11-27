@@ -187,19 +187,19 @@ module Interop =
 type RouterOutlet =
   inherit UserControl
 
-  static member RouterProperty: DirectProperty<RouterOutlet, IRouter<Control>>
+  static member RouterProperty: DirectProperty<RouterOutlet, IRouter<Control> | null>
 
-  static member PageTransitionProperty: DirectProperty<RouterOutlet, IPageTransition>
+  static member PageTransitionProperty: DirectProperty<RouterOutlet, IPageTransition | null>
 
-  static member NoContentProperty: DirectProperty<RouterOutlet, Control>
+  static member NoContentProperty: DirectProperty<RouterOutlet, Control | null>
 
   new: unit -> RouterOutlet
 
-  member Router: IRouter<Control> with get, set
+  member Router: IRouter<Control> | null with get, set
 
-  member PageTransition: IPageTransition with get, set
+  member PageTransition: IPageTransition | null with get, set
 
-  member NoContent: Control with get, set
+  member NoContent: Control | null with get, set
 
 [<Extension; Class>]
 type RouterOutletExtensions =
