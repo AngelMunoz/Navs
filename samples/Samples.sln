@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharpToo", "CSharpToo\CSha
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FuncUI", "FuncUI\FuncUI.fsproj", "{2054F059-6FDC-480B-A086-83BD25FDC084}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TGUI", "TGUI\TGUI.fsproj", "{1405A8A8-1EE2-499F-AE7D-BC8180D07B44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{2054F059-6FDC-480B-A086-83BD25FDC084}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2054F059-6FDC-480B-A086-83BD25FDC084}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2054F059-6FDC-480B-A086-83BD25FDC084}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1405A8A8-1EE2-499F-AE7D-BC8180D07B44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1405A8A8-1EE2-499F-AE7D-BC8180D07B44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1405A8A8-1EE2-499F-AE7D-BC8180D07B44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1405A8A8-1EE2-499F-AE7D-BC8180D07B44}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
