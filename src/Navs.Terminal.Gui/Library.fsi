@@ -123,8 +123,7 @@ module Interop =
     /// <returns>A route definition</returns>
     [<CompiledName "Define">]
     static member inline define:
-      name: string * path: string * handler: Func<RouteContext, INavigable<Window>, #Window> ->
-        RouteDefinition<Window>
+      name: string * path: string * handler: Func<RouteContext, INavigable<Window>, #Window> -> RouteDefinition<Window>
 
     /// <summary>Defines a route in the application</summary>
     /// <param name="name">The name of the route</param>
@@ -137,3 +136,8 @@ module Interop =
       name: string * path: string * handler: Func<RouteContext, INavigable<Window>, CancellationToken, Task<#Window>> ->
         RouteDefinition<Window>
 
+[<Class>]
+type RouterOutlet =
+  inherit Toplevel
+
+  new: router: IRouter<Window> -> RouterOutlet

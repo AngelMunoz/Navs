@@ -167,11 +167,11 @@ type RouterOutlet(router: IRouter<Window>) as this =
 
   do
     router.Content.AddCallback(fun window ->
+      this.RemoveAll()
+
       match window with
-      | ValueSome w ->
-        this.RemoveAll()
-        this.Add(w :> View) |> ignore
-      | ValueNone -> this.RemoveAll()
+      | ValueSome w -> this.Add(w :> View) |> ignore
+      | ValueNone -> ()
     )
     |> disposables.Add
 
