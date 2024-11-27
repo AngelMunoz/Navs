@@ -5,6 +5,20 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Terminal.Gui Sample",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build:tgui",
+      "program": "${workspaceFolder}/samples/TGUI/bin/Debug/net9.0/TGUI.dll",
+      "args": [
+        "tgui:///login?username=admin"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    },
+
+    {
       "name": "Debug Router Tests",
       "type": "coreclr",
       "request": "launch",
@@ -14,6 +28,7 @@
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
       "console": "internalConsole"
-    }
+    },
+
   ]
 }
