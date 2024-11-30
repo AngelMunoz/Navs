@@ -8,6 +8,7 @@ on:
       - vnext
     paths:
       - docs/**
+      - .github/workflows/docs.yml
 
 # We need some permissions to publish to Github Pages
 permissions:
@@ -25,7 +26,9 @@ jobs:
         with:
           dotnet-version: 9.0.x
       - name: Restore tools
-        run: dotnet tool restore
+        # Force installation of fsdocs alone while fantomas install is fixed in .net9
+        # https://github.com/fsprojects/fantomas/issues/3139
+        run: dotnet new tool-manifest --force && dotnet tool install fsdocs-tool
       - name: Build code
         run: dotnet build -c Release
       - name: Generate the documentation'
