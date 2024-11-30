@@ -24,21 +24,16 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-rc-002"
+#r "nuget: Navs, 1.0.0-rc-005"
 
 open FSharp.Data.Adaptive
 open System
 open System.Threading.Tasks
-open UrlTemplates.RouteMatcher
 
 (*** show ***)
 
 open Navs
 open Navs.Router
-
-module Task =
-
-  let empty = Task.FromResult(()) :> Task
 
 type Page = {
   title: string
@@ -53,7 +48,7 @@ let routes = [
     fun _ _ -> {
       title = "Home"
       content = "Welcome to the home page"
-      onAction = fun () -> Task.empty
+      onAction = fun () -> Task.CompletedTask
     }
   )
   Route.define<Page>(
@@ -62,7 +57,7 @@ let routes = [
     fun _ _ -> {
       title = "About"
       content = "This is the about page"
-      onAction = fun () -> Task.empty
+      onAction = fun () -> Task.CompletedTask
     }
   )
 ]
@@ -73,7 +68,7 @@ let router =
     fun () -> {
       title = "Splash"
       content = "Loading..."
-      onAction = fun () -> Task.empty
+      onAction = fun () -> Task.CompletedTask
     }
   )
 
@@ -163,7 +158,7 @@ let asyncRoute =
       return {
         title = "Async"
         content = "This is an async route"
-        onAction = fun () -> Task.empty
+        onAction = fun () -> Task.CompletedTask
       }
     }
   )
@@ -212,12 +207,16 @@ Route.define<Page>(
   "param",
   "/param/:id<guid>",
   fun ctx _ ->
-    let guid = ctx.urlMatch |> UrlMatch.getFromParams<Guid> "id"
+    let guid =
+      // or ctx.getParam<Guid> "id" if that's your style
+      RouteContext.getParam<Guid> "id" ctx
+      |> ValueOption.map(_.ToString())
+      |> ValueOption.defaultValue "No Guid Supplied"
 
     {
       title = "Param"
       content = $"This is a route with a parameter: {guid}"
-      onAction = fun () -> Task.empty
+      onAction = fun () -> Task.CompletedTask
     }
 )
 
@@ -232,7 +231,10 @@ Route.define<Page>(
   "param",
   "/param/:id<guid>",
   fun ctx (nav: INavigable<Page>) ->
-    let guid = ctx.urlMatch |> UrlMatch.getFromParams<Guid> "id"
+    let guid =
+      ctx.getParam<Guid>("id")
+      |> ValueOption.map(_.ToString())
+      |> ValueOption.defaultValue "No Guid Supplied"
 
     {
       title = "Param"

@@ -17,7 +17,7 @@ That being said...
 ## Usage
 
     [hide]
-    #r "nuget: Navs.Avalonia, 1.0.0-rc-002"
+    #r "nuget: Navs.Avalonia, 1.0.0-rc-005"
     #r "nuget: FSharp.Data.Adaptive, 1.2.14"
 
 Using this library is very similar to using the base Navs library. The main difference is that the `Navs.Avalonia` library provides a less generic versions of the API.
