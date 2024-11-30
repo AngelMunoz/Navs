@@ -53,7 +53,7 @@ let Login (ctx: RouteContext) (navigable: INavigable<_>) =
 
   let backButton =
     Button("Home")
-      .X(Pos.Bottom(btnLogin) +  Pos(1))
+      .X(Pos.Bottom(btnLogin) + Pos(1))
       .Y(Pos.Center())
       .OnAccept(fun _ -> navigable.NavigateByName("home") |> Task.FireAndForget)
 

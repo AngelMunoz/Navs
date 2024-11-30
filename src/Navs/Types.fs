@@ -115,11 +115,11 @@ type RouteDefinition<'View> = {
 type RouteContextExtensions() =
 
   [<Extension; CompiledName "GetParam">]
-  static member inline getParam (ctx: RouteContext, name: string) =
+  static member inline getParam(ctx: RouteContext, name: string) =
     UrlMatch.getFromParams name ctx.urlMatch
 
   [<Extension; CompiledName "GetParamSequence">]
-  static member inline getParamSequence (ctx: RouteContext, name: string) =
+  static member inline getParamSequence(ctx: RouteContext, name: string) =
     UrlMatch.getParamSeqFromQuery name ctx.urlMatch
     |> ValueOption.defaultValue Seq.empty
 

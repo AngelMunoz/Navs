@@ -224,7 +224,7 @@ type RouteContextExtensions =
   /// <returns>
   /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
   /// </returns>
-  [<Extension; CompiledName "GetParam" >]
+  [<Extension; CompiledName "GetParam">]
   static member inline getParam<'CastedType> : ctx: RouteContext * name: string -> 'CastedType voption
 
   /// <summary>
@@ -238,7 +238,7 @@ type RouteContextExtensions =
   /// <remarks>
   /// This method will attempt to collect as many ocurrences of the parameter as it can find in the query string.
   /// </remarks>
-  [<Extension; CompiledName "GetParamSequence" >]
+  [<Extension; CompiledName "GetParamSequence">]
   static member inline getParamSequence<'CastedType> : ctx: RouteContext * name: string -> 'CastedType seq
 
 module RouteContext =
@@ -257,7 +257,7 @@ module RouteContext =
   /// <returns>
   /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
   /// </returns>
-  val inline getParam<'CastedType> :  name: string -> ctx: RouteContext -> 'CastedType voption
+  val inline getParam<'CastedType> : name: string -> ctx: RouteContext -> 'CastedType voption
 
   /// <summary>
   /// Gets a parameter from the "query" section of the route context.
