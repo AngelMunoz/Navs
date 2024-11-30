@@ -4,6 +4,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 open System.Collections.Generic
 open FSharp.Data.Adaptive
 open UrlTemplates.RouteMatcher
@@ -31,10 +32,6 @@ type RouteContext = {
   [<CompiledName "AddDisposable">]
   member this.addDisposable disposable =
     this.disposables.AddDisposable disposable
-
-module RouteContext =
-  let addDisposable disposable (ctx: RouteContext) =
-    ctx.addDisposable disposable
 
 type NavigationError<'View> =
   | SameRouteNavigation
@@ -113,3 +110,26 @@ type RouteDefinition<'View> = {
   [<CompiledName "CacheStrategy">]
   cacheStrategy: CacheStrategy
 }
+
+[<Extension; Class; Sealed>]
+type RouteContextExtensions() =
+
+  [<Extension; CompiledName "GetParam">]
+  static member inline getParam (ctx: RouteContext, name: string) =
+    UrlMatch.getFromParams name ctx.urlMatch
+
+  [<Extension; CompiledName "GetParamSequence">]
+  static member inline getParamSequence (ctx: RouteContext, name: string) =
+    UrlMatch.getParamSeqFromQuery name ctx.urlMatch
+    |> ValueOption.defaultValue Seq.empty
+
+module RouteContext =
+  let inline addDisposable disposable (ctx: RouteContext) =
+    ctx.addDisposable disposable
+
+  let inline getParam (name: string) (ctx: RouteContext) =
+    UrlMatch.getFromParams name ctx.urlMatch
+
+  let inline getParamSequence (name: string) (ctx: RouteContext) =
+    UrlMatch.getParamSeqFromQuery name ctx.urlMatch
+    |> ValueOption.defaultValue Seq.empty

@@ -4,6 +4,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 open System.Collections.Generic
 open IcedTasks
 open FSharp.Data.Adaptive
@@ -45,9 +46,6 @@ type RouteContext =
 
   [<CompiledName "AddDisposable">]
   member addDisposable: IDisposable -> unit
-
-module RouteContext =
-  val addDisposable: IDisposable -> RouteContext -> unit
 
 /// <summary>
 /// This object contains the contextual information about why a navigation
@@ -214,3 +212,62 @@ type RouteDefinition<'View> =
     [<CompiledName "CacheStrategy">]
     cacheStrategy: CacheStrategy
   }
+
+[<Extension; Class; Sealed>]
+type RouteContextExtensions =
+
+  /// <summary>
+  /// Gets a parameter from the "path" or the "query" section of the route context.
+  /// </summary>
+  /// <param name="ctx">The route context to get the parameter from</param>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <returns>
+  /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  [<Extension; CompiledName "GetParam" >]
+  static member inline getParam<'CastedType> : ctx: RouteContext * name: string -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the "query" section of the route context.
+  /// </summary>
+  /// <param name="ctx">The route context to get the parameter from</param>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  /// <remarks>
+  /// This method will attempt to collect as many ocurrences of the parameter as it can find in the query string.
+  /// </remarks>
+  [<Extension; CompiledName "GetParamSequence" >]
+  static member inline getParamSequence<'CastedType> : ctx: RouteContext * name: string -> 'CastedType seq
+
+module RouteContext =
+
+  /// <summary>
+  /// Adds a disposable object to the route context.
+  /// </summary>
+  /// <remarks>This object will be disposed of when the route is deactivated ONLY if the route doesn't have cache enabled</remarks>
+  val inline addDisposable: IDisposable -> RouteContext -> unit
+
+  /// <summary>
+  /// Gets a parameter from the "path" or the "query" section of the route context.
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="ctx">The route context to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  val inline getParam<'CastedType> :  name: string -> ctx: RouteContext -> 'CastedType voption
+
+  /// <summary>
+  /// Gets a parameter from the "query" section of the route context.
+  /// </summary>
+  /// <param name="name">The name of the parameter to get</param>
+  /// <param name="ctx">The route context to get the parameter from</param>
+  /// <returns>
+  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
+  /// </returns>
+  /// <remarks>
+  /// This method will attempt to collect as many ocurrences of the parameter as it can find in the query string.
+  /// </remarks>
+  val inline getParamSequence<'CastedType> : name: string -> ctx: RouteContext -> 'CastedType seq
