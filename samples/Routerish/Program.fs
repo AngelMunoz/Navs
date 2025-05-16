@@ -23,6 +23,30 @@ let routes = [
     }
   )
   Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
+  Route.define(
+    "counter",
+    "/counter?count<int>",
+    (fun ctx _ ->
+      let initialState = defaultValueArg (ctx.getParam<int> "count") 0
+      let value, setValue = AVal.useState initialState
+
+      let increment () = setValue(fun v -> v + 1)
+      let decrement () = setValue(fun v -> v - 1)
+      let reset () = setValue(fun _ -> 0)
+
+      let text = value |> AVal.map(fun v -> $"Count: {v}")
+
+      StackPanel()
+        .spacing(8)
+        .children(
+          Button().content("Increment").OnClickHandler(fun _ _ -> increment()),
+          Button().content("Decrement").OnClickHandler(fun _ _ -> decrement()),
+          Button().content("Reset").OnClickHandler(fun _ _ -> reset()),
+          TextBlock().text(text |> AVal.toBinding)
+        )
+    )
+  )
+  |> Route.cache NoCache
 ]
 
 
@@ -54,7 +78,13 @@ let app () =
               Button().content("Books").OnClickHandler(navigate "/books" router),
               Button()
                 .content("Guid")
-                .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
+                .OnClickHandler(navigate $"/{Guid.NewGuid()}" router),
+              Button()
+                .content("Counter")
+                .OnClickHandler(navigate "/counter" router),
+              Button()
+                .content("Counter with query")
+                .OnClickHandler(navigate "/counter?count=10" router)
             ),
           RouterOutlet().DockTop().router(router)
         )

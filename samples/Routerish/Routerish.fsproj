@@ -8,12 +8,12 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.0.0" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.0.0" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="NXUI" Version="11.0.0" />
-    <PackageReference Include="NXUI.Desktop" Version="11.0.0" />
-    <PackageReference Include="NXUI.FSharp" Version="11.0.0" />
+    <PackageReference Include="Avalonia" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.1.0" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="NXUI" Version="11.1.0.1" />
+    <PackageReference Include="NXUI.Desktop" Version="11.1.0.1" />
+    <PackageReference Include="NXUI.FSharp" Version="11.1.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
