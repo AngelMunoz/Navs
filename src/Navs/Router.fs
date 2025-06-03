@@ -293,8 +293,7 @@ type Router =
 
   [<CompiledName "Build">]
   static member build<'View>
-    (routes: RouteDefinition<'View> seq, [<Optional>] ?splash: unit -> 'View)
-    =
+    (routes: RouteDefinition<'View> seq, [<Optional>] ?splash: unit -> 'View) =
     let routes = routes |> Seq.toList
     let state = cval Idle
     let cache = Dictionary<string, RouteInfo.RouteUnit<'View> * 'View>()

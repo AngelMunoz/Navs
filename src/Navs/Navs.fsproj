@@ -1,6 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Types.fsi" />
@@ -14,8 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.24" />
-    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.18.0" />
-    <PackageReference Include="FsToolkit.ErrorHandling.TaskResult" Version="4.18.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0" />
     <PackageReference Include="IcedTasks" Version="0.11.8" />
   </ItemGroup>
   <ItemGroup>
