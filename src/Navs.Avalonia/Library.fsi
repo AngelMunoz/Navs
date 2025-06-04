@@ -5,7 +5,7 @@ open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
-
+open Microsoft.Extensions.Logging
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
@@ -120,7 +120,10 @@ type AvaloniaRouter =
   /// The router initially doesn't have a view to render. You can provide this function
   /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
   /// </param>
-  new: routes: RouteDefinition<Control> seq * [<Optional>] ?splash: Func<Control> -> AvaloniaRouter
+  /// <param name="logger">An optional logger to log the router's activity</param>
+  new:
+    routes: RouteDefinition<Control> seq * [<Optional>] ?splash: Func<Control> * [<Optional>] ?logger: ILogger ->
+      AvaloniaRouter
 
   interface IRouter<Control>
 

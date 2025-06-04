@@ -17,6 +17,7 @@ open Navs.Router
 open Avalonia
 open Avalonia.Animation
 open Avalonia.Data
+open Microsoft.Extensions.Logging
 
 // enable extensions for VB.NE
 [<assembly: Extension>]
@@ -126,10 +127,11 @@ type AValExtensions =
   [<CompiledName "ToObservable">]
   static member inline toObservable(value: aval<_>) = AVal.toObservable value
 
-type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
+type AvaloniaRouter
+  (routes, [<Optional>] ?splash: Func<Control>, [<Optional>] ?logger: ILogger) =
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.build<Control>(routes, ?splash = splash)
+    Router.build<Control>(routes, ?splash = splash, ?logger = logger)
 
 
   interface IRouter<Control> with
@@ -280,7 +282,6 @@ type RouterOutlet() as this =
           TransitioningContentControl.ContentProperty
             .Bind()
             .WithMode(mode = BindingMode.OneWay)
-            .WithPriority(priority = BindingPriority.LocalValue)
 
         transitionContent[binding] <- content
         transitionContent
@@ -359,13 +360,9 @@ type RouterOutletExtensions =
       [<Optional>] ?priority: BindingPriority
     ) =
     let mode = defaultArg mode BindingMode.OneWay
-    let priority = defaultArg priority BindingPriority.LocalValue
 
     let descriptor =
-      RouterOutlet.PageTransitionProperty
-        .Bind()
-        .WithMode(mode = mode)
-        .WithPriority(priority = priority)
+      RouterOutlet.PageTransitionProperty.Bind().WithMode(mode = mode)
 
     routerOutlet[descriptor] <- (AVal.toObservable pageTransition).ToBinding()
     routerOutlet
@@ -386,13 +383,8 @@ type RouterOutletExtensions =
       [<Optional>] ?priority: BindingPriority
     ) =
     let mode = defaultArg mode BindingMode.OneWay
-    let priority = defaultArg priority BindingPriority.LocalValue
 
-    let descriptor =
-      RouterOutlet.NoContentProperty
-        .Bind()
-        .WithMode(mode = mode)
-        .WithPriority(priority = priority)
+    let descriptor = RouterOutlet.NoContentProperty.Bind().WithMode(mode = mode)
 
     routerOutlet[descriptor] <- (AVal.toObservable noContent).ToBinding()
     routerOutlet

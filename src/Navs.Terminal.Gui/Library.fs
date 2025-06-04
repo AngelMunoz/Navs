@@ -12,6 +12,7 @@ open FSharp.Data.Adaptive
 
 open Navs
 open Navs.Router
+open Microsoft.Extensions.Logging
 
 // enable extensions for VB.NE
 [<assembly: Extension>]
@@ -66,11 +67,12 @@ type AValExtensions =
       adaptiveValue.Value <- setValue.Invoke(adaptiveValue.Value)
     )
 
-type TerminalGuiRouter(routes, [<Optional>] ?splash: Func<Window>) =
+type TerminalGuiRouter
+  (routes, [<Optional>] ?splash: Func<Window>, [<Optional>] ?logger: ILogger) =
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
 
-    Router.build<Window>(routes, ?splash = splash)
+    Router.build<Window>(routes, ?splash = splash, ?logger = logger)
 
   interface IRouter<Window> with
 

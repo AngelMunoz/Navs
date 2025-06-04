@@ -6,6 +6,7 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Threading
 open System.Threading.Tasks
+open Microsoft.Extensions.Logging
 open FSharp.Data.Adaptive
 open Navs
 open Terminal.Gui
@@ -72,7 +73,10 @@ type TerminalGuiRouter =
   /// The router initially doesn't have a view to render. You can provide this function
   /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
   /// </param>
-  new: routes: RouteDefinition<Window> seq * [<Optional>] ?splash: Func<Window> -> TerminalGuiRouter
+  /// /// <param name="logger">An optional logger to log the router's activity</param>
+  new:
+    routes: RouteDefinition<Window> seq * [<Optional>] ?splash: Func<Window> * [<Optional>] ?logger: ILogger ->
+      TerminalGuiRouter
 
   interface IRouter<Window>
 

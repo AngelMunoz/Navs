@@ -6,6 +6,8 @@ open System.Runtime.InteropServices
 open System.Threading
 open System.Threading.Tasks
 
+open Microsoft.Extensions.Logging
+
 open FSharp.Data.Adaptive
 
 open Avalonia.FuncUI
@@ -16,11 +18,15 @@ open Navs
 open Navs.Router
 
 type FuncUIRouter
-  (routes: RouteDefinition<IView> seq, [<Optional>] ?splash: Func<IView>) =
+  (
+    routes: RouteDefinition<IView> seq,
+    [<Optional>] ?splash: Func<IView>,
+    [<Optional>] ?logger: ILogger
+  ) =
 
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.build<IView>(routes, ?splash = splash)
+    Router.build<IView>(routes, ?splash = splash, ?logger = logger)
 
 
   interface IRouter<IView> with
