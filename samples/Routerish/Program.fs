@@ -9,6 +9,14 @@ open NXUI.FSharp.Extensions
 open FSharp.Data.Adaptive
 open Navs
 open Navs.Avalonia
+open Microsoft.Extensions.Logging
+
+let lf =
+  LoggerFactory.Create(fun builder ->
+    builder.AddConsole().SetMinimumLevel LogLevel.Trace |> ignore
+  )
+
+let logger = lf.CreateLogger "Navs.Avalonia.Program"
 
 let routes = [
   Route.define(
@@ -63,7 +71,11 @@ let navigate url (router: IRouter<Control>) _ _ =
 let app () =
 
   let router =
-    AvaloniaRouter(routes, splash = (fun _ -> TextBlock().text("Loading...")))
+    AvaloniaRouter(
+      routes,
+      splash = (fun _ -> TextBlock().text("Loading...")),
+      logger = logger
+    )
 
   Window()
     .content(
