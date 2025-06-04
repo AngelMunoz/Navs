@@ -26,11 +26,15 @@ let routes = [
 
       return
         match context.urlMatch.Params.TryGetValue "id" with
-        | true, id -> TextBlock().text($"%O{id}")
+        | true, id -> TextBlock().text($"%O{id}") :> Control
         | false, _ -> TextBlock().text("Guid No GUID")
     }
   )
-  Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
+  Route.define(
+    "books",
+    "/books",
+    (fun _ _ -> TextBlock().text("Books") :> Control)
+  )
   Route.define(
     "counter",
     "/counter?count<int>",
@@ -52,6 +56,7 @@ let routes = [
           Button().content("Reset").OnClickHandler(fun _ _ -> reset()),
           TextBlock().text(text |> AVal.toBinding)
         )
+      :> Control
     )
   )
   |> Route.cache NoCache
