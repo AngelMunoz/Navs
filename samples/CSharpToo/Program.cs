@@ -56,7 +56,7 @@ static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
           );
 
      }),
-     Route.Define<Control>("by-name", "/by-name?id<guid>", async (ctx, nav, token) => {
+     Route.Define("by-name", "/by-name?id<guid>", async (ctx, nav, token) => {
         // Simulate a fetch or something
         await Task.Delay(80, token);
         var guid = UrlMatchModule.getFromParams<Guid>("id", ctx.urlMatch);
