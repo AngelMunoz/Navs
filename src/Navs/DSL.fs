@@ -5,6 +5,22 @@ open System.Threading.Tasks
 open System.Threading
 open IcedTasks
 
+type SyncView<'View> = RouteContext -> INavigable<'View> -> 'View
+type AsyncView<'View> = RouteContext -> INavigable<'View> -> Async<'View>
+
+type TaskView<'View> =
+  RouteContext -> INavigable<'View> -> CancellationToken -> Task<'View>
+
+type SyncGuard = RouteContext voption -> RouteContext -> GuardResponse
+type AsyncGuard = RouteContext voption -> RouteContext -> Async<GuardResponse>
+
+type TaskGuard =
+  RouteContext voption
+    -> RouteContext
+    -> CancellationToken
+    -> Task<GuardResponse>
+
+
 type Route =
 
   static member inline define<'View>

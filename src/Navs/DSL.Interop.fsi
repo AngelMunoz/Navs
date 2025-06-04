@@ -7,6 +7,11 @@ open System.Threading.Tasks
 
 open Navs
 
+type SyncView<'View> = Func<RouteContext, INavigable<'View>, 'View>
+type TaskView<'View> = Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>>
+type SyncGuard = Func<RouteContext | null, RouteContext, GuardResponse>
+type AsyncGuard = Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>>
+
 [<Class>]
 type Route =
   /// <summary>Defines a route in the application</summary>
@@ -17,8 +22,7 @@ type Route =
   /// <remarks>
   ///  This function should ideally be used from non-F# languages as it provides a more standard Function signature.
   /// </remarks>
-  static member inline Define:
-    name: string * path: string * getContent: Func<RouteContext, INavigable<'View>, 'View> -> RouteDefinition<'View>
+  static member inline Define: name: string * path: string * getContent: SyncView<'View> -> RouteDefinition<'View>
 
   /// <summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -28,9 +32,7 @@ type Route =
   /// <remarks>
   /// This function should ideally be used from F# as it provides a more idiomatic F# Function signature.
   /// </remarks>
-  static member inline Define:
-    name: string * path: string * getContent: Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>> ->
-      RouteDefinition<'View>
+  static member inline Define: name: string * path: string * getContent: TaskView<'View> -> RouteDefinition<'View>
 
 /// <summary>
 /// A module that provides functions for route guard responses
@@ -64,36 +66,28 @@ type RouteDefinitionExtensions =
   /// </summary>
   [<Extension>]
   static member inline CanActivate:
-    routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
-      RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: SyncGuard array -> RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
   /// </summary>
   [<Extension>]
   static member inline CanActivate:
-    routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array ->
-      RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: AsyncGuard array -> RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is activated.
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
-    routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, GuardResponse> array ->
-      RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: SyncGuard array -> RouteDefinition<'View>
 
   /// <summary>
   /// Takes a sequence of route guards and adds them to the route definition as guards that will be executed when the route is deactivated.
   /// </summary>
   [<Extension>]
   static member inline CanDeactivate:
-    routeDef: RouteDefinition<'View> *
-    [<ParamArray>] guards: Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>> array ->
-      RouteDefinition<'View>
+    routeDef: RouteDefinition<'View> * [<ParamArray>] guards: AsyncGuard array -> RouteDefinition<'View>
 
   /// <summary>
   /// Ensure that rendered view used for this route is picked up from the in-memory cache.

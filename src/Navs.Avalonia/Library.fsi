@@ -127,8 +127,36 @@ type AvaloniaRouter =
 
   interface IRouter<Control>
 
-[<Class; Sealed>]
+[<Class>]
 type Route =
+  inherit UserControl
+
+  /// <summary>
+  /// Gets the definition of the route.
+  /// </summary>
+  member Definition: RouteDefinition<Control> with get
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and a handler.
+  /// </summary>
+  new: name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Control) -> Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and an asynchronous handler.
+  /// </summary>
+  new: name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<Control>) -> Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and an asynchronous handler.
+  /// </summary>
+  new:
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<Control>) ->
+      Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name.
+  /// </summary>
+  new: def: RouteDefinition<Control> -> Route
 
   ///<summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -136,7 +164,7 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<#Control>) ->
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<Control>) ->
       RouteDefinition<Control>
 
   /// <summary>Defines a route in the application</summary>
@@ -146,7 +174,7 @@ type Route =
   /// <returns>A route definition</returns>
   /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<#Control>) ->
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<Control>) ->
       RouteDefinition<Control>
 
   ///<summary>Defines a route in the application</summary>
@@ -155,7 +183,33 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> #Control) -> RouteDefinition<Control>
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Control) -> RouteDefinition<Control>
+
+/// <summary>
+/// Represents a collection of routes in the application.
+/// </summary>
+[<Class>]
+type Routes =
+  inherit UserControl
+
+  new: [<Optional>] ?logger: ILogger -> Routes
+
+  /// <summary>
+  /// Gets or sets the children routes.
+  /// </summary>
+  member Children: Route[] with get, set
+  member Router: IRouter<Control> voption with get
+
+  /// <summary>
+  /// Gets the property for children routes.
+  /// </summary>
+  static member ChildrenProperty: DirectProperty<Routes, Route[]>
+
+[<Extension; Class>]
+type RoutesExtensions =
+
+  [<Extension>]
+  static member inline Children: control: Routes * [<ParamArray>] routes: Route[] -> Routes
 
 /// <summary>
 /// A module that contains the interop functions to use the Route class from other languages.
@@ -172,7 +226,7 @@ module Interop =
     /// <returns>A route definition</returns>
     [<CompiledName "Define">]
     static member inline define:
-      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, #Control> ->
+      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, Control> ->
         RouteDefinition<Control>
 
     /// <summary>Defines a route in the application</summary>
@@ -183,7 +237,7 @@ module Interop =
     /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
     [<CompiledName "Define">]
     static member inline define:
-      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, CancellationToken, Task<#Control>> ->
+      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, CancellationToken, Task<Control>> ->
         RouteDefinition<Control>
 
 [<Class>]

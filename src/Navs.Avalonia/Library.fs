@@ -128,7 +128,11 @@ type AValExtensions =
   static member inline toObservable(value: aval<_>) = AVal.toObservable value
 
 type AvaloniaRouter
-  (routes, [<Optional>] ?splash: Func<Control>, [<Optional>] ?logger: ILogger) =
+  (
+    routes: RouteDefinition<Control> seq,
+    [<Optional>] ?splash: Func<Control>,
+    [<Optional>] ?logger: ILogger
+  ) =
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
     Router.build<Control>(routes, ?splash = splash, ?logger = logger)
@@ -155,20 +159,51 @@ type AvaloniaRouter
     member _.NavigateByName(a, [<Optional>] ?b, [<Optional>] ?c) =
       router.NavigateByName(a, ?routeParams = b, ?cancellationToken = c)
 
-[<Class; Sealed>]
-type Route =
+
+[<Class>]
+type Route(def: RouteDefinition<Control>) =
+  inherit UserControl()
+
+  new
+    (
+      name: string,
+      path: string,
+      handler: RouteContext -> INavigable<Control> -> Control
+    ) =
+    Route(Route.define(name, path, handler))
+
+  new
+    (
+      name: string,
+      path: string,
+      handler: RouteContext -> INavigable<Control> -> Async<Control>
+    ) =
+    Route(Route.define(name, path, handler))
+
+  new
+    (
+      name: string,
+      path: string,
+      handler:
+        RouteContext
+          -> INavigable<Control>
+          -> CancellationToken
+          -> Task<Control>
+    ) =
+    Route(Route.define(name, path, handler))
+
+  member _.Definition: RouteDefinition<Control> = def
+
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<Control> -> Async<#Control>) : RouteDefinition<
-                                                                                      Control
-                                                                                     >
+    (name, path, handler: RouteContext -> INavigable<Control> -> Async<Control>)
     =
     Navs.Route.define<Control>(
       name,
       path,
       fun c n -> async {
         let! result = handler c n
-        return result :> Control
+        return result
       }
     )
 
@@ -180,34 +215,137 @@ type Route =
         RouteContext
           -> INavigable<Control>
           -> CancellationToken
-          -> Task<#Control>
-    ) : RouteDefinition<Control> =
+          -> Task<Control>
+    ) =
     Navs.Route.define(
       name,
       path,
       fun c n t -> task {
         let! value = handler c n t
-        return value :> Control
+        return value
       }
     )
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<Control> -> #Control)
-    : RouteDefinition<Control> =
-    Navs.Route.define<Control>(name, path, (fun c n -> handler c n :> Control))
+    (name, path, handler: RouteContext -> INavigable<Control> -> Control)
+    =
+    Navs.Route.define<Control>(name, path, (fun c n -> handler c n))
+
+
+[<Class>]
+type Routes([<Optional>] ?logger: ILogger) as this =
+  inherit UserControl()
+
+  let children: Route[] ref = ref Array.empty
+
+  let mutable router: IRouter<Control> | null =
+    Unchecked.defaultof<IRouter<Control>>
+
+  let buildRouter (children: Route[]) : IRouter<Control> =
+    let definitions = children |> Array.map(fun c -> c.Definition)
+
+    AvaloniaRouter(definitions, ?logger = logger) :> IRouter<Control>
+
+  let content =
+    TransitioningContentControl(
+      PageTransition =
+        CompositePageTransition(
+          PageTransitions =
+            ResizeArray [
+              CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+              PageSlide(
+                TimeSpan.FromMilliseconds 300,
+                PageSlide.SlideAxis.Horizontal
+              )
+            ]
+        )
+    )
+
+  let setupContent (router: IRouter<Control>) =
+    let binding =
+      TransitioningContentControl.ContentProperty
+        .Bind()
+        .WithMode(mode = BindingMode.OneWay)
+
+    content[binding] <-
+      router.Content
+      |> AVal.map(fun content ->
+        content |> ValueOption.defaultValue(UserControl())
+      )
+      |> AVal.toBinding
+
+  let navigateToFirstRoute (router: IRouter<Control>, routes: Route[]) =
+    match routes |> Seq.tryHead with
+    | Some firstRoute ->
+      async {
+        let! result =
+          router.NavigateByName firstRoute.Definition.name
+          |> Async.AwaitTask
+          |> Async.Catch
+
+        match result with
+        | Choice1Of2 _ -> return ()
+        | Choice2Of2 e ->
+          logger
+          |> Option.iter(fun logger ->
+            logger.LogError(
+              e,
+              "Failed to navigate to the first route: {RouteName}",
+              firstRoute.Definition.name
+            )
+          )
+
+          return ()
+      }
+      |> Async.StartImmediate
+    | None -> ()
+
+  do this[Routes.ContentProperty] <- content
+
+  member this.Children
+    with get (): Route[] = children.Value
+    and set (value: Route[]) =
+      let routes = defaultIfNull Array.empty value
+
+      this.SetAndRaise(Routes.ChildrenProperty, children, routes) |> ignore
+
+      router <- buildRouter routes
+      let router = nonNull router
+      setupContent router
+      navigateToFirstRoute(router, routes)
+
+  member this.Router =
+    match router with
+    | null -> ValueNone
+    | router -> ValueSome router
+
+
+  static member ChildrenProperty =
+    AvaloniaProperty.RegisterDirect<Routes, Route[]>(
+      "Children",
+      _.Children,
+      (fun o v -> o.Children <- v)
+    )
+
+
+type RoutesExtensions =
+
+  [<Extension>]
+  static member inline Children
+    (control: Routes, [<ParamArray>] routes: Route[])
+    =
+    control.Children <- routes
+    control
+
 
 module Interop =
 
   type Route =
     [<CompiledName "Define">]
     static member inline define
-      (name, path, handler: Func<RouteContext, INavigable<Control>, #Control>)
+      (name, path, handler: Func<RouteContext, INavigable<Control>, Control>)
       =
-      Navs.Route.define(
-        name,
-        path,
-        (fun c n -> handler.Invoke(c, n) :> Control)
-      )
+      Navs.Route.define(name, path, (fun c n -> handler.Invoke(c, n)))
 
     [<CompiledName "Define">]
     static member inline define
@@ -219,7 +357,7 @@ module Interop =
             RouteContext,
             INavigable<Control>,
             CancellationToken,
-            Task<#Control>
+            Task<Control>
            >
       ) =
       Navs.Route.define(
@@ -227,7 +365,7 @@ module Interop =
         path,
         (fun c n t -> task {
           let! value = handler.Invoke(c, n, t)
-          return value :> Control
+          return value
         })
       )
 
@@ -261,15 +399,13 @@ type RouterOutlet() as this =
         | null ->
           CompositePageTransition(
             PageTransitions =
-              ResizeArray(
-                [
-                  CrossFade(TimeSpan.FromMilliseconds(150)) :> IPageTransition
-                  PageSlide(
-                    TimeSpan.FromMilliseconds(300),
-                    PageSlide.SlideAxis.Horizontal
-                  )
-                ]
-              )
+              ResizeArray [
+                CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+                PageSlide(
+                  TimeSpan.FromMilliseconds 300,
+                  PageSlide.SlideAxis.Horizontal
+                )
+              ]
           )
           :> IPageTransition
         | value -> value

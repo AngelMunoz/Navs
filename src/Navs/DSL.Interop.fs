@@ -11,6 +11,17 @@ open Navs
 [<assembly: Extension>]
 do ()
 
+
+type SyncView<'View> = Func<RouteContext, INavigable<'View>, 'View>
+
+type TaskView<'View> =
+  Func<RouteContext, INavigable<'View>, CancellationToken, Task<'View>>
+
+type SyncGuard = Func<RouteContext | null, RouteContext, GuardResponse>
+
+type AsyncGuard =
+  Func<RouteContext | null, RouteContext, CancellationToken, Task<GuardResponse>>
+
 type Route =
 
   static member inline Define<'View>
