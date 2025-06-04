@@ -17,6 +17,17 @@
       "stopAtEntry": false,
       "console": "externalTerminal"
     },
+    {
+      "name": "Debug Declarative Sample",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build:declarative",
+      "program": "${workspaceFolder}/samples/NxuiDeclarative/bin/Debug/net9.0/NxuiDeclarative.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
 
     {
       "name": "Debug Router Tests",
