@@ -96,7 +96,7 @@ static Window GetWindow()
 
 static async void NavigateByName(string name, IRouter<Control> router, Dictionary<string, object>? routeParams = null)
 {
-  var result = await router.NavigateByName("by-name", routeParams);
+  var result = await router.NavigateByName("by-name", routeParams ?? []);
 
   if (result.IsError) { Console.WriteLine($"Error: {result.ErrorValue}"); }
   else
