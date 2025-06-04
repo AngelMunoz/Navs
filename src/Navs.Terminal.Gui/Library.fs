@@ -162,7 +162,31 @@ module Interop =
         })
       )
 
-type RouterOutlet(router: IRouter<Window>) as this =
+module private StartHelpers =
+  let initialNavigation
+    (initialUri, router: IRouter<Window>, logger: ILogger option)
+    =
+    let uri = defaultArg initialUri "/"
+
+    async {
+      let! result = router.Navigate(uri) |> Async.AwaitTask |> Async.Catch
+
+      match result with
+      | Choice1Of2 _ -> ()
+      | Choice2Of2 ex ->
+        match logger with
+        | Some l ->
+          l.LogError(ex, "Failed to navigate to initial URI {Uri}", uri)
+        | None -> eprintfn "Failed to navigate to initial URI %s" uri
+    }
+    |> Async.StartImmediate
+
+type RouterOutlet
+  (
+    router: IRouter<Window>,
+    [<Optional>] ?initialUri: string,
+    [<Optional>] ?logger: ILogger
+  ) as this =
   inherit Toplevel()
 
   let disposables = ResizeArray()
@@ -176,6 +200,8 @@ type RouterOutlet(router: IRouter<Window>) as this =
       | ValueNone -> ()
     )
     |> disposables.Add
+
+    StartHelpers.initialNavigation(initialUri, router, logger)
 
 
   override _.Dispose(disposing: bool) : unit =

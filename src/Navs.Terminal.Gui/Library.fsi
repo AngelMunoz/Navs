@@ -144,4 +144,4 @@ module Interop =
 type RouterOutlet =
   inherit Toplevel
 
-  new: router: IRouter<Window> -> RouterOutlet
+  new: router: IRouter<Window> * [<Optional>] ?initialUri: string * [<Optional>] ?logger: ILogger -> RouterOutlet

@@ -233,7 +233,12 @@ type Route(def: RouteDefinition<Control>) =
 
 
 [<Class>]
-type Routes([<Optional>] ?logger: ILogger) as this =
+type Routes
+  (
+    [<Optional>] ?initialUri: string,
+    [<Optional>] ?noView: Control,
+    [<Optional>] ?logger: ILogger
+  ) as this =
   inherit UserControl()
 
   let children: Route[] ref = ref Array.empty
@@ -270,35 +275,34 @@ type Routes([<Optional>] ?logger: ILogger) as this =
     content[binding] <-
       router.Content
       |> AVal.map(fun content ->
-        content |> ValueOption.defaultValue(UserControl())
+        let noView =
+          defaultArg noView (UserControl(Content = "No Content Provided."))
+
+        content |> ValueOption.defaultValue noView
       )
       |> AVal.toBinding
 
-  let navigateToFirstRoute (router: IRouter<Control>, routes: Route[]) =
-    match routes |> Seq.tryHead with
-    | Some firstRoute ->
-      async {
-        let! result =
-          router.NavigateByName firstRoute.Definition.name
-          |> Async.AwaitTask
-          |> Async.Catch
+  let navigateToFirstRoute (router: IRouter<Control>) =
+    let uri = defaultArg initialUri "/"
 
-        match result with
-        | Choice1Of2 _ -> return ()
-        | Choice2Of2 e ->
-          logger
-          |> Option.iter(fun logger ->
-            logger.LogError(
-              e,
-              "Failed to navigate to the first route: {RouteName}",
-              firstRoute.Definition.name
-            )
+    async {
+      let! result = router.Navigate uri |> Async.AwaitTask |> Async.Catch
+
+      match result with
+      | Choice1Of2 _ -> return ()
+      | Choice2Of2 e ->
+        logger
+        |> Option.iter(fun logger ->
+          logger.LogError(
+            e,
+            "Failed to navigate to the initial Uri: {Uri}",
+            uri
           )
+        )
 
-          return ()
-      }
-      |> Async.StartImmediate
-    | None -> ()
+      return ()
+    }
+    |> Async.StartImmediate
 
   do this[Routes.ContentProperty] <- content
 
@@ -312,9 +316,9 @@ type Routes([<Optional>] ?logger: ILogger) as this =
       router <- buildRouter routes
       let router = nonNull router
       setupContent router
-      navigateToFirstRoute(router, routes)
+      navigateToFirstRoute router
 
-  member this.Router =
+  member _.Router =
     match router with
     | null -> ValueNone
     | router -> ValueSome router

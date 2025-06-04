@@ -83,4 +83,6 @@ module DSL =
 
   [<Class>]
   type RouterOutlet =
-    static member create: router: IRouter<IView> * ?noContent: IView * ?transition: IPageTransition -> IView<Component>
+    static member create:
+      router: IRouter<IView> * ?initialUri: string * ?noContent: IView * ?transition: IPageTransition * ?logger: ILogger ->
+        IView<Component>

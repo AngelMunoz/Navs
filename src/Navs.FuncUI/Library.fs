@@ -138,22 +138,49 @@ type Route =
     : RouteDefinition<IView> =
     Navs.Route.define<IView>(name, path, (fun c n -> handler c n :> IView))
 
-
 [<AutoOpen>]
 module DSL =
   open Avalonia.Animation
   open Avalonia.Controls
 
+  let private initialNavigation
+    (initialUri, router: IRouter<IView>, logger: ILogger option)
+    ()
+    =
+    let uri = defaultArg initialUri "/"
+
+    async {
+      let! result = router.Navigate(uri) |> Async.AwaitTask |> Async.Catch
+
+      match result with
+      | Choice1Of2 _ -> ()
+      | Choice2Of2 _ ->
+        match logger with
+        | Some l -> l.LogError("Failed to navigate to initial URI: {Uri}", uri)
+        | None -> ()
+    }
+    |> Async.StartImmediate
+
   [<Class>]
   type RouterOutlet =
 
     static member create
-      (router: IRouter<IView>, ?noContent: IView, ?transition: IPageTransition)
-      =
+      (
+        router: IRouter<IView>,
+        ?initialUri: string,
+        ?noContent: IView,
+        ?transition: IPageTransition,
+        ?logger: ILogger
+      ) =
       Component.create(
         "router-outlet",
         fun ctx ->
-          let view = ctx.useRouter(router)
+          let view = ctx.useRouter router
+
+          ctx.useEffect(
+            handler = initialNavigation(initialUri, router, logger),
+            triggers = [ EffectTrigger.AfterInit ]
+          )
 
           let content =
             view
@@ -169,16 +196,13 @@ module DSL =
             |> Option.defaultWith(fun () ->
               CompositePageTransition(
                 PageTransitions =
-                  ResizeArray(
-                    [
-                      CrossFade(TimeSpan.FromMilliseconds(150))
-                      :> IPageTransition
-                      PageSlide(
-                        TimeSpan.FromMilliseconds(300),
-                        PageSlide.SlideAxis.Horizontal
-                      )
-                    ]
-                  )
+                  ResizeArray [
+                    CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+                    PageSlide(
+                      TimeSpan.FromMilliseconds 300,
+                      PageSlide.SlideAxis.Horizontal
+                    )
+                  ]
               )
             )
 

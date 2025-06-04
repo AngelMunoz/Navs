@@ -192,7 +192,19 @@ type Route =
 type Routes =
   inherit UserControl
 
-  new: [<Optional>] ?logger: ILogger -> Routes
+  /// <summary>
+  /// Initializes a new instance of the Routes class with an initial URI and an optional logger.
+  /// /// The initial URI is used to set the initial route when the application starts.
+  /// </summary>
+  /// <param name="initialUri">The initial URI to set the route to when the router starts.</param>
+  /// <param name="noView">An optional control to render when no route is matched.</param>
+  /// <param name="logger">An optional logger to log the router's activity.</param>
+  /// <remarks>
+  /// If you don't provide an initial URI, the navigation will default to "/"
+  /// if the route is not found the noView control will be rendered.
+  /// And you will have to programmatically navigate to a route using the `Navigate` method.
+  /// </remarks>
+  new: [<Optional>] ?initialUri: string * [<Optional>] ?noView: Control * [<Optional>] ?logger: ILogger -> Routes
 
   /// <summary>
   /// Gets or sets the children routes.
