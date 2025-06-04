@@ -5,6 +5,8 @@ open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Threading
 
+open Microsoft.Extensions.Logging
+
 open FSharp.Data.Adaptive
 open IcedTasks
 open FsToolkit.ErrorHandling
@@ -114,6 +116,7 @@ module Navigable =
   }
 
   let navigate
+    (logger: ILogger)
     url
     (env: RouteEnvironment<'View>)
     (nav: INavigable<'View>)
@@ -121,13 +124,16 @@ module Navigable =
     (token: CancellationToken)
     =
     taskResult {
-
       // if we have this in cache, let's jumpthe dance
       match env.cache.TryGetValue url with
-      | true, value -> return value
+      | true, value ->
+        logger.LogDebug("Cache hit for url: {url}", url)
+        logger.LogTrace("Returning {value}", value)
+        return value
       // otherwise let's try to resolve the issue
       | false, _ ->
         // 1. resolve the route
+
         if token.IsCancellationRequested then
           return! Error(NavigationCancelled)
         else
@@ -135,10 +141,11 @@ module Navigable =
             RouteInfo.getActiveRouteInfo env.routes url
             |> Result.mapError(fun _ -> RouteNotFound url)
 
+          logger.LogDebug("Resolved route: {route}", nextRoute.context.path)
           // 2. check deactivation guards
-
           match env.activeRoute with
           | ValueSome active ->
+            logger.LogTrace("Running guards")
 
             do!
               active.definition.canDeactivate
@@ -155,22 +162,51 @@ module Navigable =
                   | Redirect redirect ->
                     match stack with
                     | ValueSome { from = from; target = target } ->
+                      logger.LogTrace(
+                        "Guard redirect to {redirect}",
+                        { from = from; target = target }
+                      )
+
                       if from <> url && redirect = target then
+                        logger.LogDebug(
+                          "{from} is different to {url} and redirect is {redirect}, allowing navigation",
+                          from,
+                          url,
+                          redirect
+                        )
+
                         return ()
                       else
+                        logger.LogDebug(
+                          "Guard redirect to {redirect}",
+                          redirect
+                        )
+
                         return! Error(GuardRedirect redirect)
                     | ValueNone -> return! Error(GuardRedirect redirect)
                   | Stop ->
+                    logger.LogDebug(
+                      "Guard stop for {path}",
+                      active.context.path
+                    )
+
                     return! Error(CantDeactivate active.definition.pattern)
               })
               |> TaskResult.ignore
 
+            logger.LogTrace("Deactivation guards passed")
             // 2. Start deactivating the current route
 
             match active.definition.cacheStrategy with
-            | NoCache -> active.context.disposables.Dispose()
-            | Cache -> ()
+            | NoCache ->
+              logger.LogDebug("No cache strategy, disposing active route")
+              active.context.disposables.Dispose()
+            | Cache ->
+              logger.LogDebug("Cache strategy, not disposing active route")
+              ()
             // 2.1. Check Next Route Activation Guards with active route
+            logger.LogTrace("Checking activation guards for next route")
+
             do!
               nextRoute.definition.canActivate
               |> List.traverseTaskResultM(fun guard -> taskResult {
@@ -182,9 +218,19 @@ module Navigable =
                       (ValueSome active.context, nextRoute.context)
                       token
                   with
-                  | Continue -> return ()
-                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Continue ->
+                    logger.LogTrace("Guard passed, continuing")
+                    return ()
+                  | Redirect url ->
+                    logger.LogTrace("Guard redirect to {url}", url)
+                    return! Error(GuardRedirect url)
                   | Stop ->
+                    logger.LogDebug(
+                      "Guard stop for {name} - {pattern}",
+                      nextRoute.definition.name,
+                      nextRoute.definition.pattern
+                    )
+
                     return! Error(CantActivate nextRoute.definition.pattern)
               })
               |> TaskResult.ignore
@@ -197,9 +243,19 @@ module Navigable =
                   return! Error(NavigationCancelled)
                 else
                   match! guard.Invoke (ValueNone, nextRoute.context) token with
-                  | Continue -> return ()
-                  | Redirect url -> return! Error(GuardRedirect url)
+                  | Continue ->
+                    logger.LogTrace("Guard passed, continuing")
+                    return ()
+                  | Redirect url ->
+                    logger.LogTrace("Guard redirect to {url}", url)
+                    return! Error(GuardRedirect url)
                   | Stop ->
+                    logger.LogDebug(
+                      "Guard stop for {name} - {pattern}",
+                      nextRoute.definition.name,
+                      nextRoute.definition.pattern
+                    )
+
                     return! Error(CantActivate nextRoute.definition.pattern)
               })
               |> TaskResult.ignore
@@ -211,6 +267,7 @@ module Navigable =
             match nextRoute.definition.cacheStrategy with
             | NoCache ->
               // 3.1 always resolve the content for no-cache
+              logger.LogDebug("No cache strategy, resolving content")
 
               let! resolved =
                 nextRoute.definition.getContent.Invoke
@@ -219,6 +276,7 @@ module Navigable =
 
               return nextRoute, resolved
             | Cache ->
+              logger.LogDebug("Cache strategy, checking cache for content")
               // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
 
               let! resolved =
@@ -227,10 +285,25 @@ module Navigable =
                   token
 
               match env.cache.TryAdd(url, (nextRoute, resolved)) with
-              | true -> () // Yeah we're good
+              | true ->
+                logger.LogTrace(
+                  "Cache miss for url: {url}, adding to cache",
+                  url
+                )
+
+                () // Yeah we're good
               | false ->
+                logger.LogTrace(
+                  "Cache hit for url: {url}, not adding to cache",
+                  url
+                )
                 // Why though?
                 ()
+
+              logger.LogDebug(
+                "Resolved view for {nextRouteContext}",
+                nextRoute.context
+              )
 
               return nextRoute, resolved
     }
@@ -244,7 +317,7 @@ module Navigable =
     | GuardRedirect route -> ValueSome route
     | _ -> ValueNone
 
-  let attemptRedirect (env, nav) origin target = cancellableTask {
+  let attemptRedirect (env, nav, logger: ILogger) origin target = cancellableTask {
     let mutable lastResult = ValueNone
     let mutable lastError = ValueNone
     let mutable lastRedirect = ValueNone
@@ -253,24 +326,31 @@ module Navigable =
     let! token = CancellableTask.getCancellationToken()
 
     while redirectStack.Count > 0 do
+      logger.LogTrace("Redirect Stack Count: {count}", redirectStack.Count)
       let redirect = redirectStack.Pop()
       lastRedirect <- ValueSome redirect
-      let! result = navigate redirect.target env nav (ValueSome redirect) token
+
+      let! result =
+        navigate logger redirect.target env nav (ValueSome redirect) token
 
       match result with
       | Error(IsRedirection route) ->
-        redirectStack.Push(
-          {
-            from = redirect.target
-            target = route
-          }
-        )
+        let stackEntry = {
+          from = redirect.target
+          target = route
+        }
+
+        redirectStack.Push(stackEntry)
+        logger.LogTrace("ReNavigation Redirect: {stackEntry}", stackEntry)
 
         lastError <- ValueNone
       | Error errors ->
+        logger.LogTrace("ReNavigation Error: {errors}", errors)
         lastError <- ValueSome errors
         redirectStack.Clear()
-      | Ok result -> lastResult <- ValueSome result
+      | Ok result ->
+        logger.LogTrace("ReNavigation success: {result}", result)
+        lastResult <- ValueSome result
 
     if lastError.IsSome then
       return Error lastError.Value
@@ -293,11 +373,31 @@ type Router =
 
   [<CompiledName "Build">]
   static member build<'View>
-    (routes: RouteDefinition<'View> seq, [<Optional>] ?splash: unit -> 'View) =
+    (
+      routes: RouteDefinition<'View> seq,
+      [<Optional>] ?splash: unit -> 'View,
+      [<Optional>] ?logger: ILogger
+    ) =
     let routes = routes |> Seq.toList
     let state = cval Idle
     let cache = Dictionary<string, RouteInfo.RouteUnit<'View> * 'View>()
     let activeRoute: RouteInfo.RouteUnit<'View> voption cval = cval ValueNone
+
+    let logger =
+      match logger with
+      | Some logger -> logger
+      | None ->
+        let lf =
+          LoggerFactory.Create(fun builder ->
+            builder.AddConsole() |> ignore
+#if DEBUG
+            builder.SetMinimumLevel(LogLevel.Debug) |> ignore
+#else
+            builder.SetMinimumLevel(LogLevel.Warning) |> ignore
+#endif
+          )
+
+        lf.CreateLogger<Router>()
 
     let activeView =
       cval(splash |> Option.map(fun f -> f()) |> ValueOption.ofOption)
@@ -314,6 +414,8 @@ type Router =
 
           transact(fun _ -> state.Value <- Navigating)
 
+          logger.LogTrace("Navigation State set to {navstate}", state.Value)
+
           let env: Navigable.RouteEnvironment<'View> = {
             routes = routes
             cache = cache
@@ -321,16 +423,24 @@ type Router =
             activeRoute = activeRoute |> AVal.force
           }
 
+          logger.LogTrace("Route Environment built: {routeEnv}", env)
+
+          logger.LogDebug(
+            "RouteEnv ActiveRoute: {activeRoute}",
+            env.activeRoute
+          )
+
           let nav = this :> INavigable<'View>
 
-          let attemptRedirect = Navigable.attemptRedirect(env, nav)
+          let attemptRedirect = Navigable.attemptRedirect(env, nav, logger)
 
           if token.IsCancellationRequested then
             return! Error(NavigationCancelled)
 
           try
             let! resolved = task {
-              let! result = Navigable.navigate url env nav ValueNone token
+              let! result =
+                Navigable.navigate logger url env nav ValueNone token
 
               match result with
               | Ok value -> return Ok value
@@ -347,15 +457,29 @@ type Router =
             transact(fun _ ->
               activeRoute.Value <- ValueSome route
               activeView.Value <- ValueSome view
+              state.Value <- Idle
+            )
+
+            logger.LogDebug(
+              "Navigation completed to route: {route}",
+              route.context.path,
+              view
             )
 
             return ()
           with
           | :? Tasks.TaskCanceledException ->
             transact(fun _ -> state.Value <- Idle)
+            logger.LogWarning("Navigation cancelled by token")
             return! Error NavigationCancelled
           | err ->
             transact(fun _ -> state.Value <- Idle)
+
+            logger.LogTrace(
+              "Navigation failed with error: {error}",
+              err.Message
+            )
+
             return! Error(NavigationFailed err.Message)
         }
 
@@ -363,7 +487,6 @@ type Router =
           (routeName, ?routeParams, ?cancellationToken)
           =
           taskResult {
-
             let token = defaultArg cancellationToken CancellationToken.None
 
             let! foundRoute =
@@ -371,15 +494,33 @@ type Router =
               |> Seq.tryFind(fun r -> r.name = routeName)
               |> Result.requireSome(RouteNotFound routeName)
 
+            logger.LogTrace(
+              "Navigating to route: {route}",
+              $"{foundRoute.name} - {foundRoute.pattern}"
+            )
+
             let! url =
               result {
                 match routeParams with
                 | Some p ->
                   let! url = UrlTemplate.toUrl foundRoute.pattern p
+
+                  logger.LogTrace(
+                    "Route Params Supplied, resolved url: {url}",
+                    url
+                  )
+
                   return url
                 | None ->
-                  return!
+                  let! url =
                     UrlTemplate.toUrl foundRoute.pattern (Dictionary<_, _>())
+
+                  logger.LogTrace(
+                    "Route Params not supplied, resolved url: {url}",
+                    url
+                  )
+
+                  return url
               }
               |> Result.mapError(fun errors ->
                 NavigationFailed(errors |> String.concat ", ")

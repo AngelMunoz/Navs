@@ -1,6 +1,7 @@
 namespace Navs.Router
 
 open System.Runtime.InteropServices
+open Microsoft.Extensions.Logging
 open Navs
 
 /// <summary>
@@ -25,4 +26,4 @@ type Router =
   /// and optionally a splash screen.
   /// </summary>
   [<CompiledName "Build">]
-  static member build: routes: RouteDefinition<'View> seq * [<Optional>] ?splash: (unit -> 'View) -> IRouter<'View>
+  static member build: routes: RouteDefinition<'View> seq * [<Optional>] ?splash: (unit -> 'View)  * [<Optional>] ?logger: ILogger -> IRouter<'View>
