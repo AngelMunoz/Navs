@@ -8,11 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.1.0" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.0" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.1.0" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="NXUI" Version="11.1.0.1" />
-    <PackageReference Include="NXUI.Desktop" Version="11.1.0.1" />
+    <PackageReference Include="Avalonia" Version="11.3.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.1" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.1" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="NXUI" Version="11.3.0" />
+    <PackageReference Include="NXUI.Desktop" Version="11.3.0" />
     <PackageReference Include="CSharp.Data.Adaptive" Version="1.2.24" />
   </ItemGroup>
 
