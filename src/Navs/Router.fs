@@ -77,15 +77,15 @@ module RouteInfo =
             RouteMatcher.matchStrings route.pattern url
 
           return
-            (route,
-             {|
-               Route = url
-               UrlInfo = urlInfo
-               UrlMatch = matchInfo
-               UrlTemplate = template
-             |})
+            route,
+            {|
+              Route = url
+              UrlInfo = urlInfo
+              UrlMatch = matchInfo
+              UrlTemplate = template
+            |}
         }
-        |> Result.toOption
+        |> Option.ofResult
       )
       |> Result.requireSome "No matching route found"
 
