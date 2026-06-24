@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,10 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.1.0" />
-    <PackageReference Include="Avalonia.FuncUI" Version="1.5.1" />
+    <PackageReference Include="FSharp.Data.Adaptive"/>
+    <PackageReference Include="Microsoft.Extensions.Logging" />
 
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
+    <PackageReference Include="Avalonia" VersionOverride="11.1.0" />
+    <PackageReference Include="Avalonia.FuncUI" VersionOverride="1.5.2" />
   </ItemGroup>
 
   <ItemGroup>

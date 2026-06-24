@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
@@ -14,11 +14,11 @@
     <Compile Include="DSL.Interop.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.24" />
-    <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0" />
-    <PackageReference Include="IcedTasks" Version="0.11.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
+    <PackageReference Include="FSharp.Data.Adaptive" />
+    <PackageReference Include="FsToolkit.ErrorHandling"/>
+    <PackageReference Include="IcedTasks" />
+    <PackageReference Include="Microsoft.Extensions.Logging"/>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console"/>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\UrlTemplates\UrlTemplates.fsproj" />
