@@ -11,6 +11,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Nullable>enable</Nullable>
         <LangVersion Condition="'$(TargetFramework)' == 'net8.0'">preview</LangVersion>
+        <ChangelogFile>$(MSBuildThisFileDirectory)../CHANGELOG.md</ChangelogFile>
     </PropertyGroup>
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)..\LICENSE" Pack="true" PackagePath="\"/>

@@ -7,23 +7,21 @@ on:
       - dev
     paths:
       - src/**
-      - tests/**
   pull_request:
     branches: [main]
     paths:
       - src/**
-      - tests/**
 
 jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: "10.0.x"
       - run: dotnet restore
-      - run: dotnet build Navs.sln --configuration Release --no-restore
-      - run: dotnet test Navs.sln --no-restore
+      - run: dotnet build Navs.slnx --configuration Release --no-restore
+      - run: dotnet test Navs.slnx --no-restore

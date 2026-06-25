@@ -21,4 +21,8 @@
     <PackageReference Include="FsToolkit.ErrorHandling"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Ionide.KeepAChangelog.Tasks" PrivateAssets="all" />
+  </ItemGroup>
+
 </Project>

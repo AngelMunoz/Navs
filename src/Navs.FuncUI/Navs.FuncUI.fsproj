@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Ionide.KeepAChangelog.Tasks" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Navs\Navs.fsproj" />
   </ItemGroup>
 

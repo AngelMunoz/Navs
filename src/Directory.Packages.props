@@ -21,5 +21,6 @@
     <PackageVersion Include="Expecto" Version="11.0.0" />
     <PackageVersion Include="YoloDev.Expecto.TestSdk" Version="0.15.6" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="Ionide.KeepAChangelog.Tasks" Version="0.3.3" />
   </ItemGroup>
 </Project>

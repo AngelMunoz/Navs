@@ -22,6 +22,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console"/>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Ionide.KeepAChangelog.Tasks" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\UrlTemplates\UrlTemplates.fsproj" />
   </ItemGroup>
 </Project>
