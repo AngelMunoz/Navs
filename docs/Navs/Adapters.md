@@ -17,9 +17,8 @@ Let's take a look at how we implemented the Plain Avalonia adapter. Normal Avalo
     open Navs.Router
 
     type AvaloniaRouter(routes, [<Optional>] ?splash: Func<Control>) =
+      let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
       let router = Router.build<Control>(routes, ?splash = splash)
-        let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-        Router.build<Control>(routes, ?splash = splash)
 
 
       interface IRouter<Control> with

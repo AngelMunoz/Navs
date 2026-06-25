@@ -154,9 +154,10 @@ module DSL =
 
       match result with
       | Choice1Of2 _ -> ()
-      | Choice2Of2 _ ->
+      | Choice2Of2 ex ->
         match logger with
-        | Some l -> l.LogError("Failed to navigate to initial URI: {Uri}", uri)
+        | Some l ->
+          l.LogError(ex, "Failed to navigate to initial URI: {Uri}", uri)
         | None -> ()
     }
     |> Async.StartImmediate

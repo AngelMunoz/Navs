@@ -125,14 +125,14 @@ type ViewExtensions() =
     this
 
   [<Extension>]
-  static member inline Text(this: #View, title: string cval) =
+  static member inline Text(this: #View, text: string cval) =
     let dis =
       this.TextChanged
       |> Observable.subscribe(fun s ->
-        transact(fun () -> title.Value <- this.Title)
+        transact(fun () -> text.Value <- this.Text)
       )
 
-    let dis2 = title.AddCallback(fun value -> this.Text <- value)
+    let dis2 = text.AddCallback(fun value -> this.Text <- value)
 
     this.Disposing.Add(fun _ ->
       dis.Dispose()

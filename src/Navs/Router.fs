@@ -2,6 +2,7 @@ namespace Navs.Router
 
 open System
 open System.Collections.Generic
+open System.Collections.Concurrent
 open System.Runtime.InteropServices
 open System.Threading
 
@@ -195,15 +196,6 @@ module Navigable =
               |> TaskResult.ignore
 
             logger.LogTrace("Deactivation guards passed")
-            // 2. Start deactivating the current route
-
-            match active.definition.cacheStrategy with
-            | NoCache ->
-              logger.LogDebug("No cache strategy, disposing active route")
-              active.context.disposables.Dispose()
-            | Cache ->
-              logger.LogDebug("Cache strategy, not disposing active route")
-              ()
             // 2.1. Check Next Route Activation Guards with active route
             logger.LogTrace("Checking activation guards for next route")
 
@@ -264,25 +256,31 @@ module Navigable =
             return! Error(NavigationCancelled)
           else
             // 3. Resolve the view content
+            let! resolved =
+              nextRoute.definition.getContent.Invoke
+                (nextRoute.context, nav)
+                token
+
+            // 4. Deactivate the previous active route now that activation
+            // guards and content resolution have passed. Disposing earlier
+            // would destroy resources before we know the new route is valid.
+            env.activeRoute
+            |> ValueOption.iter(fun active ->
+              match active.definition.cacheStrategy with
+              | NoCache ->
+                logger.LogDebug("No cache strategy, disposing active route")
+                active.context.disposables.Dispose()
+              | Cache ->
+                logger.LogDebug("Cache strategy, not disposing active route")
+            )
+
             match nextRoute.definition.cacheStrategy with
             | NoCache ->
-              // 3.1 always resolve the content for no-cache
               logger.LogDebug("No cache strategy, resolving content")
-
-              let! resolved =
-                nextRoute.definition.getContent.Invoke
-                  (nextRoute.context, nav)
-                  token
-
               return nextRoute, resolved
             | Cache ->
               logger.LogDebug("Cache strategy, checking cache for content")
               // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
-
-              let! resolved =
-                nextRoute.definition.getContent.Invoke
-                  (nextRoute.context, nav)
-                  token
 
               match env.cache.TryAdd(url, (nextRoute, resolved)) with
               | true ->
@@ -317,56 +315,95 @@ module Navigable =
     | GuardRedirect route -> ValueSome route
     | _ -> ValueNone
 
-  let attemptRedirect (env, nav, logger: ILogger) origin target = cancellableTask {
-    let mutable lastResult = ValueNone
-    let mutable lastError = ValueNone
-    let mutable lastRedirect = ValueNone
-    let redirectStack = Stack<RouteInfo.Redirect>()
-    redirectStack.Push({ from = origin; target = target })
-    let! token = CancellableTask.getCancellationToken()
+  let attemptRedirect
+    (env, nav, logger: ILogger)
+    origin
+    target
+    (maxDepth: int)
+    =
+    cancellableTask {
+      let mutable lastResult = ValueNone
+      let mutable lastError = ValueNone
+      let mutable lastRedirect = ValueNone
+      let redirectStack = Stack<RouteInfo.Redirect>()
+      let visited = Collections.Generic.HashSet<string * string>()
+      redirectStack.Push({ from = origin; target = target })
+      let! token = CancellableTask.getCancellationToken()
 
-    while redirectStack.Count > 0 do
-      logger.LogTrace("Redirect Stack Count: {count}", redirectStack.Count)
-      let redirect = redirectStack.Pop()
-      lastRedirect <- ValueSome redirect
+      while redirectStack.Count > 0 do
+        if redirectStack.Count > maxDepth then
+          logger.LogError(
+            "Redirect depth exceeded the maximum allowed depth of {maxDepth}",
+            maxDepth
+          )
 
-      let! result =
-        navigate logger redirect.target env nav (ValueSome redirect) token
-
-      match result with
-      | Error(IsRedirection route) ->
-        let stackEntry = {
-          from = redirect.target
-          target = route
-        }
-
-        redirectStack.Push(stackEntry)
-        logger.LogTrace("ReNavigation Redirect: {stackEntry}", stackEntry)
-
-        lastError <- ValueNone
-      | Error errors ->
-        logger.LogTrace("ReNavigation Error: {errors}", errors)
-        lastError <- ValueSome errors
-        redirectStack.Clear()
-      | Ok result ->
-        logger.LogTrace("ReNavigation success: {result}", result)
-        lastResult <- ValueSome result
-
-    if lastError.IsSome then
-      return Error lastError.Value
-    else
-      match lastResult with
-      | ValueNone ->
-        match lastRedirect with
-        | ValueSome { from = origin; target = target } ->
-          return
-            Error(
+          lastError <-
+            ValueSome(
               NavigationFailed
-                $"Unable to resolve route, last redirect attempt from %s{origin} to %s{target}"
+                $"Redirect depth exceeded the maximum allowed depth of %d{maxDepth}"
             )
-        | ValueNone -> return Error(NavigationFailed "Unable to resolve route")
-      | ValueSome result -> return Ok result
-  }
+
+          redirectStack.Clear()
+        else
+          logger.LogTrace("Redirect Stack Count: {count}", redirectStack.Count)
+          let redirect = redirectStack.Pop()
+          lastRedirect <- ValueSome redirect
+
+          if visited.Contains(redirect.from, redirect.target) then
+            logger.LogError(
+              "Detected a redirect cycle from {from} to {target}",
+              redirect.from,
+              redirect.target
+            )
+
+            lastError <-
+              ValueSome(
+                NavigationFailed
+                  $"Detected a redirect cycle from %s{redirect.from} to %s{redirect.target}"
+              )
+
+            redirectStack.Clear()
+          else
+            visited.Add(redirect.from, redirect.target) |> ignore
+
+            let! result =
+              navigate logger redirect.target env nav (ValueSome redirect) token
+
+            match result with
+            | Error(IsRedirection route) ->
+              let stackEntry = {
+                from = redirect.target
+                target = route
+              }
+
+              redirectStack.Push(stackEntry)
+              logger.LogTrace("ReNavigation Redirect: {stackEntry}", stackEntry)
+
+              lastError <- ValueNone
+            | Error errors ->
+              logger.LogTrace("ReNavigation Error: {errors}", errors)
+              lastError <- ValueSome errors
+              redirectStack.Clear()
+            | Ok result ->
+              logger.LogTrace("ReNavigation success: {result}", result)
+              lastResult <- ValueSome result
+
+      if lastError.IsSome then
+        return Error lastError.Value
+      else
+        match lastResult with
+        | ValueNone ->
+          match lastRedirect with
+          | ValueSome { from = origin; target = target } ->
+            return
+              Error(
+                NavigationFailed
+                  $"Unable to resolve route, last redirect attempt from %s{origin} to %s{target}"
+              )
+          | ValueNone ->
+            return Error(NavigationFailed "Unable to resolve route")
+        | ValueSome result -> return Ok result
+    }
 
 [<Sealed; Class>]
 type Router =
@@ -376,11 +413,16 @@ type Router =
     (
       routes: RouteDefinition<'View> seq,
       [<Optional>] ?splash: unit -> 'View,
-      [<Optional>] ?logger: ILogger
+      [<Optional>] ?logger: ILogger,
+      [<Optional>] ?maxRedirectDepth: int
     ) =
     let routes = routes |> Seq.toList
     let state = cval Idle
-    let cache = Dictionary<string, RouteInfo.RouteUnit<'View> * 'View>()
+    let maxRedirectDepth = defaultArg maxRedirectDepth 5
+
+    let cache =
+      ConcurrentDictionary<string, RouteInfo.RouteUnit<'View> * 'View>()
+
     let activeRoute: RouteInfo.RouteUnit<'View> voption cval = cval ValueNone
 
     let logger =
@@ -445,7 +487,7 @@ type Router =
               match result with
               | Ok value -> return Ok value
               | Error(Navigable.IsRedirection route) ->
-                return! attemptRedirect url route token
+                return! attemptRedirect url route maxRedirectDepth token
               | Error error -> return Error error
             }
 

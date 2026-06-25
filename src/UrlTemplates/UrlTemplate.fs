@@ -156,7 +156,7 @@ module UrlTemplate =
           match routeParams.TryGetValue name with
           | true, value -> Result.Ok($"{name}={value.ToString()}")
           | false, _ ->
-            Result.Error $"Requred route parameter %s{name} was not provided"
+            Result.Error $"Required route parameter %s{name} was not provided"
         | Optional(name, _) ->
           match routeParams.TryGetValue name with
           | true, value -> Result.Ok($"{name}={value.ToString()}")

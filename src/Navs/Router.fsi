@@ -27,5 +27,8 @@ type Router =
   /// </summary>
   [<CompiledName "Build">]
   static member build:
-    routes: RouteDefinition<'View> seq * [<Optional>] ?splash: (unit -> 'View) * [<Optional>] ?logger: ILogger ->
+    routes: RouteDefinition<'View> seq *
+    [<Optional>] ?splash: (unit -> 'View) *
+    [<Optional>] ?logger: ILogger *
+    [<Optional>] ?maxRedirectDepth: int ->
       IRouter<'View>
