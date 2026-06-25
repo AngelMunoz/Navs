@@ -10,6 +10,7 @@ open Microsoft.Extensions.Logging
 open FSharp.Data.Adaptive
 open Navs
 open Terminal.Gui
+open Terminal.Gui.Views
 
 [<RequireQualifiedAccess>]
 module AVal =
@@ -142,6 +143,6 @@ module Interop =
 
 [<Class>]
 type RouterOutlet =
-  inherit Toplevel
+  inherit Runnable
 
   new: router: IRouter<Window> * [<Optional>] ?initialUri: string * [<Optional>] ?logger: ILogger -> RouterOutlet

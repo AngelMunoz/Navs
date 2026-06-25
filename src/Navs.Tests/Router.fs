@@ -33,7 +33,7 @@ module NavigationState =
             "home",
             "/",
             fun _ _ -> async {
-              do! Async.Sleep(TimeSpan.FromSeconds(10))
+              do! Async.Sleep(TimeSpan.FromSeconds 10.)
               return "Home"
             }
           )
@@ -106,23 +106,19 @@ module RouteContext =
       testTask
         "Context should equal to the last context if the next was cancelled" {
         let router =
-          Router.build(
-            [
-              Route.define<string>(
-                "home",
-                "/?complete<bool>",
-                fun ctx _ -> async {
-                  match
-                    UrlMatch.getFromParams<bool> "complete" ctx.urlMatch
-                  with
-                  | ValueSome true -> return "Home"
-                  | _ ->
-                    do! Async.Sleep(TimeSpan.FromSeconds(10))
-                    return "Home"
-                }
-              )
-            ]
-          )
+          Router.build [
+            Route.define<string>(
+              "home",
+              "/?complete<bool>",
+              fun ctx _ -> async {
+                match UrlMatch.getFromParams<bool> "complete" ctx.urlMatch with
+                | ValueSome true -> return "Home"
+                | _ ->
+                  do! Async.Sleep(TimeSpan.FromSeconds 10.)
+                  return "Home"
+              }
+            )
+          ]
 
 
         let context = router.Route |> AVal.force

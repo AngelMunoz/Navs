@@ -14,6 +14,7 @@
     <Compile Include="DSL.Interop.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
     <PackageReference Include="FSharp.Data.Adaptive" />
     <PackageReference Include="FsToolkit.ErrorHandling"/>
     <PackageReference Include="IcedTasks" />

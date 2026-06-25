@@ -64,41 +64,6 @@ module AVal =
 
       struct (value :> aval<_>, action)
 
-[<RequireQualifiedAccess>]
-module CVal =
-
-  [<CompiledName "ToBinding";
-    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
-  let toBinding<'Value> (value: cval<'Value>) =
-    { new IBinding with
-        member _.Initiate
-          (
-            target: AvaloniaObject,
-            targetProperty: AvaloniaProperty,
-            anchor: obj,
-            enableDataValidation: bool
-          ) : InstancedBinding =
-
-          InstancedBinding.TwoWay(
-            { new IObservable<obj> with
-                member _.Subscribe(observer) =
-                  value.AddCallback(observer.OnNext)
-            },
-            { new IObserver<obj> with
-                member _.OnNext(newValue) =
-                  match newValue with
-                  | :? 'Value as newValue ->
-                    transact(fun _ -> value.Value <- newValue)
-                  | _ -> ()
-
-                member _.OnError _ = ()
-                member _.OnCompleted() = ()
-            },
-            BindingPriority.LocalValue
-          )
-    }
-
-
 [<Class>]
 type AValExtensions =
 
@@ -118,11 +83,6 @@ type AValExtensions =
 
   [<CompiledName "ToBinding"; Extension>]
   static member inline toBinding(value: aval<_>) = AVal.toBinding value
-
-  [<CompiledName "ToBinding";
-    Extension;
-    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
-  static member inline toBinding(value: cval<_>) = CVal.toBinding value
 
   [<CompiledName "ToObservable">]
   static member inline toObservable(value: aval<_>) = AVal.toObservable value
@@ -257,9 +217,9 @@ type Routes
         CompositePageTransition(
           PageTransitions =
             ResizeArray [
-              CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+              CrossFade(TimeSpan.FromMilliseconds 150.) :> IPageTransition
               PageSlide(
-                TimeSpan.FromMilliseconds 300,
+                TimeSpan.FromMilliseconds 300.,
                 PageSlide.SlideAxis.Horizontal
               )
             ]
@@ -309,14 +269,12 @@ type Routes
   member this.Children
     with get (): Route[] = children.Value
     and set (value: Route[]) =
-      let routes = defaultIfNull Array.empty value
 
-      this.SetAndRaise(Routes.ChildrenProperty, children, routes) |> ignore
-
-      router <- buildRouter routes
-      let router = nonNull router
-      setupContent router
-      navigateToFirstRoute router
+      this.SetAndRaise(Routes.ChildrenProperty, children, value) |> ignore
+      let routr = buildRouter value
+      router <- routr
+      setupContent routr
+      navigateToFirstRoute routr
 
   member _.Router =
     match router with
@@ -404,9 +362,9 @@ type RouterOutlet() as this =
           CompositePageTransition(
             PageTransitions =
               ResizeArray [
-                CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+                CrossFade(TimeSpan.FromMilliseconds 150.) :> IPageTransition
                 PageSlide(
-                  TimeSpan.FromMilliseconds 300,
+                  TimeSpan.FromMilliseconds 300.,
                   PageSlide.SlideAxis.Horizontal
                 )
               ]
