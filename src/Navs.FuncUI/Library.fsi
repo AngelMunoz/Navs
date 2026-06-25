@@ -6,6 +6,7 @@ open System.Runtime.InteropServices
 open System.Threading
 open System.Threading.Tasks
 
+open Microsoft.Extensions.Logging
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Types
 
@@ -24,7 +25,10 @@ type FuncUIRouter =
   /// The router initially doesn't have a view to render. You can provide this function
   /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
   /// </param>
-  new: routes: RouteDefinition<IView> seq * [<Optional>] ?splash: Func<IView> -> FuncUIRouter
+  /// <param name="logger">An optional logger to log the router's activity</param>
+  new:
+    routes: RouteDefinition<IView> seq * [<Optional>] ?splash: Func<IView> * [<Optional>] ?logger: ILogger ->
+      FuncUIRouter
 
   interface IRouter<IView>
 
@@ -79,4 +83,6 @@ module DSL =
 
   [<Class>]
   type RouterOutlet =
-    static member create: router: IRouter<IView> * ?noContent: IView * ?transition: IPageTransition -> IView<Component>
+    static member create:
+      router: IRouter<IView> * ?initialUri: string * ?noContent: IView * ?transition: IPageTransition * ?logger: ILogger ->
+        IView<Component>

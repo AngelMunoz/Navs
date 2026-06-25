@@ -16,6 +16,7 @@
       "extensions": [
         "Ionide.Ionide-fsharp",
         "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
         "EditorConfig.EditorConfig",
         //"GitHub.copilot",
         //"GitHub.copilot-chat",

@@ -314,7 +314,7 @@ module MatchStrings =
         let actualTemplate = "/hello/world"
         let actualUrl = "/hello/world"
 
-        let (urlTemplate, _, _) =
+        let urlTemplate, _, _ =
           RouteMatcher.matchStrings actualTemplate actualUrl
           |> Result.defaultWith(fun e ->
             failtestf "Expected Ok, got Error %A" e
@@ -384,7 +384,7 @@ module MatchStrings =
         let guid = System.Guid.NewGuid()
         let actualUrl = $"/hello/{guid}?name=john&age=30"
 
-        let (urlTemplate, urlInfo, urlMatch) =
+        let urlTemplate, urlInfo, urlMatch =
           RouteMatcher.matchStrings actualTemplate actualUrl
           |> Result.defaultWith(fun e ->
             failtestf "Expected Ok, got Error %A" e

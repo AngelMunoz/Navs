@@ -5,8 +5,10 @@ on:
   push:
     branches:
       - main
+      - vnext
     paths:
       - docs/**
+      - .github/workflows/docs.yml
 
 # We need some permissions to publish to Github Pages
 permissions:
@@ -18,11 +20,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - name: Restore tools
         run: dotnet tool restore
       - name: Build code

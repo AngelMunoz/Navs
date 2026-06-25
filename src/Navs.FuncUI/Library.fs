@@ -6,6 +6,8 @@ open System.Runtime.InteropServices
 open System.Threading
 open System.Threading.Tasks
 
+open Microsoft.Extensions.Logging
+
 open FSharp.Data.Adaptive
 
 open Avalonia.FuncUI
@@ -16,11 +18,15 @@ open Navs
 open Navs.Router
 
 type FuncUIRouter
-  (routes: RouteDefinition<IView> seq, [<Optional>] ?splash: Func<IView>) =
+  (
+    routes: RouteDefinition<IView> seq,
+    [<Optional>] ?splash: Func<IView>,
+    [<Optional>] ?logger: ILogger
+  ) =
 
   let router =
     let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.get<IView>(routes, ?splash = splash)
+    Router.build<IView>(routes, ?splash = splash, ?logger = logger)
 
 
   interface IRouter<IView> with
@@ -100,10 +106,8 @@ type IComponentContexExtensions =
 type Route =
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> Async<#IView>) : RouteDefinition<
-                                                                                  IView
-                                                                                 >
-    =
+    (name, path, handler: RouteContext -> INavigable<IView> -> Async<#IView>)
+    : RouteDefinition<IView> =
     Navs.Route.define<IView>(
       name,
       path,
@@ -130,27 +134,54 @@ type Route =
     )
 
   static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> #IView) : RouteDefinition<
-                                                                           IView
-                                                                          >
-    =
+    (name, path, handler: RouteContext -> INavigable<IView> -> #IView)
+    : RouteDefinition<IView> =
     Navs.Route.define<IView>(name, path, (fun c n -> handler c n :> IView))
-
 
 [<AutoOpen>]
 module DSL =
   open Avalonia.Animation
   open Avalonia.Controls
 
+  let private initialNavigation
+    (initialUri, router: IRouter<IView>, logger: ILogger option)
+    ()
+    =
+    let uri = defaultArg initialUri "/"
+
+    async {
+      let! result = router.Navigate(uri) |> Async.AwaitTask |> Async.Catch
+
+      match result with
+      | Choice1Of2 _ -> ()
+      | Choice2Of2 ex ->
+        match logger with
+        | Some l ->
+          l.LogError(ex, "Failed to navigate to initial URI: {Uri}", uri)
+        | None -> ()
+    }
+    |> Async.StartImmediate
+
   [<Class>]
   type RouterOutlet =
 
     static member create
-      (router: IRouter<IView>, ?noContent: IView, ?transition: IPageTransition) =
+      (
+        router: IRouter<IView>,
+        ?initialUri: string,
+        ?noContent: IView,
+        ?transition: IPageTransition,
+        ?logger: ILogger
+      ) =
       Component.create(
         "router-outlet",
         fun ctx ->
-          let view = ctx.useRouter(router)
+          let view = ctx.useRouter router
+
+          ctx.useEffect(
+            handler = initialNavigation(initialUri, router, logger),
+            triggers = [ EffectTrigger.AfterInit ]
+          )
 
           let content =
             view
@@ -166,16 +197,14 @@ module DSL =
             |> Option.defaultWith(fun () ->
               CompositePageTransition(
                 PageTransitions =
-                  ResizeArray(
-                    [
-                      CrossFade(TimeSpan.FromMilliseconds(150))
-                      :> IPageTransition
-                      PageSlide(
-                        TimeSpan.FromMilliseconds(300),
-                        PageSlide.SlideAxis.Horizontal
-                      )
-                    ]
-                  )
+                  ResizeArray [
+                    CrossFade(TimeSpan.FromMilliseconds 150.)
+                    :> IPageTransition
+                    PageSlide(
+                      TimeSpan.FromMilliseconds 300.,
+                      PageSlide.SlideAxis.Horizontal
+                    )
+                  ]
               )
             )
 

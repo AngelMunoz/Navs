@@ -17,6 +17,11 @@ open Avalonia.FuncUI.Types
 // use external to FuncUI shared state
 let sharedState = cval 0
 
+type ChangeableValue<'T> with
+  member this.Set(value: 'T) = transact(fun _ -> this.Value <- value)
+
+  member this.Current = this.Value
+
 let navbar (router: IRouter<IView>) : IView =
   StackPanel.create [
     StackPanel.dock Dock.Top
@@ -27,28 +32,28 @@ let navbar (router: IRouter<IView>) : IView =
         Button.onClick(fun _ ->
           router.Navigate "/books" |> ignore
           // example "external updates"
-          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+          sharedState.Set(sharedState.Value + 1)
         )
       ]
       Button.create [
         Button.content "Guid"
         Button.onClick(fun _ ->
           router.Navigate $"/{Guid.NewGuid()}" |> ignore
-          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+          sharedState.Set(sharedState.Value + 1)
         )
       ]
       Button.create [
         Button.content "Counter"
         Button.onClick(fun _ ->
           router.Navigate $"/counter" |> ignore
-          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+          sharedState.Set(sharedState.Value + 1)
         )
       ]
       Button.create [
         Button.content "Readable counter"
         Button.onClick(fun _ ->
           router.Navigate $"/read-counter" |> ignore
-          transact(fun _ -> sharedState.Value <- sharedState.Value + 1)
+          sharedState.Set(sharedState.Value + 1)
         )
       ]
     ]
@@ -113,7 +118,7 @@ let routes = [
             Button.create [
               Button.content "Decrement"
               Button.onClick(fun _ ->
-                counter.Set(counter.Current + 1) |> ignore
+                counter.Set(counter.Current - 1) |> ignore
               )
             ]
 
@@ -136,7 +141,7 @@ let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
       DockPanel.lastChildFill true
       DockPanel.children [
         navbar router
-        RouterOutlet.create(router, noContent)
+        RouterOutlet.create(router, noContent = noContent)
       ]
     ]
   )

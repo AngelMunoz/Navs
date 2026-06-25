@@ -5,7 +5,7 @@ open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
-
+open Microsoft.Extensions.Logging
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
@@ -47,7 +47,7 @@ module AVal =
   /// Convert Adaptive data into a binding that can be handled by avalonia
   /// </summary>
   [<CompiledName "ToBinding">]
-  val toBinding<'Value> : value: aval<'Value> -> IBinding
+  val toBinding<'Value> : value: aval<'Value> -> BindingBase
 
   module Interop =
 
@@ -55,20 +55,6 @@ module AVal =
     /// Provide a dotnet interop friendly interface to handle local state via Adaptive data
     /// </summary>
     val UseState<'Value> : initialValue: 'Value -> struct (aval<'Value> * Action<Func<'Value, 'Value>>)
-
-[<RequireQualifiedAccess>]
-module CVal =
-
-  /// <summary>
-  /// Provides a double way binding for changeable values
-  /// </summary>
-  /// <remarks>
-  /// This binding is read-write and can be used to bind to properties that support two-way binding.
-  /// If you're looking to just use a readonly binding, use the `toBinding` method with the AVal module instead.
-  /// </remarks>
-  [<CompiledName "ToBinding";
-    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
-  val toBinding<'Value> : cval<'Value> -> IBinding
 
 /// <summary>
 /// dotnet interop friendly API for adaptive and changeable data
@@ -95,19 +81,7 @@ type AValExtensions =
   /// Creates a one-way binding from an adaptive value which can be bound to Avalonia properties.
   /// </summary>
   [<CompiledName "ToBinding"; Extension>]
-  static member inline toBinding: value: aval<'Value> -> IBinding
-
-  /// <summary>
-  /// Creates a two-way binding from a changeable value which can be bound to Avalonia properties.
-  /// </summary>
-  /// <remarks>
-  /// This binding is read-write and can be used to bind to properties that support two-way binding.
-  /// If you're looking to just use a readonly binding, use the `toBinding` method with an aval instead.
-  /// </remarks>
-  [<CompiledName "ToBinding";
-    Extension;
-    Experimental "Incompatible for Avalonia v11.1+, we're waiting for a replacement in/before v12.">]
-  static member inline toBinding: value: cval<'Value> -> IBinding
+  static member inline toBinding: value: aval<'Value> -> BindingBase
 
 
 /// <summary>
@@ -120,12 +94,43 @@ type AvaloniaRouter =
   /// The router initially doesn't have a view to render. You can provide this function
   /// to supply a splash-like (like mobile devices initial screen) view to render while you trigger the first navigation.
   /// </param>
-  new: routes: RouteDefinition<Control> seq * [<Optional>] ?splash: Func<Control> -> AvaloniaRouter
+  /// <param name="logger">An optional logger to log the router's activity</param>
+  new:
+    routes: RouteDefinition<Control> seq * [<Optional>] ?splash: Func<Control> * [<Optional>] ?logger: ILogger ->
+      AvaloniaRouter
 
   interface IRouter<Control>
 
-[<Class; Sealed>]
+[<Class>]
 type Route =
+  inherit UserControl
+
+  /// <summary>
+  /// Gets the definition of the route.
+  /// </summary>
+  member Definition: RouteDefinition<Control> with get
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and a handler.
+  /// </summary>
+  new: name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Control) -> Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and an asynchronous handler.
+  /// </summary>
+  new: name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<Control>) -> Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name and an asynchronous handler.
+  /// </summary>
+  new:
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<Control>) ->
+      Route
+
+  /// <summary>
+  /// Initializes a new instance of the Route class with a name.
+  /// </summary>
+  new: def: RouteDefinition<Control> -> Route
 
   ///<summary>Defines a route in the application</summary>
   /// <param name="name">The name of the route</param>
@@ -133,7 +138,7 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<#Control>) ->
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Async<Control>) ->
       RouteDefinition<Control>
 
   /// <summary>Defines a route in the application</summary>
@@ -143,7 +148,7 @@ type Route =
   /// <returns>A route definition</returns>
   /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<#Control>) ->
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> CancellationToken -> Task<Control>) ->
       RouteDefinition<Control>
 
   ///<summary>Defines a route in the application</summary>
@@ -152,7 +157,45 @@ type Route =
   /// <param name="handler">The view to render when the route is activated</param>
   /// <returns>A route definition</returns>
   static member define:
-    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> #Control) -> RouteDefinition<Control>
+    name: string * path: string * handler: (RouteContext -> INavigable<Control> -> Control) -> RouteDefinition<Control>
+
+/// <summary>
+/// Represents a collection of routes in the application.
+/// </summary>
+[<Class>]
+type Routes =
+  inherit UserControl
+
+  /// <summary>
+  /// Initializes a new instance of the Routes class with an initial URI and an optional logger.
+  /// /// The initial URI is used to set the initial route when the application starts.
+  /// </summary>
+  /// <param name="initialUri">The initial URI to set the route to when the router starts.</param>
+  /// <param name="noView">An optional control to render when no route is matched.</param>
+  /// <param name="logger">An optional logger to log the router's activity.</param>
+  /// <remarks>
+  /// If you don't provide an initial URI, the navigation will default to "/"
+  /// if the route is not found the noView control will be rendered.
+  /// And you will have to programmatically navigate to a route using the `Navigate` method.
+  /// </remarks>
+  new: [<Optional>] ?initialUri: string * [<Optional>] ?noView: Control * [<Optional>] ?logger: ILogger -> Routes
+
+  /// <summary>
+  /// Gets or sets the children routes.
+  /// </summary>
+  member Children: Route[] with get, set
+  member Router: IRouter<Control> voption with get
+
+  /// <summary>
+  /// Gets the property for children routes.
+  /// </summary>
+  static member ChildrenProperty: DirectProperty<Routes, Route[]>
+
+[<Extension; Class>]
+type RoutesExtensions =
+
+  [<Extension>]
+  static member inline Children: control: Routes * [<ParamArray>] routes: Route[] -> Routes
 
 /// <summary>
 /// A module that contains the interop functions to use the Route class from other languages.
@@ -169,7 +212,7 @@ module Interop =
     /// <returns>A route definition</returns>
     [<CompiledName "Define">]
     static member inline define:
-      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, #Control> ->
+      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, Control> ->
         RouteDefinition<Control>
 
     /// <summary>Defines a route in the application</summary>
@@ -180,26 +223,26 @@ module Interop =
     /// <remarks>A cancellation token is provided alongside the route context to allow you to support cancellation of the route activation.</remarks>
     [<CompiledName "Define">]
     static member inline define:
-      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, CancellationToken, Task<#Control>> ->
+      name: string * path: string * handler: Func<RouteContext, INavigable<Control>, CancellationToken, Task<Control>> ->
         RouteDefinition<Control>
 
 [<Class>]
 type RouterOutlet =
   inherit UserControl
 
-  static member RouterProperty: DirectProperty<RouterOutlet, IRouter<Control>>
+  static member RouterProperty: DirectProperty<RouterOutlet, IRouter<Control> | null>
 
-  static member PageTransitionProperty: DirectProperty<RouterOutlet, IPageTransition>
+  static member PageTransitionProperty: DirectProperty<RouterOutlet, IPageTransition | null>
 
-  static member NoContentProperty: DirectProperty<RouterOutlet, Control>
+  static member NoContentProperty: DirectProperty<RouterOutlet, Control | null>
 
   new: unit -> RouterOutlet
 
-  member Router: IRouter<Control> with get, set
+  member Router: IRouter<Control> | null with get, set
 
-  member PageTransition: IPageTransition with get, set
+  member PageTransition: IPageTransition | null with get, set
 
-  member NoContent: Control with get, set
+  member NoContent: Control | null with get, set
 
 [<Extension; Class>]
 type RouterOutletExtensions =

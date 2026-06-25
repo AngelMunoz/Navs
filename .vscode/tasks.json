@@ -16,6 +16,38 @@
         "-f",
         "net8.0"
       ]
+    },
+    {
+      "command": "dotnet",
+      "label": "build:tgui",
+      "type": "shell",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile",
+      "args": [
+        "build",
+        "${workspaceFolder}/samples/TGUI/TGUI.fsproj",
+        "-f",
+        "net9.0"
+      ]
+    },
+    {
+      "command": "dotnet",
+      "label": "build:declarative",
+      "type": "shell",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile",
+      "args": [
+        "build",
+        "${workspaceFolder}/samples/NxuiDeclarative/NxuiDeclarative.fsproj",
+        "-f",
+        "net9.0"
+      ]
     }
   ]
 }

@@ -32,14 +32,14 @@ let routes = [
     fun context _ -> async {
       do! Async.Sleep(90)
       return
-        match context.UrlMatch.Params.TryGetValue "id" with
-        | true, id -> sprintf "Home %A" id
-        | false, _ -> "Guid No GUID"
+        match context.getParam<Guid> "id" with
+        | ValueSome id -> sprintf "Home %A" id
+        | ValueNone -> "Guid No GUID"
     }
   )
 ]
 
-let router = Router.get<string>(routes)
+let router = Router.build<string>(routes)
 
 router.Content.AddCallback(fun content -> printfn $"%A{content}")
 
@@ -73,7 +73,7 @@ let routes = [
       do! Async.Sleep(90)
       return
         // extract parameters from the URL
-        match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+        match context.getParam<guid> "id" with
         | ValueSome id -> TextBlock().text(sprintf "Home %A" id)
         | ValueNone -> TextBlock().text("Guid No GUID")
     }
@@ -143,7 +143,7 @@ let routes = [
     fun context _ -> async {
       return
         TextBlock.create [
-          match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+          match context.getParam<guid> "id" with
           | ValueSome id -> TextBlock.text $"Visited: {id}"
           | ValueNone -> TextBlock.text "Guid No GUID"
         ]

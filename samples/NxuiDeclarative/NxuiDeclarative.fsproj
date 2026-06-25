@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Pages/Guid.fs" />
+    <Compile Include="Pages/Books.fs" />
+    <Compile Include="Pages/Counter.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
+    <PackageReference Include="NXUI" Version="12.0.0" />
+    <PackageReference Include="NXUI.Desktop" Version="12.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
+    <ProjectReference Include="..\..\src\Navs.Avalonia\Navs.Avalonia.fsproj" />
+  </ItemGroup>
+</Project>

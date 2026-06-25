@@ -17,7 +17,7 @@ Navs is a router-like abstraction inspired by web routers such as vue-router, an
 
 It is primarily a "core" library which you would usually depend on in your own projects, as it is very generic and while F# can be very intelligent about type inference, it tends to produce quite verbose signatures. For more information visit the Navs section in these docs.
 
-- [Navs](./Navs.fsx)
+- [Navs](https://angelmunoz.github.io/Navs/Navs.html)
 
 A Compelling Example:
 
@@ -32,14 +32,14 @@ let routes = [
     fun context _ -> async {
       do! Async.Sleep(90)
       return
-        match context.UrlMatch.Params.TryGetValue "id" with
-        | true, id -> sprintf "Home %A" id
-        | false, _ -> "Guid No GUID"
+        match context.getParam<Guid> "id" with
+        | ValueSome id -> sprintf "Home %A" id
+        | ValueNone -> "Guid No GUID"
     }
   )
 ]
 
-let router = Router.get<string>(routes)
+let router = Router.build<string>(routes)
 
 router.Content.AddCallback(fun content -> printfn $"%A{content}")
 
@@ -57,7 +57,7 @@ let! result3 = router.navigate("/123e4567-e89b-12d3-a456-426614174000")
 
 This project attempts to hide the generics from call sites and offer a few DSLs to make it easier to use Navs in Avalonia applications. This router was designed to be used with Raw Avalonia Control classes however, it will pair very nicely with the [NXUI](https://github.com/wieslawsoltes/NXUI) project, Feel free to check the C# and F# samples in the [Samples](https://github.com/AngelMunoz/Navs/tree/main/samples) folder in the source code repository.
 
-- [Navs.Avalonia](./Navs.Avalonia/index.md)
+- [Navs.Avalonia](https://angelmunoz.github.io/Navs/Navs-Avalonia.html)
 
 A Compelling Example:
 
@@ -73,7 +73,7 @@ let routes = [
       do! Async.Sleep(90)
       return
         // extract parameters from the URL
-        match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+        match context.getParam<guid> "id" with
         | ValueSome id -> TextBlock().text(sprintf "Home %A" id)
         | ValueNone -> TextBlock().text("Guid No GUID")
     }
@@ -81,13 +81,6 @@ let routes = [
   // Simpler non-async routes are also supported
   Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
 ]
-
-let getMainContent (router: IRouter<Control>) =
-  ContentControl()
-    .DockTop()
-    // with NXUI you can use the .content method to bind the content
-    // to the observable in a seamless way
-    .content(router.Content |> AVal.toBinding)
 
 let navigate url (router: IRouter<Control>) _ _ =
   task {
@@ -120,7 +113,7 @@ let app () =
                 .content("Guid")
                 .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
             ),
-          getMainContent(router)
+          RouterOutlet().router(router)
         )
     )
 
@@ -132,7 +125,7 @@ NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore
 
 In a similar Fashion of Navs.Avalonia, this project attempts to provide a smooth API interface for [Avalonia.FuncUI](https://github.com/fsprojects/Avalonia.FuncUI/), you can find a sample in the [Samples](https://github.com/AngelMunoz/Navs/tree/main/samples) folder in the source code repository.
 
-- [Navs.FuncUI](./Navs.FuncUI/index.md)
+- [Navs.FuncUI](https://angelmunoz.github.io/Navs/Navs-FuncUI.html)
 
 A Compelling Example:
 
@@ -150,7 +143,7 @@ let routes = [
     fun context _ -> async {
       return
         TextBlock.create [
-          match context.urlMatch |> UrlMatch.getFromParams<guid> "id" with
+          match context.getParam<guid> "id" with
           | ValueSome id -> TextBlock.text $"Visited: {id}"
           | ValueNone -> TextBlock.text "Guid No GUID"
         ]
@@ -176,7 +169,7 @@ This is a library for parsing URL-like strings into structured objects. It is us
 
 Currently this library is mainly aimed to be used from F# but if there's interest in using it from C# I can add some more friendly APIs.
 
-- [UrlTemplates](./UrlTemplates.fsx)
+- [UrlTemplates](https://angelmunoz.github.io/Navs/UrlTemplates.html)
 
 A Compelling Example:
 

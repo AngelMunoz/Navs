@@ -1,9 +1,7 @@
 namespace Navs.Router
 
 open System.Runtime.InteropServices
-open FSharp.Data.Adaptive
-open UrlTemplates.UrlParser
-
+open Microsoft.Extensions.Logging
 open Navs
 
 /// <summary>
@@ -20,19 +18,6 @@ type ActiveRouteParams =
     ParamName: string
     ParamValue: string }
 
-/// <summary>
-/// This object is a container for the routing operations performed by <see cref="T:Navs.INavigable`1">INavigable</see>
-/// interface.
-/// </summary>
-[<NoComparison; NoEquality>]
-type internal RoutingEnv<'View> =
-  { routes: RouteTrack<'View> seq
-    state: cval<NavigationState>
-    viewCache: cmap<string, ActiveRouteParams list * UrlInfo * 'View>
-    activeRoute: cval<voption<(RouteContext * (RouteGuard<'View> * RouteDefinition<'View>) list)>>
-    content: cval<voption<'View>> }
-
-
 [<Sealed; Class>]
 type Router =
 
@@ -40,5 +25,22 @@ type Router =
   /// Get an instance of <see cref="T:Navs.IRouter`1">IRouter</see> with the given routes.
   /// and optionally a splash screen.
   /// </summary>
-  [<CompiledName "Get">]
-  static member get: routes: RouteDefinition<'View> seq * [<Optional>] ?splash: (unit -> 'View) -> IRouter<'View>
+  /// <param name="routes">The route definitions the router will use to match URLs and render views.</param>
+  /// <param name="splash">
+  /// An optional function that produces a view to render while the first
+  /// navigation is triggered, before any route has been activated.
+  /// </param>
+  /// <param name="logger">An optional logger used to trace the router's activity.</param>
+  /// <param name="maxCyclicRedirects">
+  /// Maximum number of distinct (from, target) redirect pairs the router will
+  /// follow while resolving a single navigation. Defaults to 5. This guards
+  /// against redirect cycles; it does not cap the length of linear redirect
+  /// chains, which are expected to terminate on their own.
+  /// </param>
+  [<CompiledName "Build">]
+  static member build:
+    routes: RouteDefinition<'View> seq *
+    [<Optional>] ?splash: (unit -> 'View) *
+    [<Optional>] ?logger: ILogger *
+    [<Optional>] ?maxCyclicRedirects: int ->
+      IRouter<'View>

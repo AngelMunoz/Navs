@@ -6,12 +6,12 @@ open Navs
 open System.Threading.Tasks
 
 module Routes =
+  open System.Threading
 
   let defaultRoute = {
     name = ""
     pattern = ""
-    getContent = (fun _ _ _ -> Task.FromResult(""))
-    children = []
+    getContent = GetView<_>(fun _ _ -> fun token -> ValueTask.FromResult(""))
     canActivate = []
     canDeactivate = []
     cacheStrategy = Cache
@@ -28,23 +28,23 @@ module Routes =
           defaultRoute with
               name = "home"
               pattern = "/"
-              getContent = (fun _ _ _ -> Task.FromResult("Home"))
+              getContent =
+                GetView<_>(fun _ _ -> fun token -> ValueTask.FromResult("Home"))
         }
 
         Expect.equal route.name expected.name "Name should be equal"
         Expect.equal route.pattern expected.pattern "Pattern should be equal"
+        let token = CancellationToken.None
 
         let! actual =
-          route.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          route.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         let! expected =
-          expected.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          expected.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         Expect.equal actual expected "GetContent should be equal"
       }
@@ -63,23 +63,23 @@ module Routes =
           defaultRoute with
               name = "home"
               pattern = "/"
-              getContent = fun _ _ _ -> Task.FromResult("Home")
+              getContent =
+                GetView<_>(fun _ _ -> fun token -> ValueTask.FromResult("Home"))
         }
 
         Expect.equal route.name expected.name "Name should be equal"
         Expect.equal route.pattern expected.pattern "Pattern should be equal"
+        let token = CancellationToken.None
 
         let! actual =
-          route.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          route.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         let! expected =
-          expected.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          expected.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         Expect.equal actual expected "GetContent should be equal"
 
@@ -99,23 +99,23 @@ module Routes =
           defaultRoute with
               name = "home"
               pattern = "/"
-              getContent = fun _ _ _ -> Task.FromResult("Home")
+              getContent =
+                GetView<_>(fun _ _ -> fun token -> ValueTask.FromResult("Home"))
         }
 
         Expect.equal route.name expected.name "Name should be equal"
         Expect.equal route.pattern expected.pattern "Pattern should be equal"
+        let token = CancellationToken.None
 
         let! actual =
-          route.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          route.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         let! expected =
-          expected.getContent
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
-            Unchecked.defaultof<_>
+          expected.getContent.Invoke
+            (Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+            token
 
         Expect.equal actual expected "GetContent should be equal"
       }
