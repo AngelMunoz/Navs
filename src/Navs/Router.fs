@@ -319,7 +319,7 @@ module Navigable =
     (env, nav, logger: ILogger)
     origin
     target
-    (maxDepth: int)
+    (maxCyclicRedirects: int)
     =
     cancellableTask {
       let mutable lastResult = ValueNone
@@ -331,16 +331,16 @@ module Navigable =
       let! token = CancellableTask.getCancellationToken()
 
       while redirectStack.Count > 0 do
-        if redirectStack.Count > maxDepth then
+        if visited.Count >= maxCyclicRedirects then
           logger.LogError(
-            "Redirect depth exceeded the maximum allowed depth of {maxDepth}",
-            maxDepth
+            "Exceeded the maximum number of cyclic redirects ({maxCyclicRedirects})",
+            maxCyclicRedirects
           )
 
           lastError <-
             ValueSome(
               NavigationFailed
-                $"Redirect depth exceeded the maximum allowed depth of %d{maxDepth}"
+                $"Exceeded the maximum number of cyclic redirects (%d{maxCyclicRedirects})"
             )
 
           redirectStack.Clear()
@@ -414,11 +414,11 @@ type Router =
       routes: RouteDefinition<'View> seq,
       [<Optional>] ?splash: unit -> 'View,
       [<Optional>] ?logger: ILogger,
-      [<Optional>] ?maxRedirectDepth: int
+      [<Optional>] ?maxCyclicRedirects: int
     ) =
     let routes = routes |> Seq.toList
     let state = cval Idle
-    let maxRedirectDepth = defaultArg maxRedirectDepth 5
+    let maxCyclicRedirects = defaultArg maxCyclicRedirects 5
 
     let cache =
       ConcurrentDictionary<string, RouteInfo.RouteUnit<'View> * 'View>()
@@ -487,7 +487,7 @@ type Router =
               match result with
               | Ok value -> return Ok value
               | Error(Navigable.IsRedirection route) ->
-                return! attemptRedirect url route maxRedirectDepth token
+                return! attemptRedirect url route maxCyclicRedirects token
               | Error error -> return Error error
             }
 
