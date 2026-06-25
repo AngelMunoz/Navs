@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-27
+
 ### Changed
 
 - **Navs (breaking):** `RouteGuard` is now a two-argument delegate (`RouteContext voption * RouteContext`) and uses `IcedTasks.CancellableValueTask<GuardResponse>`. Update existing guards to accept the previous route (or `ValueNone`) and the target route, and to return a `CancellableValueTask`.
