@@ -138,7 +138,11 @@ module UrlTemplate =
         | Plain value -> Result.Ok value
         | ParamSegment(name, _) ->
           match routeParams.TryGetValue name with
-          | true, value -> Result.Ok(value.ToString())
+          | true, value ->
+            match value.ToString() with
+            | null ->
+              Result.Error $"Required route parameter %s{name} was not provided"
+            | value -> Result.Ok value
           | false, _ ->
             Result.Error $"Required route parameter %s{name} was not provided"
       )

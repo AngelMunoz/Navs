@@ -7,7 +7,7 @@ open System.Threading.Tasks
 open System.Runtime.InteropServices
 
 open Terminal.Gui
-
+open Terminal.Gui.Views
 open FSharp.Data.Adaptive
 
 open Navs
@@ -187,16 +187,16 @@ type RouterOutlet
     [<Optional>] ?initialUri: string,
     [<Optional>] ?logger: ILogger
   ) as this =
-  inherit Toplevel()
+  inherit Runnable()
 
   let disposables = ResizeArray()
 
   do
     router.Content.AddCallback(fun window ->
-      this.RemoveAll()
+      this.RemoveAll() |> ignore
 
       match window with
-      | ValueSome w -> this.Add(w :> View) |> ignore
+      | ValueSome w -> this.Add(w :> ViewBase.View) |> ignore
       | ValueNone -> ()
     )
     |> disposables.Add

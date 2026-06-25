@@ -22,33 +22,34 @@ AppBuilder
 static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
      Route.Define("home", "/", (_ , _) => {
         var (count, setCount) = UseState(0);
-        return StackPanel()
+        var content =  new StackPanel()
           .Spacing(8)
           .Children(
-            TextBlock().Text("Home"),
-            TextBlock().Text(count.Map(value => $"Count: {value}").ToBinding()),
-            Button().Content("Increment").OnClickHandler((_, _) => setCount(count => count + 1)),
-            Button().Content("Decrement").OnClickHandler((_, _) => setCount(count => count - 1)),
-            Button().Content("Reset").OnClickHandler((_, _) => setCount(_ => 0))
+            new TextBlock().Text("Home"),
+            new TextBlock().Text(count.Map(value => $"Count: {value}").ToBinding()),
+            new Button().Content("Increment").OnClickHandler((_, _) => setCount(count => count + 1)),
+            new Button().Content("Decrement").OnClickHandler((_, _) => setCount(count => count - 1)),
+            new Button().Content("Reset").OnClickHandler((_, _) => setCount(_ => 0))
           );
+        return content;
       }),
      Route.Define("about", "/about", (_ , _)=> {
         var text = new ChangeableValue<string>("");
 
-        return StackPanel()
+        return new StackPanel()
           .Spacing(8)
           .Children(
-            TextBlock().Text("About"),
-            TextBlock().Text("This is a simple Avalonia app with a router, It uses Navs for routing and Adaptive Data for state management."),
-            TextBlock().Text(
+            new TextBlock().Text("About"),
+            new TextBlock().Text("This is a simple Avalonia app with a router, It uses Navs for routing and Adaptive Data for state management."),
+            new TextBlock().Text(
               text.Map(value => {
                 if (string.IsNullOrWhiteSpace(value)) { return "Type something!"; }
                 return $"You typed: {value}";
               })
               .ToBinding()
             ),
-            TextBox()
-              .Watermark("Type here!")
+            new TextBox()
+              .PlaceholderText("Type here!")
               .OnTextChangedHandler((source,args) =>{
                 if (source.Text is null) { return; }
                 text.SetValue(text => source.Text);
@@ -62,11 +63,11 @@ static IEnumerable<RouteDefinition<Control>> GetRoutes() => [
         var guid = UrlMatchModule.getFromParams<Guid>("id", ctx.urlMatch);
         if (guid.IsValueSome && guid.Value is Guid id)
         {
-          return TextBlock().Text($"By Name: {id}");
+          return new TextBlock().Text($"By Name: {id}");
         }
-        return StackPanel().Children(
-          TextBlock().Text($"No ID Found!"),
-          Button().Content("Visit one with Id")
+        return new StackPanel().Children(
+          new TextBlock().Text($"No ID Found!"),
+          new Button().Content("Visit one with Id")
             .OnClickHandler((_, _) => {
                 nav.Navigate("/by-name?id=" + Guid.NewGuid());
             })
@@ -79,17 +80,17 @@ static Window GetWindow()
 {
   IRouter<Control> router = new AvaloniaRouter(GetRoutes());
 
-  return Window().Title("Hello World!").Content(
+  return new Window().Title("Hello World!").Content(
     StackPanel().Children(
-      Button().Content("Home").OnClickHandler((_, _) => NavigateTo("/", router)),
-      Button().Content("About").OnClickHandler((_, _) => NavigateTo("/about", router)),
-      Button()
+      new Button().Content("Home").OnClickHandler((_, _) => NavigateTo("/", router)),
+      new Button().Content("About").OnClickHandler((_, _) => NavigateTo("/about", router)),
+      new Button()
         .Content("Navigate By Name")
         .OnClickHandler((_, _) => NavigateByName("by-name", router, new Dictionary<string, object> { { "id", Guid.NewGuid() } })),
-      Button()
+      new Button()
         .Content("Navigate By Name Missing Param")
         .OnClickHandler((_, _) => NavigateByName("by-name", router)),
-      RouterOutlet().Router(router)
+      new RouterOutlet().Router(router)
     )
   );
 }

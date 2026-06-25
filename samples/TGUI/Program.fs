@@ -1,4 +1,7 @@
 ﻿open Terminal.Gui
+open Terminal.Gui.App
+open Terminal.Gui.ViewBase
+open Terminal.Gui.Views
 open System
 open TGUI
 
@@ -7,8 +10,10 @@ open UrlTemplates.RouteMatcher
 open Navs.Terminal.Gui
 
 
-let Login (ctx: RouteContext) (navigable: INavigable<_>) =
-  let window = Window($"Example App (%O{Application.QuitKey} to quit)")
+let Login app (ctx: RouteContext) (navigable: INavigable<_>) =
+  let window =
+    Window
+      $"Example App ({App.Application.GetDefaultKey Input.Command.Quit} to quit)"
 
   let username =
     UrlMatch.getParamFromQuery "username" ctx.urlMatch |> Option.ofValueOption
@@ -40,10 +45,13 @@ let Login (ctx: RouteContext) (navigable: INavigable<_>) =
       .IsDefault(true)
       .OnAccept(fun _ ->
         if userNameText.Text = "admin" && passwordText.Text = "password" then
-          MessageBox.Query("Logging In", "Login Successful", "Ok") |> ignore
-          Application.RequestStop()
+          MessageBox.Query(app, "Logging In", "Login Successful", "Ok")
+          |> ignore
+
+          app.RequestStop()
         else
           MessageBox.ErrorQuery(
+            app,
             "Logging In",
             "Incorrect username or password",
             "Ok"
@@ -108,18 +116,19 @@ let About _ (navigable: INavigable<Window>) =
   Window("About").Content(label, homeBtn, login)
 
 
-let routes = [
-  Route.define("home", "/", Home)
-  Route.define("about", "/about", About)
-  Route.define("login", "/login?username", Login)
-]
-
-let router: IRouter<Window> = TerminalGuiRouter(routes)
 
 [<EntryPoint; STAThread>]
 let main argv =
   // dotnet run --project samples/TGUI -- tgui:///login?username=admin
-  Application.Init()
+  let app = Application.Create().Init()
+
+  let routes = [
+    Route.define("home", "/", Home)
+    Route.define("about", "/about", About)
+    Route.define("login", "/login?username", Login app)
+  ]
+
+  let router: IRouter<Window> = TerminalGuiRouter routes
 
   let deepLink =
     argv
@@ -133,10 +142,10 @@ let main argv =
     |> Option.map(fun url -> url.PathAndQuery + url.Fragment)
     |> Option.defaultValue("/")
 
-  router.Navigate(deepLink) |> Task.FireAndForget
+  router.Navigate deepLink |> Task.FireAndForget
 
-  Application.Run(new RouterOutlet(router))
+  app.Run(new RouterOutlet(router)) |> ignore
   // Before the application exits, reset Terminal.Gui for clean shutdown
-  Application.Shutdown()
+  app.RequestStop()
 
   0 // return an integer exit code

@@ -197,9 +197,10 @@ module DSL =
               CompositePageTransition(
                 PageTransitions =
                   ResizeArray [
-                    CrossFade(TimeSpan.FromMilliseconds 150) :> IPageTransition
+                    CrossFade(TimeSpan.FromMilliseconds 150.)
+                    :> IPageTransition
                     PageSlide(
-                      TimeSpan.FromMilliseconds 300,
+                      TimeSpan.FromMilliseconds 300.,
                       PageSlide.SlideAxis.Horizontal
                     )
                   ]

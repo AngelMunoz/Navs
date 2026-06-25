@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable central package management, https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="FSharp.Core" Version="9.0.100" Condition="'$(TargetFramework)' == 'net8.0'"  />
+    <PackageVersion Include="FSharp.Core" Version="10.0.103" Condition="'$(TargetFramework)' == 'net10.0'"/>
+
+    <PackageVersion Include="FSharp.Data.Adaptive" Version="1.2.26" />
+    <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.2.0" />
+    <PackageVersion Include="IcedTasks" Version="0.11.9" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
+    <PackageVersion Include="FParsec" Version="1.1.1" />
+    <PackageVersion Include="Avalonia" Version="12.0.5" />
+    <PackageVersion Include="Avalonia.FuncUI" Version="1.5.2" />
+
+    <PackageVersion Include="Terminal.Gui" Version="2.4.11" />
+
+    <PackageVersion Include="Expecto" Version="11.0.0" />
+    <PackageVersion Include="YoloDev.Expecto.TestSdk" Version="0.15.6" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+  </ItemGroup>
+</Project>

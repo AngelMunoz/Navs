@@ -118,7 +118,7 @@ let routes = [
             Button.create [
               Button.content "Decrement"
               Button.onClick(fun _ ->
-                counter.Set(counter.Current + 1) |> ignore
+                counter.Set(counter.Current - 1) |> ignore
               )
             ]
 
