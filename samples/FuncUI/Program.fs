@@ -110,7 +110,7 @@ let routes = [
               Button.content "Increment"
               Button.onClick(fun _ ->
                 // values can also be updated using the standard FuncUI way
-                counter.Set(counter.Current + 1) |> ignore
+                counter.Set(counter.Current - 1) |> ignore
               )
             ]
 

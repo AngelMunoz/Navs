@@ -4,12 +4,14 @@ open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
 open NXUI.Desktop
-open NXUI.FSharp.Extensions
+open NXUI.Extensions
 
 open FSharp.Data.Adaptive
 open Navs
 open Navs.Avalonia
 open Microsoft.Extensions.Logging
+open IcedTasks
+open IcedTasks.Polyfill.Async.PolyfillBuilders
 
 let lf =
   LoggerFactory.Create(fun builder ->
@@ -26,14 +28,14 @@ let routes = [
 
       return
         match context.urlMatch.Params.TryGetValue "id" with
-        | true, id -> TextBlock().text($"%O{id}") :> Control
-        | false, _ -> TextBlock().text("Guid No GUID")
+        | true, id -> TextBlock().Text($"%O{id}") :> Control
+        | false, _ -> TextBlock().Text("Guid No GUID")
     }
   )
   Route.define(
     "books",
     "/books",
-    (fun _ _ -> TextBlock().text("Books") :> Control)
+    (fun _ _ -> TextBlock().Text("Books") :> Control)
   )
   Route.define(
     "counter",
@@ -49,12 +51,12 @@ let routes = [
       let text = value |> AVal.map(fun v -> $"Count: {v}")
 
       StackPanel()
-        .spacing(8)
-        .children(
-          Button().content("Increment").OnClickHandler(fun _ _ -> increment()),
-          Button().content("Decrement").OnClickHandler(fun _ _ -> decrement()),
-          Button().content("Reset").OnClickHandler(fun _ _ -> reset()),
-          TextBlock().text(text |> AVal.toBinding)
+        .Spacing(8)
+        .Children(
+          Button().Content("Increment").OnClickHandler(fun _ _ -> increment()),
+          Button().Content("Decrement").OnClickHandler(fun _ _ -> decrement()),
+          Button().Content("Reset").OnClickHandler(fun _ _ -> reset()),
+          TextBlock().Text(text |> AVal.toBinding)
         )
       :> Control
     )
@@ -78,32 +80,32 @@ let app () =
   let router =
     AvaloniaRouter(
       routes,
-      splash = (fun _ -> TextBlock().text("Loading...")),
+      splash = (fun _ -> TextBlock().Text("Loading...")),
       logger = logger
     )
 
   Window()
-    .content(
+    .Content(
       DockPanel()
-        .lastChildFill(true)
-        .children(
+        .LastChildFill(true)
+        .Children(
           StackPanel()
             .DockTop()
             .OrientationHorizontal()
-            .spacing(8)
-            .children(
-              Button().content("Books").OnClickHandler(navigate "/books" router),
+            .Spacing(8)
+            .Children(
+              Button().Content("Books").OnClickHandler(navigate "/books" router),
               Button()
-                .content("Guid")
+                .Content("Guid")
                 .OnClickHandler(navigate $"/{Guid.NewGuid()}" router),
               Button()
-                .content("Counter")
+                .Content("Counter")
                 .OnClickHandler(navigate "/counter" router),
               Button()
-                .content("Counter with query")
+                .Content("Counter with query")
                 .OnClickHandler(navigate "/counter?count=10" router)
             ),
-          RouterOutlet().DockTop().router(router)
+          RouterOutlet().router(router).DockTop()
         )
     )
 

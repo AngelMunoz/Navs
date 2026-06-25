@@ -1,16 +1,17 @@
 namespace TGUI
 
-open Terminal.Gui
+open Terminal.Gui.ViewBase
 open System
 open System.Runtime.CompilerServices
 open FSharp.Data.Adaptive
+open Terminal.Gui.Views
 
 [<Extension>]
 type ViewExtensions() =
 
   [<Extension>]
   static member inline Content(this: #View, [<ParamArray>] views: View array) =
-    this.RemoveAll()
+    this.RemoveAll() |> ignore
 
     for view in views do
       this.Add view |> ignore
@@ -21,7 +22,7 @@ type ViewExtensions() =
   static member inline Content(this: #View, view: View aval) =
     let disp =
       view.AddWeakCallback(fun (v: View) ->
-        this.RemoveAll()
+        this.RemoveAll() |> ignore
         this.Add(v) |> ignore
       )
 
@@ -188,7 +189,7 @@ type ButtonExtensions() =
 
   [<Extension>]
   static member inline OnAccept(this: #Button, [<InlineIfLambda>] action) =
-    this.Accept.Add(action)
+    this.Accepted.Add action
     this
 
 [<AutoOpen>]

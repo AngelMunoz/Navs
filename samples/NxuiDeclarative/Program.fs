@@ -4,7 +4,10 @@ open Avalonia
 open Avalonia.Controls
 open Avalonia.Data
 open NXUI.Desktop
-open NXUI.FSharp.Extensions
+open NXUI.Extensions
+
+open IcedTasks
+open IcedTasks.Polyfill.Async.PolyfillBuilders
 
 open FSharp.Data.Adaptive
 open Navs
@@ -50,27 +53,27 @@ let app () =
   let router = routes.Router
 
   Window()
-    .content(
+    .Content(
       DockPanel()
-        .lastChildFill(true)
-        .children(
+        .LastChildFill(true)
+        .Children(
           StackPanel()
             .DockTop()
             .OrientationHorizontal()
-            .spacing(8)
-            .children(
-              Button().content("Books").OnClickHandler(navigate "/books" router),
+            .Spacing(8)
+            .Children(
+              Button().Content("Books").OnClickHandler(navigate "/books" router),
               Button()
-                .content("Guid")
+                .Content("Guid")
                 .OnClickHandler(navigate $"/?id={Guid.NewGuid()}" router),
               Button()
-                .content("Counter")
+                .Content("Counter")
                 .OnClickHandler(navigate "/counter" router),
               Button()
-                .content("Counter with query")
+                .Content("Counter with query")
                 .OnClickHandler(navigate "/counter?count=10" router),
               Button()
-                .content("Books with query")
+                .Content("Books with query")
                 .OnClickHandler(navigate "/books?title=The" router)
             ),
           routes
