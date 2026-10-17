@@ -125,185 +125,186 @@ module Navigable =
     (token: CancellationToken)
     =
     taskResult {
-      // if we have this in cache, let's jumpthe dance
-      match env.cache.TryGetValue url with
-      | true, value ->
-        logger.LogDebug("Cache hit for url: {url}", url)
-        logger.LogTrace("Returning {value}", value)
-        return value
-      // otherwise let's try to resolve the issue
-      | false, _ ->
-        // 1. resolve the route
+      // A cache hit skips route resolution and view rendering, but the
+      // guards below still run: a cached view must not bypass navigation rules
+      let cached =
+        match env.cache.TryGetValue url with
+        | true, value ->
+          logger.LogDebug("Cache hit for url: {url}", url)
+          ValueSome value
+        | false, _ -> ValueNone
+
+      // 1. resolve the route (a cache hit is already resolved)
+      if token.IsCancellationRequested then
+        return! Error(NavigationCancelled)
+      else
+        let! nextRoute =
+          match cached with
+          | ValueSome(route, _) -> Ok route
+          | ValueNone ->
+            RouteInfo.getActiveRouteInfo env.routes url
+            |> Result.mapError(fun _ -> RouteNotFound url)
+
+        logger.LogDebug("Resolved route: {route}", nextRoute.context.path)
+        // 2. check deactivation guards
+        match env.activeRoute with
+        | ValueSome active ->
+          logger.LogTrace("Running guards")
+
+          do!
+            active.definition.canDeactivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              if token.IsCancellationRequested then
+                return! Error(NavigationCancelled)
+              else
+                match!
+                  guard.Invoke
+                    (ValueSome active.context, nextRoute.context)
+                    token
+                with
+                | Continue -> return ()
+                | Redirect redirect ->
+                  match stack with
+                  | ValueSome { from = from; target = target } ->
+                    logger.LogTrace(
+                      "Guard redirect to {redirect}",
+                      { from = from; target = target }
+                    )
+
+                    if from <> url && redirect = target then
+                      logger.LogDebug(
+                        "{from} is different to {url} and redirect is {redirect}, allowing navigation",
+                        from,
+                        url,
+                        redirect
+                      )
+
+                      return ()
+                    else
+                      logger.LogDebug("Guard redirect to {redirect}", redirect)
+
+                      return! Error(GuardRedirect redirect)
+                  | ValueNone -> return! Error(GuardRedirect redirect)
+                | Stop ->
+                  logger.LogDebug("Guard stop for {path}", active.context.path)
+
+                  return! Error(CantDeactivate active.definition.pattern)
+            })
+            |> TaskResult.ignore
+
+          logger.LogTrace("Deactivation guards passed")
+          // 2.1. Check Next Route Activation Guards with active route
+          logger.LogTrace("Checking activation guards for next route")
+
+          do!
+            nextRoute.definition.canActivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              if token.IsCancellationRequested then
+                return! Error(NavigationCancelled)
+              else
+                match!
+                  guard.Invoke
+                    (ValueSome active.context, nextRoute.context)
+                    token
+                with
+                | Continue ->
+                  logger.LogTrace("Guard passed, continuing")
+                  return ()
+                | Redirect url ->
+                  logger.LogTrace("Guard redirect to {url}", url)
+                  return! Error(GuardRedirect url)
+                | Stop ->
+                  logger.LogDebug(
+                    "Guard stop for {name} - {pattern}",
+                    nextRoute.definition.name,
+                    nextRoute.definition.pattern
+                  )
+
+                  return! Error(CantActivate nextRoute.definition.pattern)
+            })
+            |> TaskResult.ignore
+        | ValueNone ->
+          // 2.1 Check Next Route Activation Guards without active route
+          do!
+            nextRoute.definition.canActivate
+            |> List.traverseTaskResultM(fun guard -> taskResult {
+              if token.IsCancellationRequested then
+                return! Error(NavigationCancelled)
+              else
+                match! guard.Invoke (ValueNone, nextRoute.context) token with
+                | Continue ->
+                  logger.LogTrace("Guard passed, continuing")
+                  return ()
+                | Redirect url ->
+                  logger.LogTrace("Guard redirect to {url}", url)
+                  return! Error(GuardRedirect url)
+                | Stop ->
+                  logger.LogDebug(
+                    "Guard stop for {name} - {pattern}",
+                    nextRoute.definition.name,
+                    nextRoute.definition.pattern
+                  )
+
+                  return! Error(CantActivate nextRoute.definition.pattern)
+            })
+            |> TaskResult.ignore
 
         if token.IsCancellationRequested then
           return! Error(NavigationCancelled)
         else
-          let! nextRoute =
-            RouteInfo.getActiveRouteInfo env.routes url
-            |> Result.mapError(fun _ -> RouteNotFound url)
+          // 3. Resolve the view content (a cache hit reuses the cached view)
+          let! resolved =
+            match cached with
+            | ValueSome(_, view) -> TaskResult.ok view
+            | ValueNone -> taskResult {
+                return!
+                  nextRoute.definition.getContent.Invoke
+                    (nextRoute.context, nav)
+                    token
+              }
 
-          logger.LogDebug("Resolved route: {route}", nextRoute.context.path)
-          // 2. check deactivation guards
-          match env.activeRoute with
-          | ValueSome active ->
-            logger.LogTrace("Running guards")
+          // 4. Deactivate the previous active route now that activation
+          // guards and content resolution have passed. Disposing earlier
+          // would destroy resources before we know the new route is valid.
+          env.activeRoute
+          |> ValueOption.iter(fun active ->
+            match active.definition.cacheStrategy with
+            | NoCache ->
+              logger.LogDebug("No cache strategy, disposing active route")
+              active.context.disposables.Dispose()
+            | Cache ->
+              logger.LogDebug("Cache strategy, not disposing active route")
+          )
 
-            do!
-              active.definition.canDeactivate
-              |> List.traverseTaskResultM(fun guard -> taskResult {
-                if token.IsCancellationRequested then
-                  return! Error(NavigationCancelled)
-                else
-                  match!
-                    guard.Invoke
-                      (ValueSome active.context, nextRoute.context)
-                      token
-                  with
-                  | Continue -> return ()
-                  | Redirect redirect ->
-                    match stack with
-                    | ValueSome { from = from; target = target } ->
-                      logger.LogTrace(
-                        "Guard redirect to {redirect}",
-                        { from = from; target = target }
-                      )
-
-                      if from <> url && redirect = target then
-                        logger.LogDebug(
-                          "{from} is different to {url} and redirect is {redirect}, allowing navigation",
-                          from,
-                          url,
-                          redirect
-                        )
-
-                        return ()
-                      else
-                        logger.LogDebug(
-                          "Guard redirect to {redirect}",
-                          redirect
-                        )
-
-                        return! Error(GuardRedirect redirect)
-                    | ValueNone -> return! Error(GuardRedirect redirect)
-                  | Stop ->
-                    logger.LogDebug(
-                      "Guard stop for {path}",
-                      active.context.path
-                    )
-
-                    return! Error(CantDeactivate active.definition.pattern)
-              })
-              |> TaskResult.ignore
-
-            logger.LogTrace("Deactivation guards passed")
-            // 2.1. Check Next Route Activation Guards with active route
-            logger.LogTrace("Checking activation guards for next route")
-
-            do!
-              nextRoute.definition.canActivate
-              |> List.traverseTaskResultM(fun guard -> taskResult {
-                if token.IsCancellationRequested then
-                  return! Error(NavigationCancelled)
-                else
-                  match!
-                    guard.Invoke
-                      (ValueSome active.context, nextRoute.context)
-                      token
-                  with
-                  | Continue ->
-                    logger.LogTrace("Guard passed, continuing")
-                    return ()
-                  | Redirect url ->
-                    logger.LogTrace("Guard redirect to {url}", url)
-                    return! Error(GuardRedirect url)
-                  | Stop ->
-                    logger.LogDebug(
-                      "Guard stop for {name} - {pattern}",
-                      nextRoute.definition.name,
-                      nextRoute.definition.pattern
-                    )
-
-                    return! Error(CantActivate nextRoute.definition.pattern)
-              })
-              |> TaskResult.ignore
-          | ValueNone ->
-            // 2.1 Check Next Route Activation Guards without active route
-            do!
-              nextRoute.definition.canActivate
-              |> List.traverseTaskResultM(fun guard -> taskResult {
-                if token.IsCancellationRequested then
-                  return! Error(NavigationCancelled)
-                else
-                  match! guard.Invoke (ValueNone, nextRoute.context) token with
-                  | Continue ->
-                    logger.LogTrace("Guard passed, continuing")
-                    return ()
-                  | Redirect url ->
-                    logger.LogTrace("Guard redirect to {url}", url)
-                    return! Error(GuardRedirect url)
-                  | Stop ->
-                    logger.LogDebug(
-                      "Guard stop for {name} - {pattern}",
-                      nextRoute.definition.name,
-                      nextRoute.definition.pattern
-                    )
-
-                    return! Error(CantActivate nextRoute.definition.pattern)
-              })
-              |> TaskResult.ignore
-
-          if token.IsCancellationRequested then
-            return! Error(NavigationCancelled)
-          else
-            // 3. Resolve the view content
-            let! resolved =
-              nextRoute.definition.getContent.Invoke
-                (nextRoute.context, nav)
-                token
-
-            // 4. Deactivate the previous active route now that activation
-            // guards and content resolution have passed. Disposing earlier
-            // would destroy resources before we know the new route is valid.
-            env.activeRoute
-            |> ValueOption.iter(fun active ->
-              match active.definition.cacheStrategy with
-              | NoCache ->
-                logger.LogDebug("No cache strategy, disposing active route")
-                active.context.disposables.Dispose()
-              | Cache ->
-                logger.LogDebug("Cache strategy, not disposing active route")
+          match cached, nextRoute.definition.cacheStrategy with
+          | ValueSome _, _ ->
+            logger.LogTrace(
+              "Cache hit for url: {url}, returning cached view",
+              url
             )
 
-            match nextRoute.definition.cacheStrategy with
-            | NoCache ->
-              logger.LogDebug("No cache strategy, resolving content")
-              return nextRoute, resolved
-            | Cache ->
-              logger.LogDebug("Cache strategy, checking cache for content")
-              // 3.2 If we're here, it means this url is not in the cache and we need to resolve it
+            return nextRoute, resolved
+          | ValueNone, NoCache ->
+            logger.LogDebug("No cache strategy, resolving content")
+            return nextRoute, resolved
+          | ValueNone, Cache ->
+            logger.LogDebug("Cache strategy, checking cache for content")
 
-              match env.cache.TryAdd(url, (nextRoute, resolved)) with
-              | true ->
-                logger.LogTrace(
-                  "Cache miss for url: {url}, adding to cache",
-                  url
-                )
-
-                () // Yeah we're good
-              | false ->
-                logger.LogTrace(
-                  "Cache hit for url: {url}, not adding to cache",
-                  url
-                )
-                // Why though?
-                ()
-
-              logger.LogDebug(
-                "Resolved view for {nextRouteContext}",
-                nextRoute.context
+            match env.cache.TryAdd(url, (nextRoute, resolved)) with
+            | true ->
+              logger.LogTrace("Cache miss for url: {url}, adding to cache", url)
+            | false ->
+              logger.LogTrace(
+                "Cache hit for url: {url}, not adding to cache",
+                url
               )
 
-              return nextRoute, resolved
+            logger.LogDebug(
+              "Resolved view for {nextRouteContext}",
+              nextRoute.context
+            )
+
+            return nextRoute, resolved
     }
 
   let (|IsNavigationCancelled|_|) (error: NavigationError<_>) =

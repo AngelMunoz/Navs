@@ -446,6 +446,163 @@ module Guards =
     ]
 
 
+module CachedNavigation =
+
+  let tests () =
+    testList "Cached Navigation Tests" [
+
+      testCaseTask "Deactivation guards run when the target url is cached"
+      <| fun () -> task {
+        let routes = [
+          Route.define("home", "/", (fun _ _ -> "Home"))
+          |> Route.canDeactivateAsync(fun _ _ -> async { return Stop })
+          Route.define("about", "/about", (fun _ _ -> "About"))
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        // visit about first, so it becomes a cache hit later
+        let! (Ok _) = router.Navigate("/about")
+        let! (Ok _) = router.Navigate("/")
+
+        let! Error(CantDeactivate pattern) = router.Navigate("/about")
+
+        Expect.equal pattern "/" "The stopped route should be home"
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should stay Home"
+      }
+
+      testCaseTask "Activation guards run when the target url is cached"
+      <| fun () -> task {
+        let mutable allowSecure = true
+
+        let routes = [
+          Route.define("home", "/", (fun _ _ -> "Home"))
+          Route.define("secure", "/secure", (fun _ _ -> "Secure"))
+          |> Route.canActivateAsync(fun _ _ -> async {
+            return if allowSecure then Continue else Stop
+          })
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        let! (Ok _) = router.Navigate("/secure")
+        let! (Ok _) = router.Navigate("/")
+
+        allowSecure <- false
+
+        let! Error(CantActivate pattern) = router.Navigate("/secure")
+
+        Expect.equal pattern "/secure" "The blocked route should be secure"
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Home" "View should stay Home"
+      }
+
+      testCaseTask
+        "The cached view is reused when guards allow a cached navigation"
+      <| fun () -> task {
+        let mutable renderCount = 0
+        let mutable deactivateRuns = 0
+
+        let routes = [
+          Route.define("home", "/", (fun _ _ -> "Home"))
+          |> Route.canDeactivateAsync(fun _ _ -> async {
+            deactivateRuns <- deactivateRuns + 1
+            return Continue
+          })
+          Route.define<string>(
+            "about",
+            "/about",
+            fun _ _ -> async {
+              renderCount <- renderCount + 1
+              return $"About {renderCount}"
+            }
+          )
+        ]
+
+        let router = Router.build<string>(routes)
+
+        let! (Ok _) = router.Navigate("/about")
+        let! (Ok _) = router.Navigate("/")
+
+        // about is cached now, its content must not render again
+        let! (Ok _) = router.Navigate("/about")
+
+        Expect.equal
+          deactivateRuns
+          1
+          "The deactivation guard should have run once"
+
+        Expect.equal renderCount 1 "The about view should have rendered once"
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "About 1" "The cached view should be reused"
+      }
+
+      testCaseTask "Guard redirects are followed when the target url is cached"
+      <| fun () -> task {
+        let mutable redirectAway = false
+
+        let routes = [
+          Route.define("home", "/", (fun _ _ -> "Home"))
+          Route.define("about", "/about", (fun _ _ -> "About"))
+          |> Route.canActivateAsync(fun _ _ -> async {
+            return if redirectAway then Redirect "/other" else Continue
+          })
+          Route.define("other", "/other", (fun _ _ -> "Other"))
+        ]
+
+        let router = Router.build<string>(routes, (fun _ -> "Splash"))
+
+        let! (Ok _) = router.Navigate("/about")
+        let! (Ok _) = router.Navigate("/")
+
+        redirectAway <- true
+
+        let! (Ok _) = router.Navigate("/about")
+
+        let (ValueSome view) = router.Content |> AVal.force
+
+        Expect.equal view "Other" "The redirect target should be the view"
+      }
+
+      testCaseTask
+        "A NoCache active route is disposed when navigating to a cached url"
+      <| fun () -> task {
+        let mutable disposed = 0
+
+        let routes = [
+          Route.define<string>(
+            "home",
+            "/",
+            fun ctx _ -> async {
+              ctx.addDisposable
+                { new IDisposable with
+                    member _.Dispose() = disposed <- disposed + 1
+                }
+
+              return "Home"
+            }
+          )
+          |> Route.cache NoCache
+          Route.define("about", "/about", (fun _ _ -> "About"))
+        ]
+
+        let router = Router.build<string>(routes)
+
+        let! (Ok _) = router.Navigate("/about")
+        let! (Ok _) = router.Navigate("/")
+        let! (Ok _) = router.Navigate("/about")
+
+        Expect.equal disposed 1 "Home's disposable should be disposed once"
+      }
+    ]
+
 module Cancellation =
 
   let tests () =
@@ -776,6 +933,7 @@ let tests =
     RouteContext.tests()
     Navigation.tests()
     Guards.tests()
+    CachedNavigation.tests()
     Cancellation.tests()
     Redirect.tests()
   ]

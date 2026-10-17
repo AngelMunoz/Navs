@@ -179,11 +179,11 @@ type GetView<'View> = delegate of RouteContext * INavigable<'View> -> Cancellabl
 /// when the route is activated.
 [<Struct; NoComparison>]
 type CacheStrategy =
-  /// The Cache strategy makes that the rendered view will be stored in memory
-  /// and will be re-used when the route is activated again.
-  | NoCache
   /// The NoCache strategy makes that the rendered view will be re-rendered
   /// every time the route is activated.
+  | NoCache
+  /// The Cache strategy makes that the rendered view will be stored in memory
+  /// and will be re-used when the route is activated again.
   | Cache
 
 [<NoComparison; NoEquality>]
