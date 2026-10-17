@@ -24,7 +24,7 @@ From there on, you can use the router to navigate to different parts of your app
 *)
 
 (*** hide ***)
-#r "nuget: Navs, 1.0.0-rc-005"
+#r "nuget: Navs, 1.*"
 
 open FSharp.Data.Adaptive
 open System
@@ -293,8 +293,8 @@ like showing/hiding a navigation bar or a sidebar.
 
 ## Guards
 
-Guards are a way to prevent a route from being activated or deactivated. They run before any navigation is performed, the `Can Activate` guards run first followed by the `Can Deactivate` guards.
-If any of these guards return a `false` value, the navigation will not initiate at all and the `NavigationError<T>` will be returned from the `router.Navigate` call.
+Guards are a way to prevent a route from being activated or deactivated. They run before any navigation is performed, the `Can Deactivate` guards of the route being left run first, followed by the `Can Activate` guards of the target route.
+If any of these guards return `Stop`, the navigation will not initiate at all and the `NavigationError<T>` will be returned from the `router.Navigate` call.
 
 Guards also have access to the `RouteContext` object, so you can use the `RouteContext` object to make decisions based on the current route. In a similar fashion, remember that
 the longer it takes to resolve the guard, the longer it will take to navigate to the route.
@@ -326,7 +326,7 @@ asyncRoute
 
 Route Can Activate Guards can also be used to redirect to a different route, for example you can protect a route and if the user is not authenticated you can redirect them to the login view.
 
-> ***Note***: Can Deactivate guards while accept the "Redirect" result, they will not redirect the user to a different route. It will behave the same as if the guard returned "Stop".
+> ***Note***: `Can Deactivate` guards also accept the "Redirect" result; the router cancels the current navigation and follows the redirect to the target route instead.
 
 ## Caching
 
@@ -346,7 +346,7 @@ asyncRoute |> Route.cache CacheStrategy.NoCache
 
 
 (**
-The rule of thumb for cachign is:
+The rule of thumb for caching is:
 
 - [ ] Is the view stateful?
 - [ ] Is the user expecting to come back and see the same state in the view?

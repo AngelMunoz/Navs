@@ -6,6 +6,7 @@
 
 - **Navs:** `canDeactivate` and `canActivate` guards now run when navigating to a cached URL. Previously the cached view was returned before any guard ran, so guards stopped protecting routes after their first visit. The previously active route's resources are now also disposed on cached navigations when that route uses the `NoCache` strategy.
 - **Navs:** Swapped XML documentation on `CacheStrategy.NoCache` and `CacheStrategy.Cache`; each case now describes its own behavior.
+- **Docs:** Corrected the guard evaluation order (deactivation guards run before activation guards), the `canDeactivate` redirect behavior, and outdated guard-return wording in the guides; documentation scripts now reference `Navs`/`UrlTemplates` `1.*` instead of a pinned pre-release version.
 
 ## [1.0.0] - 2026-06-27
 
