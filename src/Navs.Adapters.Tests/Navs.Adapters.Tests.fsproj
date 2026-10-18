@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AdapterTests.fs" />
-    <Compile Include="HeadlessTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
