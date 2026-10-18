@@ -53,9 +53,106 @@ let buildWith concurrency routes =
         Concurrency = concurrency
   }
 
+type RecordingSynchronizationContext() as this =
+  inherit SynchronizationContext()
+  let mutable postCount = 0
+
+  member _.PostCount = Volatile.Read(&postCount)
+
+  override _.Post(callback, state) =
+    Interlocked.Increment(&postCount) |> ignore
+
+    ThreadPool.QueueUserWorkItem(fun _ ->
+      SynchronizationContext.SetSynchronizationContext this
+      callback.Invoke state
+    )
+    |> ignore
+
 [<Tests>]
 let tests =
   testList "Navs v2" [
+    testCase "async handlers resume on the caller SynchronizationContext"
+    <| fun () ->
+      let context = RecordingSynchronizationContext()
+      let mutable startedOnContext = false
+      let mutable resumedOnContext = false
+
+      let routes = [
+        Route.define<string>(
+          "home",
+          "/",
+          fun _ _ -> async {
+            startedOnContext <-
+              Object.ReferenceEquals(SynchronizationContext.Current, context)
+
+            do! Async.Sleep 10
+
+            resumedOnContext <-
+              Object.ReferenceEquals(SynchronizationContext.Current, context)
+
+            return "home"
+          }
+        )
+      ]
+
+      let router = build routes
+      let previous = SynchronizationContext.Current
+
+      SynchronizationContext.SetSynchronizationContext context
+
+      try
+        navigate router "/" |> expectOk |> ignore
+      finally
+        SynchronizationContext.SetSynchronizationContext previous
+
+      Expect.isTrue
+        startedOnContext
+        "the handler should start on the caller context"
+
+      Expect.isTrue
+        resumedOnContext
+        "the handler should resume on the caller context"
+
+      Expect.isGreaterThan
+        context.PostCount
+        0
+        "the handler should post a continuation"
+
+    testCase "async guards resume on the caller SynchronizationContext"
+    <| fun () ->
+      let context = RecordingSynchronizationContext()
+      let mutable resumedOnContext = false
+
+      let guard _ _ = async {
+        do! Async.Sleep 10
+
+        resumedOnContext <-
+          Object.ReferenceEquals(SynchronizationContext.Current, context)
+
+        return Continue
+      }
+
+      let routes = [ route "home" "/" "home" |> Route.canActivateAsync guard ]
+
+      let router = build routes
+      let previous = SynchronizationContext.Current
+
+      SynchronizationContext.SetSynchronizationContext context
+
+      try
+        navigate router "/" |> expectOk |> ignore
+      finally
+        SynchronizationContext.SetSynchronizationContext previous
+
+      Expect.isTrue
+        resumedOnContext
+        "the guard should resume on the caller context"
+
+      Expect.isGreaterThan
+        context.PostCount
+        0
+        "the guard should post a continuation"
+
     testCase "static routes rank before parameter routes"
     <| fun () ->
       let routes = [

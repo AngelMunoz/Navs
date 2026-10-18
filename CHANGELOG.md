@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-18
+
+### Fixed
+
+- **Navs (breaking behavioral):** `Async` route handlers and guards now start and resume on the caller's `SynchronizationContext`. Avalonia and FuncUI code can update UI after an await. Use the `Task` overloads or `Async.SwitchToThreadPool` for thread-pool work.
+- **Samples:** The Avalonia samples no longer block the UI thread with `GetAwaiter().GetResult()`. Failures are logged, and Routerish shows sync, async, task and cancellable-task handlers with matching guards.
+- **Docs:** The `UrlTemplates` documentation script references `2.*` instead of `1.*`.
+
 ## [2.0.0] - 2026-10-17
 
 ### Added

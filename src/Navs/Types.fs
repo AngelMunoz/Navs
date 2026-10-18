@@ -243,27 +243,18 @@ type Route =
     RouteFactory.create
       name
       path
-      (SyncViewWork(fun context nav ->
-        ValueTask.FromResult(handler context nav)
-      ))
+      (SyncViewWork(fun context nav -> valueTask { return handler context nav }))
 
   static member define<'View>
     (name: string, path: string, handler: TaskView<'View>)
     : RouteDefinition<'View> =
-    RouteFactory.create
-      name
-      path
-      (AsyncViewWork(fun context nav -> fun token -> handler context nav token))
+    RouteFactory.create name path (AsyncViewWork handler)
 
   [<CompiledName "Define">]
   static member defineCSharp<'View>
     (name: string, path: string, handler: Func<RouteContext, INavigable, 'View>)
     : RouteDefinition<'View> =
-    Route.define<'View>(
-      name,
-      path,
-      fun context nav -> handler.Invoke(context, nav)
-    )
+    Route.define<'View>(name, path, FuncConvert.FromFunc handler)
 
   [<CompiledName "Define">]
   static member defineCSharp<'View>
@@ -272,11 +263,7 @@ type Route =
       path: string,
       handler: Func<RouteContext, INavigable, CancellationToken, Task<'View>>
     ) : RouteDefinition<'View> =
-    Route.define<'View>(
-      name,
-      path,
-      fun context nav token -> handler.Invoke(context, nav, token)
-    )
+    Route.define<'View>(name, path, FuncConvert.FromFunc handler)
 
   [<CompiledName "CanActivateCSharp">]
   static member canActivateCSharp<'View>
@@ -284,7 +271,7 @@ type Route =
     : RouteDefinition<'View> =
     definition
     |> RouteFactory.appendCanActivate(
-      SyncGuardWork(fun _ next -> ValueTask.FromResult(guard.Invoke next))
+      SyncGuardWork(fun _ next -> valueTask { return guard.Invoke next })
     )
 
   [<CompiledName "CanDeactivateCSharp">]
@@ -293,7 +280,7 @@ type Route =
     : RouteDefinition<'View> =
     definition
     |> RouteFactory.appendCanDeactivate(
-      SyncGuardWork(fun _ next -> ValueTask.FromResult(guard.Invoke next))
+      SyncGuardWork(fun _ next -> valueTask { return guard.Invoke next })
     )
 
   static member define<'View>
@@ -302,10 +289,9 @@ type Route =
     RouteFactory.create
       name
       path
-      (AsyncViewWork(fun context nav ->
-        fun token ->
-          Async.StartAsTask(handler context nav, cancellationToken = token)
-      ))
+      (AsyncViewWork(fun context nav -> cancellableTask {
+        return! handler context nav
+      }))
 
 module Route =
 
@@ -332,14 +318,11 @@ module Route =
   let canActivate (guard: SyncGuard) (definition: RouteDefinition<'View>) =
     definition
     |> RouteFactory.appendCanActivate(
-      SyncGuardWork(fun active next -> ValueTask.FromResult(guard active next))
+      SyncGuardWork(fun active next -> valueTask { return guard active next })
     )
 
   let canActivateTask (guard: TaskGuard) (definition: RouteDefinition<'View>) =
-    definition
-    |> RouteFactory.appendCanActivate(
-      AsyncGuardWork(fun active next -> fun token -> guard active next token)
-    )
+    definition |> RouteFactory.appendCanActivate(AsyncGuardWork guard)
 
   let canActivateAsync
     (guard: AsyncGuard)
@@ -347,26 +330,22 @@ module Route =
     =
     definition
     |> RouteFactory.appendCanActivate(
-      AsyncGuardWork(fun active next ->
-        fun token ->
-          Async.StartAsTask(guard active next, cancellationToken = token)
-      )
+      AsyncGuardWork(fun active next -> cancellableTask {
+        return! guard active next
+      })
     )
 
   let canDeactivate (guard: SyncGuard) (definition: RouteDefinition<'View>) =
     definition
     |> RouteFactory.appendCanDeactivate(
-      SyncGuardWork(fun active next -> ValueTask.FromResult(guard active next))
+      SyncGuardWork(fun active next -> valueTask { return guard active next })
     )
 
   let canDeactivateTask
     (guard: TaskGuard)
     (definition: RouteDefinition<'View>)
     =
-    definition
-    |> RouteFactory.appendCanDeactivate(
-      AsyncGuardWork(fun active next -> fun token -> guard active next token)
-    )
+    definition |> RouteFactory.appendCanDeactivate(AsyncGuardWork guard)
 
   let canDeactivateAsync
     (guard: AsyncGuard)
@@ -374,10 +353,9 @@ module Route =
     =
     definition
     |> RouteFactory.appendCanDeactivate(
-      AsyncGuardWork(fun active next ->
-        fun token ->
-          Async.StartAsTask(guard active next, cancellationToken = token)
-      )
+      AsyncGuardWork(fun active next -> cancellableTask {
+        return! guard active next
+      })
     )
 
 [<Interface>]

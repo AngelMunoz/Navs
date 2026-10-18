@@ -71,8 +71,11 @@ let routes = [
 ]
 
 let navigate (url: string) (router: IRouter<Control>) =
-  router.Navigate (url) CancellationToken.None
-  |> fun task -> task.GetAwaiter().GetResult()
+  task {
+    match! router.Navigate url CancellationToken.None with
+    | Ok _ -> ()
+    | Error error -> eprintfn "Navigation failed for %s: %A" url error
+  }
   |> ignore
 
 let app () =
