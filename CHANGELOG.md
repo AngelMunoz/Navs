@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-17
+
 ### Added
 
 - **UrlTemplates.CSharp:** C# facade with `UrlTemplate.TryParse`, `UrlTemplate.TryBuild`, `RouteMatcher.TryParseUrl` and three `TryMatch` overloads. Parsed templates, URLs and matches are exposed through `Template`, `Url` and `RouteMatch`, with typed parameter access and structured `MatchError` values instead of F# results, options and lists.
@@ -18,6 +20,7 @@
 
 - **Navs (breaking):** `Navigate`, `NavigateByName`, `Back` and `Forward` return `CancellableTask<Result<NavigationResult, NavigationError>>`; callers pass the token when invoking them.
 - **Navs (breaking):** `IRouter` exposes `Snapshot`, `Changed`, `History`, `Links` and `ClearCache`; the old `State`, `Content` and `GetView` members are removed.
+- **Navs (breaking):** `FSharp.Data.Adaptive` is no longer a dependency, so adaptive composition over router state is gone. Read `Snapshot` or subscribe to `Changed` instead.
 - **Navs (breaking):** `HistorySnapshot.Entries` is an `IReadOnlyList<HistoryEntry>` instead of an F# list.
 - **Navs (breaking):** Router construction now validates and compiles the route table once through `Router.create`; the old `Router.build` and adapter-specific route wrappers are removed.
 - **Navs (breaking):** Guard order is registration order; deactivation guards run before activation guards. Redirects are bounded by `MaxRedirects`.

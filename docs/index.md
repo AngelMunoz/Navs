@@ -4,6 +4,8 @@ Welcome to the Navs Family documentation.
 
 This documentation is a work in progress.
 
+> Upgrading from 1.x? See [Migrating from v1 to v2](./Migrating-to-v2.md).
+
 This project contains the following libraries:
 
 - [Navs](#Navs)
