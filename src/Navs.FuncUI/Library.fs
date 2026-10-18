@@ -1,19 +1,14 @@
-﻿namespace Navs.FuncUI
+namespace Navs.FuncUI
 
 open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Threading
-open System.Threading.Tasks
-
 open Microsoft.Extensions.Logging
-
-open FSharp.Data.Adaptive
-
+open Avalonia.Controls
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-
 open Navs
 open Navs.Router
 
@@ -25,142 +20,63 @@ type FuncUIRouter
   ) =
 
   let router =
-    let splash = splash |> Option.map(fun f -> fun () -> f.Invoke())
-    Router.build<IView>(routes, ?splash = splash, ?logger = logger)
+    let config = {
+      Routes = List.ofSeq routes
+      History = InMemoryHistory()
+      Splash = splash |> Option.map(fun create -> create.Invoke())
+      Guards = []
+      Cache = NoCache
+      Concurrency = LatestWins
+      SameUrl = Ignore
+      MaxRedirects = 5
+      Logger = logger
+    }
 
+    match Router.create config with
+    | Ok value -> value
+    | Error errors -> invalidOp $"Invalid route table: {errors}"
 
   interface IRouter<IView> with
+    member _.Snapshot = router.Snapshot
+    member _.Changed = router.Changed
+    member _.History = router.History
+    member _.Links = router.Links
+    member _.ClearCache() = router.ClearCache()
+    member _.Navigate(url) = router.Navigate(url)
 
-    member _.State = router.State
+    member _.NavigateByName(name, parameters) =
+      router.NavigateByName(name, parameters)
 
-    member _.StateSnapshot = router.StateSnapshot
-
-    member _.Route = router.Route
-
-    member _.RouteSnapshot = router.RouteSnapshot
-
-    member _.Content = router.Content
-
-    member _.ContentSnapshot = router.ContentSnapshot
-
-    member _.Navigate(a, [<Optional>] ?b) =
-      router.Navigate(a, ?cancellationToken = b)
-
-    member _.NavigateByName(a, [<Optional>] ?b, [<Optional>] ?c) =
-      router.NavigateByName(a, ?routeParams = b, ?cancellationToken = c)
-
-
-type CValState<'Type>(initial: cval<'Type>) =
-  let instanceId = Guid.NewGuid()
-
-  interface IWritable<'Type> with
-    member _.InstanceId = instanceId
-    member _.InstanceType = InstanceType.Source
-
-    member _.ValueType = typeof<'Type>
-
-    member _.Current = initial.Value
-
-    member _.Subscribe(handler: 'Type -> unit) = initial.AddCallback(handler)
-
-    member _.SubscribeAny(handler: obj -> unit) = initial.AddCallback(handler)
-
-    member _.Set(value: 'Type) =
-      transact(fun _ -> initial.Value <- value)
-
-    member _.Dispose() = ()
-
+    member _.Back() = router.Back()
+    member _.Forward() = router.Forward()
 
 [<Extension>]
-type IComponentContexExtensions =
+type IComponentContextExtensions =
 
   [<Extension>]
-  static member inline useRouter
-    (context: IComponentContext, router: IRouter<IView>)
-    =
-    let view = context.useState(router.Content |> AVal.force)
+  static member useRouter(context: IComponentContext, router: IRouter<IView>) =
+    let view = context.useState(router.Snapshot.Content)
 
     context.useEffect(
-      handler = (fun () -> router.Content.AddCallback(view.Set)),
+      handler =
+        (fun () ->
+          let handler =
+            fun _ (_: RouterSnapshot<IView>) ->
+              view.Set(router.Snapshot.Content)
+
+          router.Changed.AddHandler handler
+
+          { new IDisposable with
+              member _.Dispose() = router.Changed.RemoveHandler handler
+          }
+        ),
       triggers = [ EffectTrigger.AfterInit ]
     )
 
     view :> IReadable<IView voption>
 
-  [<Extension>]
-  static member inline useAVal(context: IComponentContext, aVal: aval<'a>) =
-    let view = context.useState(aVal |> AVal.force)
-
-    context.useEffect(
-      handler = (fun () -> aVal.AddCallback(view.Set)),
-      triggers = [ EffectTrigger.AfterInit ]
-    )
-
-    view :> IReadable<'a>
-
-  [<Extension>]
-  static member useCval(context: IComponentContext, cVal: cval<'a>) =
-    context.usePassed(new CValState<'a>(cVal))
-
-
-type Route =
-
-  static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> Async<#IView>)
-    : RouteDefinition<IView> =
-    Navs.Route.define<IView>(
-      name,
-      path,
-      fun c n -> async {
-        let! view = handler c n
-        return view :> IView
-      }
-    )
-
-  static member define
-    (
-      name,
-      path,
-      handler:
-        RouteContext -> INavigable<IView> -> CancellationToken -> Task<#IView>
-    ) : RouteDefinition<IView> =
-    Navs.Route.define<IView>(
-      name,
-      path,
-      fun c n t -> task {
-        let! view = handler c n t
-        return view :> IView
-      }
-    )
-
-  static member define
-    (name, path, handler: RouteContext -> INavigable<IView> -> #IView)
-    : RouteDefinition<IView> =
-    Navs.Route.define<IView>(name, path, (fun c n -> handler c n :> IView))
-
 [<AutoOpen>]
 module DSL =
-  open Avalonia.Animation
-  open Avalonia.Controls
-
-  let private initialNavigation
-    (initialUri, router: IRouter<IView>, logger: ILogger option)
-    ()
-    =
-    let uri = defaultArg initialUri "/"
-
-    async {
-      let! result = router.Navigate(uri) |> Async.AwaitTask |> Async.Catch
-
-      match result with
-      | Choice1Of2 _ -> ()
-      | Choice2Of2 ex ->
-        match logger with
-        | Some l ->
-          l.LogError(ex, "Failed to navigate to initial URI: {Uri}", uri)
-        | None -> ()
-    }
-    |> Async.StartImmediate
 
   [<Class>]
   type RouterOutlet =
@@ -170,46 +86,68 @@ module DSL =
         router: IRouter<IView>,
         ?initialUri: string,
         ?noContent: IView,
-        ?transition: IPageTransition,
+        ?transition: Avalonia.Animation.IPageTransition,
         ?logger: ILogger
       ) =
+      let logNavigationError (uri: string) (error: NavigationError) =
+        match logger with
+        | Some log ->
+          log.LogError(
+            "Failed to navigate to initial URI {Uri}: {Error}",
+            uri,
+            error
+          )
+        | None -> ()
+
+      let initialNavigation () =
+        let uri = defaultArg initialUri "/"
+
+        task {
+          match! router.Navigate uri CancellationToken.None with
+          | Ok _ -> ()
+          | Error error -> logNavigationError uri error
+        }
+        |> ignore
+
       Component.create(
         "router-outlet",
-        fun ctx ->
-          let view = ctx.useRouter router
+        fun context ->
+          let view = context.useRouter router
 
-          ctx.useEffect(
-            handler = initialNavigation(initialUri, router, logger),
+          context.useEffect(
+            handler = initialNavigation,
             triggers = [ EffectTrigger.AfterInit ]
           )
 
+          let fallback =
+            noContent |> Option.defaultValue(ContentControl.create [])
+
           let content =
             view
-            |> State.readMap(fun v ->
-              v
-              |> ValueOption.defaultValue(
-                noContent |> Option.defaultValue(ContentControl.create [])
-              )
+            |> State.readMap(fun value ->
+              value |> ValueOption.defaultValue fallback
             )
 
-          let transition =
+          let pageTransition =
             transition
             |> Option.defaultWith(fun () ->
-              CompositePageTransition(
+              Avalonia.Animation.CompositePageTransition(
                 PageTransitions =
                   ResizeArray [
-                    CrossFade(TimeSpan.FromMilliseconds 150.)
-                    :> IPageTransition
-                    PageSlide(
-                      TimeSpan.FromMilliseconds 300.,
-                      PageSlide.SlideAxis.Horizontal
+                    Avalonia.Animation.CrossFade(
+                      TimeSpan.FromMilliseconds 150.
                     )
+                    :> Avalonia.Animation.IPageTransition
+                    Avalonia.Animation.PageSlide(
+                      TimeSpan.FromMilliseconds 300.
+                    )
+                    :> Avalonia.Animation.IPageTransition
                   ]
               )
             )
 
           TransitioningContentControl.create [
             TransitioningContentControl.content content.Current
-            TransitioningContentControl.pageTransition transition
+            TransitioningContentControl.pageTransition pageTransition
           ]
       )

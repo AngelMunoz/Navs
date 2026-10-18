@@ -1,26 +1,19 @@
 open System
+open System.Threading
+
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
+open Avalonia.Themes.Fluent
 
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.DSL
-
-open FSharp.Data.Adaptive
-
-open Navs
-open Navs.FuncUI
-open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Types
 
-// use external to FuncUI shared state
-let sharedState = cval 0
-
-type ChangeableValue<'T> with
-  member this.Set(value: 'T) = transact(fun _ -> this.Value <- value)
-
-  member this.Current = this.Value
+open Navs
+open Navs.Router
+open Navs.FuncUI
 
 let navbar (router: IRouter<IView>) : IView =
   StackPanel.create [
@@ -30,111 +23,42 @@ let navbar (router: IRouter<IView>) : IView =
       Button.create [
         Button.content "Books"
         Button.onClick(fun _ ->
-          router.Navigate "/books" |> ignore
-          // example "external updates"
-          sharedState.Set(sharedState.Value + 1)
+          router.Navigate ("/books") CancellationToken.None |> ignore
         )
       ]
       Button.create [
         Button.content "Guid"
         Button.onClick(fun _ ->
-          router.Navigate $"/{Guid.NewGuid()}" |> ignore
-          sharedState.Set(sharedState.Value + 1)
-        )
-      ]
-      Button.create [
-        Button.content "Counter"
-        Button.onClick(fun _ ->
-          router.Navigate $"/counter" |> ignore
-          sharedState.Set(sharedState.Value + 1)
-        )
-      ]
-      Button.create [
-        Button.content "Readable counter"
-        Button.onClick(fun _ ->
-          router.Navigate $"/read-counter" |> ignore
-          sharedState.Set(sharedState.Value + 1)
+          router.Navigate ($"/{Guid.NewGuid()}") CancellationToken.None
+          |> ignore
         )
       ]
     ]
   ]
 
-
 let routes = [
-  Route.define(
+  Route.define<IView>(
     "books",
     "/books",
-    (fun _ _ -> TextBlock.create [ TextBlock.text "Books" ])
+    fun _ _ -> TextBlock.create [ TextBlock.text "Books" ] :> IView
   )
-  Route.define(
+  Route.define<IView>(
     "guid",
     "/:id<guid>",
     fun context _ -> async {
       return
         TextBlock.create [
-          match context.urlMatch.Params.TryGetValue "id" with
-          | true, id -> TextBlock.text $"Visited: {id}"
-          | false, _ -> TextBlock.text "Guid No GUID"
+          match context.GetParam<Guid>("id") with
+          | ValueSome id -> TextBlock.text $"Visited: {id}"
+          | ValueNone -> TextBlock.text "Guid No GUID"
         ]
+        :> IView
     }
-  )
-  |> Route.cache NoCache
-  Route.define(
-    "read-counter",
-    "/read-counter",
-    fun _ _ ->
-      Component.create(
-        "read-counter",
-        fun ctx ->
-          // consume adaptive data in the standard FuncUI way
-          let counter = ctx.useAVal sharedState
-
-          StackPanel.create [
-            StackPanel.children [
-              TextBlock.create [ TextBlock.text(counter.Current |> string) ]
-            ]
-          ]
-      )
-  )
-  Route.define(
-    "counter",
-    "/counter",
-    fun _ _ ->
-      Component.create(
-        "counter",
-        fun ctx ->
-          let counter = ctx.useCval sharedState
-
-          let increment =
-            Button.create [
-              Button.content "Increment"
-              Button.onClick(fun _ ->
-                // values can also be updated using the standard FuncUI way
-                counter.Set(counter.Current + 1) |> ignore
-              )
-            ]
-
-          let decrement =
-            Button.create [
-              Button.content "Decrement"
-              Button.onClick(fun _ ->
-                counter.Set(counter.Current - 1) |> ignore
-              )
-            ]
-
-          StackPanel.create [
-            StackPanel.children [
-              increment
-              decrement
-              TextBlock.create [ TextBlock.text(counter.Current |> string) ]
-            ]
-          ]
-      )
   )
 ]
 
-let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
-  Component(fun ctx ->
+let appContent (router: IRouter<IView>) =
+  Component(fun context ->
     let noContent = TextBlock.create [ TextBlock.text "No content" ]
 
     DockPanel.create [
@@ -146,12 +70,10 @@ let appContent (router: FuncUIRouter, navbar: FuncUIRouter -> IView) =
     ]
   )
 
-
-type AppWindow(router: FuncUIRouter) as this =
+type AppWindow(router: IRouter<IView>) as this =
   inherit HostWindow()
 
-  do this.Content <- appContent(router, navbar)
-
+  do this.Content <- appContent router
 
 type App() =
   inherit Application()
@@ -159,7 +81,7 @@ type App() =
   override this.Initialize() = this.Styles.Add(FluentTheme())
 
   override this.OnFrameworkInitializationCompleted() =
-    let router = FuncUIRouter routes
+    let router = FuncUIRouter(routes) :> IRouter<IView>
     let window = AppWindow router
 
     match this.ApplicationLifetime with
@@ -167,9 +89,8 @@ type App() =
       desktop.MainWindow <- window :> Window
     | _ -> ()
 
-
 AppBuilder
   .Configure<App>()
   .UsePlatformDetect()
-  .StartWithClassicDesktopLifetime(System.Environment.GetCommandLineArgs())
+  .StartWithClassicDesktopLifetime(Environment.GetCommandLineArgs())
 |> ignore

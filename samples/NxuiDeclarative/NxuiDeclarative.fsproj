@@ -5,9 +5,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Pages/Guid.fs" />
-    <Compile Include="Pages/Books.fs" />
-    <Compile Include="Pages/Counter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

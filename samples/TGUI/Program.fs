@@ -1,23 +1,25 @@
-﻿open Terminal.Gui
+open System
+open System.Threading
+
+open Terminal.Gui
 open Terminal.Gui.App
 open Terminal.Gui.ViewBase
 open Terminal.Gui.Views
-open System
-open TGUI
 
 open Navs
-open UrlTemplates.RouteMatcher
+open Navs.Router
 open Navs.Terminal.Gui
+open TGUI
 
+let navigateByName (name: string) (navigable: INavigable) =
+  navigable.NavigateByName (name, null) CancellationToken.None |> ignore
 
-let Login app (ctx: RouteContext) (navigable: INavigable<_>) =
+let Login app (context: RouteContext) (navigable: INavigable) =
   let window =
     Window
       $"Example App ({App.Application.GetDefaultKey Input.Command.Quit} to quit)"
 
-  let username =
-    UrlMatch.getParamFromQuery "username" ctx.urlMatch |> Option.ofValueOption
-
+  let username = context.GetParam<string>("username") |> ValueOption.toOption
 
   let usernameLabel = Label("Username:")
 
@@ -63,7 +65,7 @@ let Login app (ctx: RouteContext) (navigable: INavigable<_>) =
     Button("Home")
       .X(Pos.Bottom(btnLogin) + Pos(1))
       .Y(Pos.Center())
-      .OnAccept(fun _ -> navigable.NavigateByName("home") |> Task.FireAndForget)
+      .OnAccept(fun _ -> navigateByName "home" navigable)
 
   window.Content(
     usernameLabel,
@@ -74,78 +76,63 @@ let Login app (ctx: RouteContext) (navigable: INavigable<_>) =
     backButton
   )
 
-let Home _ (navigable: INavigable<Window>) =
+let Home _ (navigable: INavigable) =
   let label = Label("Welcome to the Home Page")
 
   let homeBtn =
     Button("About")
       .Y(Pos.Bottom(label))
-      .OnAccept(fun _ ->
-        navigable.NavigateByName("about")
-        |> Async.AwaitTask
-        |> Async.Ignore
-        |> Async.StartImmediate
-      )
+      .OnAccept(fun _ -> navigateByName "about" navigable)
 
   let login =
     Button("Login")
       .Y(Pos.Bottom(homeBtn))
-      .OnAccept(fun _ ->
-        navigable.NavigateByName("login") |> Task.FireAndForget
-      )
+      .OnAccept(fun _ -> navigateByName "login" navigable)
 
   Window("Home").Content(label, homeBtn, login)
 
-let About _ (navigable: INavigable<Window>) =
+let About _ (navigable: INavigable) =
   let label = Label("Welcome to the About Page")
 
   let homeBtn =
     Button("Home")
       .Y(Pos.Bottom(label))
-      .OnAccept(fun _ -> navigable.NavigateByName("home") |> Task.FireAndForget
-
-      )
+      .OnAccept(fun _ -> navigateByName "home" navigable)
 
   let login =
     Button("Login")
       .Y(Pos.Bottom(homeBtn))
-      .OnAccept(fun _ ->
-        navigable.NavigateByName("login") |> Task.FireAndForget
-      )
+      .OnAccept(fun _ -> navigateByName "login" navigable)
 
   Window("About").Content(label, homeBtn, login)
 
-
-
 [<EntryPoint; STAThread>]
 let main argv =
-  // dotnet run --project samples/TGUI -- tgui:///login?username=admin
   let app = Application.Create().Init()
 
   let routes = [
-    Route.define("home", "/", Home)
-    Route.define("about", "/about", About)
-    Route.define("login", "/login?username", Login app)
+    Route.define<Window>("home", "/", Home)
+    Route.define<Window>("about", "/about", About)
+    Route.define<Window>("login", "/login?username", Login app)
   ]
 
-  let router: IRouter<Window> = TerminalGuiRouter routes
+  let router = TerminalGuiRouter(routes) :> IRouter<Window>
 
   let deepLink =
     argv
     |> Array.tryPick(fun arg ->
       try
         let uri = Uri(arg)
-        if uri.Scheme = "tgui" then Some(uri) else None
+        if uri.Scheme = "tgui" then Some uri else None
       with _ ->
         None
     )
     |> Option.map(fun url -> url.PathAndQuery + url.Fragment)
-    |> Option.defaultValue("/")
+    |> Option.defaultValue "/"
 
-  router.Navigate deepLink |> Task.FireAndForget
+  router.Navigate (deepLink) CancellationToken.None |> ignore
 
   app.Run(new RouterOutlet(router)) |> ignore
-  // Before the application exits, reset Terminal.Gui for clean shutdown
   app.RequestStop()
 
-  0 // return an integer exit code
+  0

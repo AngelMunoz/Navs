@@ -13,6 +13,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
     <PackageReference Include="NXUI" Version="12.0.0" />
     <PackageReference Include="NXUI.Desktop" Version="12.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />

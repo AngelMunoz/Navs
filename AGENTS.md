@@ -4,6 +4,7 @@ The Navs family is a set of router-like abstractions for F#.
 
 - **Navs** — core router (inspired by web routers such as vue-router and angular-router), generic and suitable for application-specific adapters.
 - **UrlTemplates** — URL template parsing and matching, used by Navs to parse navigable URLs.
+- **Navs.CSharp** — C# facade for the core router.
 - **Navs.Avalonia** — adapter for Avalonia applications.
 - **Navs.FuncUI** — adapter for Avalonia.FuncUI applications.
 - **Navs.Terminal.Gui** — adapter for Terminal.Gui applications.
@@ -24,20 +25,25 @@ General setup and usage instructions can be found in the [README.md](README.md) 
   - Packable libraries:
     - `UrlTemplates`
     - `Navs`
+    - `Navs.CSharp`
     - `Navs.Avalonia`
     - `Navs.FuncUI`
     - `Navs.Terminal.Gui`
   - Test projects (not packable):
     - `Navs.Tests`
+    - `Navs.CSharp.Tests`
+    - `Navs.Adapters.Tests`
+    - `Navs.FuncUI.Tests`
     - `UrlTemplates.Tests`
 - `samples/` contains sample applications (not packable):
   - `Routerish`
   - `FuncUI`
   - `TGUI`
   - `NxuiDeclarative`
+  - `CSharpToo`
 - `docs/` contains the [FsDocs](https://fsprojects.github.io/FSharp.Formatting/) documentation site.
 
-Multi-targeting: most libraries target `net10.0;net8.0`; `Navs.Terminal.Gui` targets `net10.0` only.
+Multi-targeting: most libraries target `net10.0;net8.0`; `Navs.Terminal.Gui` and the C# and adapter test projects target `net10.0` only.
 
 ## Changelog Management
 

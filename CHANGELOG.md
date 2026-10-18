@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Navs.CSharp:** C# facade with `NavigationOutcome`, `NavigationErrorCode`, `Route.Define` and `Router.Create`; C# callers no longer handle F# `Result`, `Option` or `CancellableTask`. `ICSharpRouter<TView>` is disposable and releases its changed-event subscription. Routes expose `CanActivate`/`CanDeactivate` through `GuardResult` and `Guard`.
+- **Navs:** Compiled route table with deterministic static/parameter ranking, duplicate and invalid-pattern validation, and ambiguous-pattern rejection at router creation. Declarative redirects resolve through a bounded chain.
+- **Navs:** `IRouteLinks` URL generation with path and query encoding, plus active-route checks.
+- **Navs:** `Snapshot` and `Changed` expose state, active route, content and history as one consistent value.
+- **Navs:** `IHistory.Current` and C# `HistorySnapshot.TryGetCurrent` expose the current history entry.
+- **Navs:** Per-route cache policies with TTL expiry, bounded eviction and explicit `ClearCache`; `NoCache` remains the default. Cache hits still run guards, and expired or evicted entries are not reused.
+- **Navs.Terminal.Gui:** `TerminalGuiRouter` and render-only `RouterOutlet` for Terminal.Gui `Window` values.
+- **Project:** C# consumer tests, adapter tests and v2 core tests covering navigation, guards, history, cache, links, public surfaces and an FsCheck URL round-trip property.
+
+### Changed
+
+- **Navs (breaking):** `Navigate`, `NavigateByName`, `Back` and `Forward` return `CancellableTask<Result<NavigationResult, NavigationError>>`; callers pass the token when invoking them.
+- **Navs (breaking):** `IRouter` exposes `Snapshot`, `Changed`, `History`, `Links` and `ClearCache`; the old `State`, `Content` and `GetView` members are removed.
+- **Navs (breaking):** `HistorySnapshot.Entries` is an `IReadOnlyList<HistoryEntry>` instead of an F# list.
+- **Navs (breaking):** Router construction now validates and compiles the route table once through `Router.create`; the old `Router.build` and adapter-specific route wrappers are removed.
+- **Navs (breaking):** Guard order is registration order; deactivation guards run before activation guards. Redirects are bounded by `MaxRedirects`.
+- **Navs (breaking):** `ConcurrencyPolicy` supports `LatestWins`, `Serialize` and `Reject`; the default remains `LatestWins`. A superseded navigation cannot commit history.
+- **Navs (breaking):** URL and query parameter values are encoded; missing optional query parameters are omitted.
+- **UrlTemplates (breaking):** Parsed URLs now percent-decode path, query and hash values and treat `+` as a space in query values.
+- **Navs.Avalonia (breaking):** `AvaloniaRouter` and `RouterOutlet` are render-only; the `Routes` control and adapter `Route` wrappers are removed.
+- **Navs.FuncUI (breaking):** `FuncUIRouter` and `RouterOutlet.create` use the core `RouteDefinition<IView>`; `useRouter` remains the component hook.
+- **Navs.Terminal.Gui (breaking):** `TerminalGuiRouter` and `RouterOutlet` use the core `RouteDefinition<Window>`.
+- **Docs:** README, FsDocs guides and all samples were migrated to the v2 API.
+
+### Fixed
+
+- **Navs:** A cancelled navigation now leaves the router `Idle` instead of stuck in `Navigating`.
+- **Navs:** A stopped deactivation guard reports the active route and leaves the previous content in place.
+
 ## [1.0.1] - 2026-10-16
 
 ### Fixed

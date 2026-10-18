@@ -1,56 +1,85 @@
-﻿open System
+open System
+open System.Threading
 
-open Avalonia
 open Avalonia.Controls
-open Avalonia.Data
 open NXUI.Desktop
 open NXUI.Extensions
 
-open IcedTasks
-open IcedTasks.Polyfill.Async.PolyfillBuilders
-
-open FSharp.Data.Adaptive
 open Navs
+open Navs.Router
 open Navs.Avalonia
-open Microsoft.Extensions.Logging
-open Pages
 
-let lf =
-  LoggerFactory.Create(fun builder ->
-    builder.AddConsole().SetMinimumLevel LogLevel.Trace |> ignore
+let block text = TextBlock().Text(text) :> Control
+
+let routes = [
+  Route.define<Control>(
+    "guid",
+    "/?id<guid>",
+    fun context _ ->
+      match context.GetParam<Guid>("id") with
+      | ValueSome id -> block $"Guid: {id}"
+      | ValueNone -> block "No GUID provided"
   )
 
-let logger = lf.CreateLogger "Navs.Avalonia.Program"
+  Route.define<Control>(
+    "books",
+    "/books?title",
+    fun context _ ->
+      let title =
+        context.GetParam<string>("title")
+        |> ValueOption.defaultValue "all books"
 
-let navigate url (router: IRouter<Control> voption) _ _ =
-  async {
-    match router with
-    | ValueNone ->
-      logger.LogInformation "Router is not initialized."
-      return ()
-    | ValueSome router ->
-      let! result = router.Navigate url |> Async.AwaitTask
+      block $"Books: {title}"
+  )
 
-      match result with
-      | Ok _ -> ()
-      | Error e -> logger.LogError("Navigation error: {Error}", e)
+  Route.define<Control>(
+    "counter",
+    "/counter?count<int>",
+    fun context _ ->
+      let mutable count =
+        context.GetParam<int>("count") |> ValueOption.defaultValue 0
 
-      return ()
-  }
-  |> Async.StartImmediate
+      let text = TextBlock().Text($"Count: {count}")
 
+      let update () = text.Text <- $"Count: {count}"
 
-let AppRoutes (logger) =
-  Routes(logger = logger)
-    .Children(
-      Route("guid", "/?id<guid>", Guid.view),
-      Route("books", "/books?title", Books.view),
-      Route("counter", "/counter?count<int>", Counter.view)
-    )
+      StackPanel()
+        .Spacing(8)
+        .Children(
+          Button()
+            .Content("Increment")
+            .OnClickHandler(fun _ _ ->
+              count <- count + 1
+              update()
+            ),
+          Button()
+            .Content("Decrement")
+            .OnClickHandler(fun _ _ ->
+              count <- count - 1
+              update()
+            ),
+          Button()
+            .Content("Reset")
+            .OnClickHandler(fun _ _ ->
+              count <- 0
+              update()
+            ),
+          text
+        )
+      :> Control
+  )
+]
+
+let navigate (url: string) (router: IRouter<Control>) =
+  router.Navigate (url) CancellationToken.None
+  |> fun task -> task.GetAwaiter().GetResult()
+  |> ignore
 
 let app () =
-  let routes = AppRoutes logger
-  let router = routes.Router
+  let router = AvaloniaRouter(routes) :> IRouter<Control>
+
+  let outlet = RouterOutlet()
+  outlet.Router <- Some router
 
   Window()
     .Content(
@@ -62,23 +91,26 @@ let app () =
             .OrientationHorizontal()
             .Spacing(8)
             .Children(
-              Button().Content("Books").OnClickHandler(navigate "/books" router),
+              Button()
+                .Content("Books")
+                .OnClickHandler(fun _ _ -> navigate "/books" router),
               Button()
                 .Content("Guid")
-                .OnClickHandler(navigate $"/?id={Guid.NewGuid()}" router),
+                .OnClickHandler(fun _ _ ->
+                  navigate $"/?id={Guid.NewGuid()}" router
+                ),
               Button()
                 .Content("Counter")
-                .OnClickHandler(navigate "/counter" router),
+                .OnClickHandler(fun _ _ -> navigate "/counter" router),
               Button()
                 .Content("Counter with query")
-                .OnClickHandler(navigate "/counter?count=10" router),
+                .OnClickHandler(fun _ _ -> navigate "/counter?count=10" router),
               Button()
                 .Content("Books with query")
-                .OnClickHandler(navigate "/books?title=The" router)
+                .OnClickHandler(fun _ _ -> navigate "/books?title=The" router)
             ),
-          routes
+          outlet.DockTop()
         )
     )
-
 
 NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore

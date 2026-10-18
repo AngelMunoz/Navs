@@ -1,273 +1,309 @@
 namespace Navs
 
 open System
-open System.Threading
-open System.Threading.Tasks
-open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
-open System.Collections.Generic
 open IcedTasks
-open FSharp.Data.Adaptive
-open UrlTemplates.RouteMatcher
-open UrlTemplates.UrlParser
 
-/// <summary>
-/// An object that contains multiple disposable objects that can be disposed of
-/// when the route is not cached and deactivated.
-/// </summary>
 [<Interface>]
 type IDisposableBag =
   inherit IDisposable
+
   abstract AddDisposable: IDisposable -> unit
 
-/// <summary>
-/// The context of the route that is being activated.
-/// This can be used to extract the parameters from the URL and extract information
-/// about the templated route that is being activated.
-/// </summary>
 [<NoComparison; NoEquality>]
 type RouteContext =
-  {
-    /// RAW URL that is being activated
-    [<CompiledName "Path">]
-    path: string
-    /// An object that contains multiple dictionaries with the parameters
-    /// that were extracted from the URL either from the url parameters
-    /// the query string or the hash portion of the URL.
-    [<CompiledName "UrlMatch">]
-    urlMatch: UrlMatch
-    /// An object that contains the segments, query and hash of the URL in a string form.
-    [<CompiledName "UrlInfo">]
-    urlInfo: UrlInfo
-    /// An object that contains objects that should be disposed of when the route is deactivated.
-    [<CompiledName "Disposables">]
-    disposables: IDisposableBag
-  }
+  { Path: string
+    UrlInfo: UrlTemplates.UrlParser.UrlInfo
+    UrlMatch: UrlTemplates.RouteMatcher.UrlMatch
+    Disposables: IDisposableBag }
 
-  [<CompiledName "AddDisposable">]
-  member addDisposable: IDisposable -> unit
+  member AddDisposable: disposable: IDisposable -> unit
 
-/// <summary>
-/// This object contains the contextual information about why a navigation
-/// could not be performed.
-/// </summary>
-type NavigationError<'View> =
-  | SameRouteNavigation
-  | NavigationCancelled
-  | RouteNotFound of url: string
-  | NavigationFailed of message: string
-  | CantDeactivate of deactivatedRoute: string
-  | CantActivate of activatedRoute: string
-  | GuardRedirect of redirectTo: string
+  member GetParam: name: string -> 'T voption
 
-[<Struct; NoComparison>]
+  member GetParamSequence: name: string -> 'T seq
+
+[<Extension; Sealed; Class>]
+type RouteContextExtensions =
+
+  [<Extension; CompiledName("AddDisposable")>]
+  static member inline AddDisposable: context: RouteContext * disposable: IDisposable -> unit
+
+  [<Extension; CompiledName("GetParam")>]
+  static member inline GetParam: context: RouteContext * name: string -> 'T voption
+
+  [<Extension; CompiledName("GetParamSequence")>]
+  static member inline GetParamSequence: context: RouteContext * name: string -> 'T seq
+
+type RouteParams = Collections.Generic.IReadOnlyDictionary<string, obj>
+
+[<NoComparison; Struct>]
 type NavigationState =
   | Idle
   | Navigating
 
-[<Interface>]
-type INavigable<'View> =
+type NavigationError =
+  | InvalidTarget of target: string
+  | RouteNotFound of url: string
+  | GuardStopped of route: string
+  | GuardFailed of route: string * correlationId: Guid
+  | RedirectLoop of chain: string list
+  | ActivationFailed of stage: string * correlationId: Guid
+  | HistoryFailed of message: string
+  | Cancelled
+  | Superseded
 
-  /// <summary>
-  /// The state of the router.
-  /// </summary>
-  /// <remarks>
-  /// This adaptive value will emit the current state of the router.
-  /// It will emit Navigating when the router is in the process of navigating to a route.
-  /// It will emit Idle when the router is not navigating to a route.
-  /// </remarks>
-  abstract member State: aval<NavigationState>
+type HistoryEntry =
+  { Key: Guid
+    Url: string
+    State: obj option
+    Index: int }
 
-  /// <summary>
-  /// The current state of the router.
-  /// </summary>
-  /// <remarks>
-  /// This property will return the current state of the router.
-  /// It will return Navigating when the router is in the process of navigating to a route.
-  /// It will return Idle when the router is not navigating to a route.
-  /// </remarks>
-  abstract member StateSnapshot: NavigationState
+type HistorySnapshot =
+  { Entries: System.Collections.Generic.IReadOnlyList<HistoryEntry>
+    Index: int
+    Current: HistoryEntry option }
 
-  /// <summary>
-  /// Performs a navigation to the route that matches the URL.
-  /// </summary>
-  /// <param name="url">The URL to navigate to</param>
-  /// <param name="cancellationToken">A token that can be used to cancel the navigation</param>
-  /// <returns>
-  /// A task that will complete when the navigation is successful or when it fails.
-  /// </returns>
-  abstract member Navigate:
-    url: string * [<Optional>] ?cancellationToken: CancellationToken -> Task<Result<unit, NavigationError<'View>>>
+  member CanGoBack: bool
 
-  /// <summary>
-  /// Performs a navigation by the name of the route.
-  /// </summary>
-  /// <param name="routeName">The name of the route to navigate to</param>
-  /// <param name="routeParams">The parameters that will be used to match the route</param>
-  /// <param name="cancellationToken">A token that can be used to cancel the navigation</param>
-  /// <returns>
-  /// A task that will complete when the navigation is successful or when it fails.
-  /// </returns>
-  /// <remarks>
-  /// The route name is the name that was used to define the route in the route definition.
-  ///
-  /// Please note that any required parameters not supplied in the routeParams will make the navigation fail.
-  /// </remarks>
-  abstract member NavigateByName:
-    routeName: string *
-    [<Optional>] ?routeParams: IReadOnlyDictionary<string, obj> *
-    [<Optional>] ?cancellationToken: CancellationToken ->
-      Task<Result<unit, NavigationError<'View>>>
+  member CanGoForward: bool
+
+type HistoryChangeKind =
+  | Push
+  | Replace
+  | Go
+
+type HistoryChange =
+  { Kind: HistoryChangeKind
+    Entry: HistoryEntry
+    Previous: HistoryEntry option }
 
 [<Interface>]
-type IRouter<'View> =
-  inherit INavigable<'View>
+type IHistory =
 
-  /// <summary>
-  /// The current route that is being rendered by the router.
-  /// </summary>
-  /// <remarks>
-  /// This adaptive value will emit the current route that is being rendered by the router.
-  /// It will also however emit None when the router is in a state where it doesn't have a route to render,
-  /// this could be when the router is just starting up and hasn't navigated to any route yet or when the router
-  /// failed to navigate.
-  /// </remarks>
-  abstract member Route: aval<RouteContext voption>
+  abstract CanGoBack: bool
 
-  /// <summary>
-  /// The current route that is being rendered by the router.
-  /// </summary>
-  /// <remarks>
-  /// This property will return the current route that is being rendered by the router.
-  /// It will also however return None when the router is in a state where it doesn't have a route to render,
-  /// this could be when the router is just starting up and hasn't navigated to any route yet or when the router
-  /// failed to navigate.
-  /// </remarks>
-  abstract member RouteSnapshot: RouteContext voption
+  abstract CanGoForward: bool
 
-  /// <summary>
-  /// The current route that is being rendered by the router.
-  /// </summary>
-  /// <remarks>
-  /// This adaptive value will emit the current route that is being rendered by the router.
-  /// </remarks>
-  abstract member Content: aval<'View voption>
+  abstract Changed: IEvent<HistoryChange>
 
-  /// <summary>
-  /// The current route that is being rendered by the router.
-  /// </summary>
-  /// <remarks>
-  /// This is a single value that will return the current route that is being rendered by the router.
-  /// </remarks>
-  abstract member ContentSnapshot: 'View voption
+  abstract Current: HistoryEntry option
 
-[<Struct; NoComparison>]
-type GuardResponse =
+  abstract Snapshot: HistorySnapshot
+
+[<Interface>]
+type IHistoryStore =
+  inherit IHistory
+
+  abstract Commit: index: int -> HistoryEntry option
+
+  abstract Peek: index: int -> HistoryEntry option
+
+  abstract Push: url: string * ?state: obj -> HistoryEntry
+
+  abstract Replace: url: string * ?state: obj -> HistoryEntry
+
+type NavigationResult =
+  { Route: RouteContext
+    History: HistoryEntry
+    Redirects: string list }
+
+type NavigationTarget =
+  | Url of url: string
+  | Route of name: string * parameters: RouteParams
+
+[<NoComparison; Struct>]
+type GuardResult =
   | Continue
   | Stop
   | Redirect of url: string
+  | Cancel
 
-/// An alias for a function that takes a route context and a cancellation token
-/// In order to determine if the route can be activated/deactivated or not.
-type RouteGuard<'View> = delegate of RouteContext voption * RouteContext -> CancellableValueTask<GuardResponse>
-
-/// An alias for a function that takes a route context and a cancellation token
-/// in order to extract the view that will be rendered when the route is activated.
-type GetView<'View> = delegate of RouteContext * INavigable<'View> -> CancellableValueTask<'View>
-
-/// The strategy that the router will use to cache the views that are rendered
-/// when the route is activated.
-[<Struct; NoComparison>]
-type CacheStrategy =
-  /// The NoCache strategy makes that the rendered view will be re-rendered
-  /// every time the route is activated.
+type CachePolicy =
   | NoCache
-  /// The Cache strategy makes that the rendered view will be stored in memory
-  /// and will be re-used when the route is activated again.
-  | Cache
+  | Cache of maxEntries: int * ttl: System.TimeSpan option
+
+type ConcurrencyPolicy =
+  | LatestWins
+  | Serialize
+  | Reject
+
+type SameUrlPolicy =
+  | Ignore
+  | Replace
+  | Push
+
+[<Interface>]
+type INavigable =
+
+  abstract Back: unit -> CancellableTask<Result<NavigationResult, NavigationError>>
+
+  abstract Forward: unit -> CancellableTask<Result<NavigationResult, NavigationError>>
+
+  abstract Navigate: url: string -> CancellableTask<Result<NavigationResult, NavigationError>>
+
+  abstract NavigateByName:
+    name: string * parameters: RouteParams -> CancellableTask<Result<NavigationResult, NavigationError>>
+
+type internal ViewWork<'View> =
+  | SyncViewWork of (RouteContext -> INavigable -> System.Threading.Tasks.ValueTask<'View>)
+  | AsyncViewWork of
+    (RouteContext -> INavigable -> System.Threading.CancellationToken -> System.Threading.Tasks.Task<'View>)
+
+type internal GuardWork =
+  | SyncGuardWork of (RouteContext voption -> RouteContext -> System.Threading.Tasks.ValueTask<GuardResult>)
+  | AsyncGuardWork of
+    (RouteContext voption
+      -> RouteContext
+      -> System.Threading.CancellationToken
+      -> System.Threading.Tasks.Task<GuardResult>)
 
 [<NoComparison; NoEquality>]
 type RouteDefinition<'View> =
-  {
-    /// Name used to locate this route for "by-name" route activation
-    [<CompiledName "Name">]
-    name: string
-    /// The URL pattern that will be used to match the route and enforce
-    /// the URL's parameters to be extracted and passed to the view.
-    [<CompiledName "Pattern">]
-    pattern: string
-    /// The delegate that will be called to render the view when the route is activated.
-    [<CompiledName "GetContent">]
-    getContent: GetView<'View>
-    /// The guards that will be executed when the route is activated.
-    /// If any of them returns false, the route will not be activated.
-    [<CompiledName "CanActivate">]
-    canActivate: RouteGuard<'View> list
-    /// The guards that will be executed when the route is deactivated.
-    /// If any of them returns false, the route will not be deactivated.
-    [<CompiledName "CanDeactivate">]
-    canDeactivate: RouteGuard<'View> list
-    /// The strategy that the router will use to cache the views that are rendered
-    /// when the route is activated.
-    [<CompiledName "CacheStrategy">]
-    cacheStrategy: CacheStrategy
-  }
+  internal
+    { name: string
+      pattern: string
+      priority: int
+      view: ViewWork<'View>
+      canActivate: GuardWork list
+      canDeactivate: GuardWork list
+      cache: CachePolicy
+      redirect: NavigationTarget option
+      meta: Map<string, obj> }
 
-[<Extension; Class; Sealed>]
-type RouteContextExtensions =
+  member CachePolicy: CachePolicy
 
-  /// <summary>
-  /// Gets a parameter from the "path" or the "query" section of the route context.
-  /// </summary>
-  /// <param name="ctx">The route context to get the parameter from</param>
-  /// <param name="name">The name of the parameter to get</param>
-  /// <returns>
-  /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
-  /// </returns>
-  [<Extension; CompiledName "GetParam">]
-  static member inline getParam<'CastedType> : ctx: RouteContext * name: string -> 'CastedType voption
+  member Metadata: Map<string, obj>
 
-  /// <summary>
-  /// Gets a parameter from the "query" section of the route context.
-  /// </summary>
-  /// <param name="ctx">The route context to get the parameter from</param>
-  /// <param name="name">The name of the parameter to get</param>
-  /// <returns>
-  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
-  /// </returns>
-  /// <remarks>
-  /// This method will attempt to collect as many ocurrences of the parameter as it can find in the query string.
-  /// </remarks>
-  [<Extension; CompiledName "GetParamSequence">]
-  static member inline getParamSequence<'CastedType> : ctx: RouteContext * name: string -> 'CastedType seq
+  member Name: string
 
-module RouteContext =
+  member Pattern: string
 
-  /// <summary>
-  /// Adds a disposable object to the route context.
-  /// </summary>
-  /// <remarks>This object will be disposed of when the route is deactivated ONLY if the route doesn't have cache enabled</remarks>
-  val inline addDisposable: IDisposable -> RouteContext -> unit
+  member Priority: int
 
-  /// <summary>
-  /// Gets a parameter from the "path" or the "query" section of the route context.
-  /// </summary>
-  /// <param name="name">The name of the parameter to get</param>
-  /// <param name="ctx">The route context to get the parameter from</param>
-  /// <returns>
-  /// The parameter value if it exists in the route context and it was succesfully parsed to it's supplied type or None if it doesn't
-  /// </returns>
-  val inline getParam<'CastedType> : name: string -> ctx: RouteContext -> 'CastedType voption
+  member RedirectTarget: NavigationTarget option
 
-  /// <summary>
-  /// Gets a parameter from the "query" section of the route context.
-  /// </summary>
-  /// <param name="name">The name of the parameter to get</param>
-  /// <param name="ctx">The route context to get the parameter from</param>
-  /// <returns>
-  /// The parameter value if it exists in the query parameters and it was succesfully parsed to it's supplied type or None if it doesn't
-  /// </returns>
-  /// <remarks>
-  /// This method will attempt to collect as many ocurrences of the parameter as it can find in the query string.
-  /// </remarks>
-  val inline getParamSequence<'CastedType> : name: string -> ctx: RouteContext -> 'CastedType seq
+type SyncView<'View> = RouteContext -> INavigable -> 'View
+
+type TaskView<'View> =
+  RouteContext -> INavigable -> System.Threading.CancellationToken -> System.Threading.Tasks.Task<'View>
+
+type AsyncView<'View> = RouteContext -> INavigable -> Async<'View>
+
+type SyncGuard = RouteContext voption -> RouteContext -> GuardResult
+
+type TaskGuard =
+  RouteContext voption -> RouteContext -> System.Threading.CancellationToken -> System.Threading.Tasks.Task<GuardResult>
+
+type AsyncGuard = RouteContext voption -> RouteContext -> Async<GuardResult>
+
+[<Class>]
+type Route =
+
+  static member define: name: string * path: string * handler: AsyncView<'View> -> RouteDefinition<'View>
+
+  static member define: name: string * path: string * handler: TaskView<'View> -> RouteDefinition<'View>
+
+  static member define: name: string * path: string * handler: SyncView<'View> -> RouteDefinition<'View>
+
+  [<CompiledName("Define")>]
+  static member defineCSharp:
+    name: string *
+    path: string *
+    handler:
+      System.Func<RouteContext, INavigable, System.Threading.CancellationToken, System.Threading.Tasks.Task<'View>> ->
+      RouteDefinition<'View>
+
+  [<CompiledName("Define")>]
+  static member defineCSharp:
+    name: string * path: string * handler: System.Func<RouteContext, INavigable, 'View> -> RouteDefinition<'View>
+
+  [<CompiledName("CanActivateCSharp")>]
+  static member canActivateCSharp:
+    guard: System.Func<RouteContext, GuardResult> * definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  [<CompiledName("CanDeactivateCSharp")>]
+  static member canDeactivateCSharp:
+    guard: System.Func<RouteContext, GuardResult> * definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+module Route =
+
+  val cache: policy: CachePolicy -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val priority: value: int -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val redirect: target: NavigationTarget -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val meta: key: string -> value: obj -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canActivate: guard: SyncGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canActivateTask: guard: TaskGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canActivateAsync: guard: AsyncGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canDeactivate: guard: SyncGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canDeactivateTask: guard: TaskGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+  val canDeactivateAsync: guard: AsyncGuard -> definition: RouteDefinition<'View> -> RouteDefinition<'View>
+
+[<Interface>]
+type IRouteLinks =
+
+  abstract IsActive: name: string * parameters: RouteParams -> bool
+
+  abstract TryBuild: name: string * parameters: RouteParams -> Result<string, string>
+
+type RouterSnapshot<'View> =
+  { State: NavigationState
+    Route: RouteContext voption
+    Content: 'View voption
+    History: HistorySnapshot }
+
+[<Interface>]
+type IRouter<'View> =
+  inherit INavigable
+
+  abstract Changed: IEvent<RouterSnapshot<'View>>
+
+  abstract ClearCache: unit -> unit
+
+  abstract History: IHistory
+
+  abstract Links: IRouteLinks
+
+  abstract Snapshot: RouterSnapshot<'View>
+
+type GlobalGuard =
+  RouteContext voption -> RouteContext -> System.Threading.CancellationToken -> System.Threading.Tasks.Task<GuardResult>
+
+[<Interface>]
+type IViewCache<'View> =
+
+  abstract Clear: unit -> unit
+
+  abstract Invalidate: key: string -> unit
+
+  abstract Set: key: string * context: RouteContext * view: 'View -> unit
+
+  abstract TryGet: key: string -> ('View * RouteContext) option
+
+type RouterConfig<'View> =
+  { Routes: RouteDefinition<'View> list
+    History: IHistoryStore
+    Splash: 'View option
+    Guards: GlobalGuard list
+    Cache: CachePolicy
+    Concurrency: ConcurrencyPolicy
+    SameUrl: SameUrlPolicy
+    MaxRedirects: int
+    Logger: Microsoft.Extensions.Logging.ILogger option }
+
+type RouteTableError =
+  | EmptyRoutes
+  | EmptyRouteName
+  | DuplicateRouteName of name: string
+  | DuplicatePattern of pattern: string
+  | AmbiguousPattern of first: string * second: string
+  | InvalidPattern of pattern: string * message: string

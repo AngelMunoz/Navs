@@ -4,361 +4,211 @@ categoryindex: 0
 index: 1
 title: Navs
 category: Libraries
-description: A library for bare bones routing in F# applications
-keywords: navigation, routing, url, navigation, navs
+description: A UI-agnostic router for F# applications
+keywords: navigation, routing, url, guards, history
 ---
 
-Navs is a... let's say general purpose routing library, it works over a generic value type to enable flexibility.
-That means that you can use it most likely anywhere you need to route something. The main use cases are for Desktop Applications.
-But there's nothing that can stop you from using it in games or even in console applications.
+# Navs
 
-## Usage
+`Navs` is a UI-agnostic router. Routes are flat, the view type is generic, and the adapters bind the router to Avalonia, FuncUI or Terminal.Gui.
 
-To use this library you need to do a couple of things:
+The core pieces are:
 
-- Define your routes
-- Create a router
+- `Route.define` for route registration.
+- `Router.create` or `Router.createDefault` to compile and validate routes.
+- `INavigable` for navigation from handlers.
+- `IRouter<'View>` for the snapshot and the current content.
+- `IHistory` for back and forward navigation.
+- `IRouteLinks` for URL generation and active links.
 
-From there on, you can use the router to navigate to different parts of your application.
+## Define routes
 
-*)
-
-(*** hide ***)
-#r "nuget: Navs, 1.*"
-
-open FSharp.Data.Adaptive
+```fsharp
 open System
-open System.Threading.Tasks
-
-(*** show ***)
-
+open System.Threading
 open Navs
 open Navs.Router
 
-type Page = {
-  title: string
-  content: string
-  onAction: unit -> Task
-}
-
 let routes = [
-  Route.define<Page>(
-    "home",
-    "/home",
-    fun _ _ -> {
-      title = "Home"
-      content = "Welcome to the home page"
-      onAction = fun () -> Task.CompletedTask
-    }
-  )
-  Route.define<Page>(
-    "about",
-    "/about",
-    fun _ _ -> {
-      title = "About"
-      content = "This is the about page"
-      onAction = fun () -> Task.CompletedTask
-    }
-  )
+    Route.define<string>("home", "/", fun _ _ -> "Home")
+    Route.define<string>("about", "/about", fun _ _ -> "About")
+    Route.define<string>(
+        "user",
+        "/users/:id<int>",
+        fun context _ -> async {
+            let id = context.GetParam<int>("id") |> ValueOption.defaultValue 0
+            return $"User {id}"
+        }
+    )
 ]
+```
+
+`Route.define` accepts synchronous, `Task` with token, `Async`, and `cancellableTask` handlers. For `Task` and `Async`, add the view type explicitly:
+
+```fsharp
+Route.define<string>(
+    "user",
+    "/users/:id<int>",
+    fun context _ token -> task {
+        let! _ = Async.Sleep(50) |> Async.StartAsTask
+        return $"User {context.GetParam<int>("id")}"
+    }
+)
+```
+
+## Create the router
+
+```fsharp
+let router =
+    match Router.createDefault(routes) with
+    | Ok router -> router
+    | Error errors -> invalidOp $"Invalid routes: %A{errors}"
+```
+
+For splash, guards, cache or concurrency policy, use `Router.create`:
+
+```fsharp
+let config = {
+    Routes = routes
+    History = InMemoryHistory()
+    Splash = Some "Loading..."
+    Guards = []
+    Cache = NoCache
+    Concurrency = LatestWins
+    SameUrl = Ignore
+    MaxRedirects = 5
+    Logger = None
+}
 
 let router =
-  Router.build<Page>(
-    routes,
-    fun () -> {
-      title = "Splash"
-      content = "Loading..."
-      onAction = fun () -> Task.CompletedTask
-    }
-  )
+    match Router.create config with
+    | Ok router -> router
+    | Error errors -> invalidOp $"Invalid routes: %A{errors}"
+```
 
-(**
-At this point we've defined our routes and created a router. The router is ready to be used to navigate to different parts of the application.
+`Router.create` parses and validates the route table once. Duplicate names, invalid patterns and empty tables return `Error` instead of failing during navigation.
 
-However, the router doesn't navigate anywhere by itself, it requires the user to trigger a navigation event. We can provide a `splash` screen to show while we trigger the first navigation.
-*)
+## Navigate
 
-(*** hide ***)
-let view = router.Content |> AVal.force
+`Navigate` returns `CancellableTask<Result<NavigationResult, NavigationError>>`. Invoke it with a token:
 
-printfn "Current view: \n\n%A" view
-(*** include-output ***)
+```fsharp
+let result =
+    router.Navigate("/about") CancellationToken.None
+    |> fun task -> task.GetAwaiter().GetResult()
 
-task {
-  let! navigationResult = router.Navigate "/home"
+match result with
+| Ok navigation -> printfn "Navigated to %s" navigation.Route.Path
+| Error error -> printfn "Navigation failed: %A" error
+```
 
-  match navigationResult with
-  | Ok() -> printfn "Navigated to home"
-  | Error errors -> printfn "Failed to navigate to home: %A" errors
-}
-(*** include-output ***)
-(*** hide ***)
-|> Async.AwaitTask
-|> Async.RunSynchronously
+`NavigateByName` accepts a route name and a parameter dictionary:
 
-(**
-  The `router.Navigate` function returns a `Task` that can be awaited to get the result of the navigation. The result is a `Result` type that contains the navigation errors if there were any.
-  In this case, we're navigating to the `/home` route, and we're printing a message if the navigation was successful or if it failed.
+```fsharp
+open System.Collections.Generic
 
-  In order to access the rendered content of the route, you can use the `router.Current` property. This property will contain the rendered content of the current route.
-  Or if you're using FSharp.Data.Adaptive, you can use the `router.AcaptiveContent` property to get the rendered content as an adaptive value.
-*)
-let adaptiveContent () = adaptive {
-  let! view = router.Content
-  // the view will always be the most up to date view
-  match view with
-  | ValueSome view ->
-    // ... do something with the view ...
-    printfn "Current view: \n\n%A" view
-    return ()
-  | ValueNone ->
-    printfn "No view currently"
-    // ... do something else ...
-    return ()
-}
-(**
-  If you need an observable, you can easily wrap the `router.Content` property in an observable.
-*)
+let parameters = Dictionary<string, obj>()
+parameters["id"] <- 42 :> obj
 
-// extend the existing AVal module
-module AVal =
-  let toObservable (value: aval<_>) =
-    { new IObservable<_> with
-        member _.Subscribe(observer) = value.AddCallback(observer.OnNext)
-    }
+let result = router.NavigateByName("user", parameters) CancellationToken.None
+```
 
-// subscribe to the router content
-router.Content |> AVal.toObservable
+## Observe the router
 
+```fsharp
+let snapshot = router.Snapshot
+printfn "State: %A" snapshot.State
+printfn "Content: %A" snapshot.Content
+printfn "Route: %A" snapshot.Route
 
-(**
- > ***NOTE***: If you're coming from C# and you're looking for the observables you can create an extension method in a simialr fashion, but keep in mind that you can use FSharp.Data.Adaptive from C# as well via the [CSharp.Data.Adaptive](https://www.nuget.org/packages/CSharp.Data.Adaptive) package.
-*)
-
-(**
-## Async Routes
-
-Routes can be asynchronous, this is useful when you need to fetch data from
-an API or a database before rendering the view. However be mindful that the longer it takes to resolve
-these async routes, the longer it will take to render the view.
-Creating Async Routes is as simple as returning an `Async` or a `Task` from the route handler.
-
-For support cancellation, you can pull the cancellation token from the Async computation you're working with.
-*)
-
-
-let asyncRoute =
-  Route.define<Page>(
-    "async",
-    "/async",
-    fun _ _ -> async {
-      let! token = Async.CancellationToken
-      do! Task.Delay(90, token) |> Async.AwaitTask
-
-      return {
-        title = "Async"
-        content = "This is an async route"
-        onAction = fun () -> Task.CompletedTask
-      }
-    }
-  )
-
-(**
-
-Task based routes have access to the cancellation token, so you can support cancellation in your routes.
-*)
-
-let taskRoute =
-  Route.define<Page>(
-    "task",
-    "/task",
-    fun _ (nav: INavigable<Page>) token -> task {
-      do! Task.Delay(90, token)
-
-      return {
-        title = "Task"
-        content = "This is a task route"
-        onAction =
-          fun () -> task {
-            do! Task.Delay(90)
-            nav.Navigate("/home") |> ignore
-          }
-      }
-    }
-  )
-
-
-(**
-## The RouteContext object
-
-The `cref:T:Navs.RouteContext` object is a record that contains the following properties:
-
-
-- `Route` - RAW URL that is being activated.
-- `UrlInfo` - An object that contains the segments, query and hash of the URL in a string form.
-- `UrlMatch` - An object that contains multiple dictionaries with the parameters that were extracted from the URL either from the url parameters the query string or the hash portion of the URL.
-
-If you wanted to define a route that takes a parameter, and then access that in the route handler, you can do so by using the `RouteContext` object.
-
-*)
-
-
-Route.define<Page>(
-  "param",
-  "/param/:id<guid>",
-  fun ctx _ ->
-    let guid =
-      // or ctx.getParam<Guid> "id" if that's your style
-      RouteContext.getParam<Guid> "id" ctx
-      |> ValueOption.map(_.ToString())
-      |> ValueOption.defaultValue "No Guid Supplied"
-
-    {
-      title = "Param"
-      content = $"This is a route with a parameter: {guid}"
-      onAction = fun () -> Task.CompletedTask
-    }
+router.Changed.Add(fun value ->
+    printfn "State changed to %A" value.State
 )
-
-(**
-## The `INavigable<'View>` and `IRouter<'View>` interface
-
-The ``cref:T:Navs.INavigable`1`` is provided so you can perform `Navigate` and `NavigateByname` operations within your view handlers.
-Perhaps when a button is clicked, or when a link is clicked, you can use the `INavigable` interface to navigate to a different route.
-*)
-
-Route.define<Page>(
-  "param",
-  "/param/:id<guid>",
-  fun ctx (nav: INavigable<Page>) ->
-    let guid =
-      ctx.getParam<Guid>("id")
-      |> ValueOption.map(_.ToString())
-      |> ValueOption.defaultValue "No Guid Supplied"
-
-    {
-      title = "Param"
-      content = $"This is a route with a parameter: {guid}"
-      onAction =
-        fun () -> task {
-          match! nav.Navigate("/home") with
-          | Ok _ -> ()
-          | Error errors -> printfn "Failed to navigate to home: %A" errors
-        }
-    }
-)
-(**
-The UrlMatch property in the context has algo access to the QueryParams and the Hash of the URL that was matched for this route.
-
-> For more information about extracting parameters from the URL, please refer to the [UrlTemplates Document section](./UrlTemplates.fsx).
-
-### State and StateSnapshot
-
-Sometimes it is useful to know if the router is currently navigating to a route or if it's idle.
-You can use the ``cref:M:Navs.INavigable`1.State`` and ``cref:M:Navs.INavigable`1.StateSnapshot`` properties to get the current state of the router.
-
-The `State` property is an adaptive value that will emit the current state of the router.
-
-The `StateSnapshot` property is a property that will return the current state of the router.
-
-*)
-
-let state = router.StateSnapshot
-
-match state with
-| NavigationState.Idle -> printfn "The router is idle"
-| NavigationState.Navigating -> printfn "The router is navigating"
-
-(**
-The ``cref:T:Navs.IRouter`1`` interface is reserved to the router object and it provides a few more properties than the navigable interface.
-This is manly because the rotuer is likely to be used like a service in the application while the navigable interface is more of a route tied object.
-
-### Route and RouteSnapshot
-
-The ``cref:M:Navs.IRouter`1.Route`` property is an adaptive value that represents the actual context used by the active route.
-while the ``cref:M:Navs.IRouter`1.RouteSnapshot`` property is a stale version of the previous.
-
-*)
-
-let route = router.RouteSnapshot
-
-(*** hide ***)
-printfn "Current route: \n\n%A" route
-(*** include-output ***)
-
-(**
-
-This property can be useful if you want to make some decisions above the route's handler based on the current route
-like showing/hiding a navigation bar or a sidebar.
+```
 
 ## Guards
 
-Guards are a way to prevent a route from being activated or deactivated. They run before any navigation is performed, the `Can Deactivate` guards of the route being left run first, followed by the `Can Activate` guards of the target route.
-If any of these guards return `Stop`, the navigation will not initiate at all and the `NavigationError<T>` will be returned from the `router.Navigate` call.
+Guards run before content resolution. Deactivation guards run before activation guards.
 
-Guards also have access to the `RouteContext` object, so you can use the `RouteContext` object to make decisions based on the current route. In a similar fashion, remember that
-the longer it takes to resolve the guard, the longer it will take to navigate to the route.
-*)
+```fsharp
+let requireAuthentication : SyncGuard =
+    fun _ _ -> Continue
 
-asyncRoute
-|> Route.canActivateAsync(fun routeContext _ -> async {
-  let! token = Async.CancellationToken
-  do! Task.Delay(90, token) |> Async.AwaitTask
-  // return Continue to allow the navigation
-  // return Stop to prevent the navigation
-  return Continue
+let confirmLeave : SyncGuard =
+    fun _ _ -> Stop
+
+let protectedRoute =
+    Route.define<string>("settings", "/settings", fun _ _ -> "Settings")
+    |> Route.canActivate requireAuthentication
+    |> Route.canDeactivate confirmLeave
+```
+
+Async, task and cancellable guards are also available:
+
+```fsharp
+Route.define<string>("secure", "/secure", fun _ _ -> "Secure")
+|> Route.canActivateTask(fun _ _ token -> task {
+    let! allowed = checkPermission token
+    return if allowed then Continue else Stop
 })
-|> Route.canDeactivateAsync(fun routeContext _ -> async {
-  let! token = Async.CancellationToken
-  do! Task.Delay(90, token) |> Async.AwaitTask
-  // return Continue to allow the navigation
-  // return Stop to prevent the navigation
-  return Stop
-})
-|> Route.canActivateAsync(fun routeContext _ -> async {
-  let! token = Async.CancellationToken
-  do! Task.Delay(90, token) |> Async.AwaitTask
-  // CanActivate guards can also "Re-direct" to a different route
-  return Redirect "/home"
-})
+```
 
-(**
+`Redirect` restarts navigation for another URL. `Stop` returns a typed `GuardStopped` error and keeps the previous view.
 
-Route Can Activate Guards can also be used to redirect to a different route, for example you can protect a route and if the user is not authenticated you can redirect them to the login view.
+## Redirects
 
-> ***Note***: `Can Deactivate` guards also accept the "Redirect" result; the router cancels the current navigation and follows the redirect to the target route instead.
+```fsharp
+Route.define<string>("old", "/old", fun _ _ -> "Old")
+|> Route.redirect(NavigationTarget.Url "/new")
+```
 
-## Caching
+Guard redirects use the same mechanism and are bounded by `MaxRedirects`.
 
-The default behavior of the router is to obtain the view from an internal cache if it's available. However, you can change this behavior by using the `Route.cache` function.
-Which will make the router always re-execute the route handler when the route is activated.
+## History
 
-Even if you cache a route there are certain features that will always execute regardless.
+```fsharp
+router.Back() CancellationToken.None
+|> fun task -> task.GetAwaiter().GetResult()
+|> ignore
 
-- Parameter parsing and route resolution.
-- Check for cancellation at the navigation level.
-- Route Guards.
+router.Forward() CancellationToken.None
+|> fun task -> task.GetAwaiter().GetResult()
+|> ignore
 
-*)
+let history = router.History.Snapshot
+printfn "Index: %d" history.Index
+printfn "Entries: %A" history.Entries
+```
 
-asyncRoute |> Route.cache CacheStrategy.NoCache
+## Cache
 
+The default is `NoCache`. Enable caching per route:
 
+```fsharp
+Route.define<string>("books", "/books", fun _ _ -> "Books")
+|> Route.cache(Cache(maxEntries = 100, ttl = Some(TimeSpan.FromMinutes 5.)))
+```
 
-(**
-The rule of thumb for caching is:
+Cached views still run guards. Entries expire by TTL and are evicted when the cache reaches its limit.
 
-- [ ] Is the view stateful?
-- [ ] Is the user expecting to come back and see the same state in the view?
-- [ ] Is the view expensive to render?
+## Links
 
-If any of the above checks true, then you should consider caching the view
+```fsharp
+let parameters = Dictionary<string, obj>()
+parameters["id"] <- 42 :> obj
 
-- [ ] Is the view state ephemeral and can be discarded when navigating away?
-- [ ] Do you want to avoid stale data any time the route is activated?
-- [ ] Do you need to dispose of resources when the route is deactivated?
+match router.Links.TryBuild("user", parameters) with
+| Ok url -> printfn "URL: %s" url
+| Error error -> printfn "Link failed: %s" error
 
-If any of the above checks true, then you should consider not caching the view.
+let active = router.Links.IsActive("user", parameters)
+```
 
-Now keep in mind these are not golden rules written in stone. By default we cache the views, but you can change this behavior in the case it is not suitable for your application.
+## Adapters
+
+- [Navs.Avalonia](./Navs-Avalonia.md)
+- [Navs.FuncUI](./Navs-FuncUI.md)
+- [Navs.Terminal.Gui](./Navs-Terminal.Gui.md)
+
+For C#, use `Navs.CSharp` and `NavigationOutcome`. See the repository README for a complete example.
 *)

@@ -1,17 +1,14 @@
 open System
+open System.Threading
 
-open Avalonia
 open Avalonia.Controls
-open Avalonia.Data
 open NXUI.Desktop
 open NXUI.Extensions
 
-open FSharp.Data.Adaptive
 open Navs
+open Navs.Router
 open Navs.Avalonia
 open Microsoft.Extensions.Logging
-open IcedTasks
-open IcedTasks.Polyfill.Async.PolyfillBuilders
 
 let lf =
   LoggerFactory.Create(fun builder ->
@@ -20,69 +17,77 @@ let lf =
 
 let logger = lf.CreateLogger "Navs.Avalonia.Program"
 
+let block text = TextBlock().Text(text) :> Control
+
 let routes = [
-  Route.define(
+  Route.define<Control>(
     "guid",
     "/:id<guid>",
     fun context _ -> async {
-
       return
-        match context.urlMatch.Params.TryGetValue "id" with
-        | true, id -> TextBlock().Text($"%O{id}") :> Control
-        | false, _ -> TextBlock().Text("Guid No GUID")
+        match context.GetParam<Guid>("id") with
+        | ValueSome id -> block $"%O{id}"
+        | ValueNone -> block "Guid No GUID"
     }
   )
-  Route.define(
-    "books",
-    "/books",
-    (fun _ _ -> TextBlock().Text("Books") :> Control)
-  )
-  Route.define(
+
+  Route.define<Control>("books", "/books", fun _ _ -> block "Books")
+
+  Route.define<Control>(
     "counter",
     "/counter?count<int>",
-    (fun ctx _ ->
-      let initialState = defaultValueArg (ctx.getParam<int> "count") 0
-      let value, setValue = AVal.useState initialState
+    fun context _ ->
+      let mutable count =
+        context.GetParam<int>("count") |> ValueOption.defaultValue 0
 
-      let increment () = setValue(fun v -> v + 1)
-      let decrement () = setValue(fun v -> v - 1)
-      let reset () = setValue(fun _ -> 0)
+      let text = TextBlock().Text($"Count: {count}")
 
-      let text = value |> AVal.map(fun v -> $"Count: {v}")
+      let update () = text.Text <- $"Count: {count}"
 
       StackPanel()
         .Spacing(8)
         .Children(
-          Button().Content("Increment").OnClickHandler(fun _ _ -> increment()),
-          Button().Content("Decrement").OnClickHandler(fun _ _ -> decrement()),
-          Button().Content("Reset").OnClickHandler(fun _ _ -> reset()),
-          TextBlock().Text(text |> AVal.toBinding)
+          Button()
+            .Content("Increment")
+            .OnClickHandler(fun _ _ ->
+              count <- count + 1
+              update()
+            ),
+          Button()
+            .Content("Decrement")
+            .OnClickHandler(fun _ _ ->
+              count <- count - 1
+              update()
+            ),
+          Button()
+            .Content("Reset")
+            .OnClickHandler(fun _ _ ->
+              count <- 0
+              update()
+            ),
+          text
         )
       :> Control
-    )
   )
   |> Route.cache NoCache
 ]
 
-
-let navigate url (router: IRouter<Control>) _ _ =
-  async {
-    let! result = router.Navigate(url) |> Async.AwaitTask
-
-    match result with
-    | Ok _ -> ()
-    | Error e -> printfn $"%A{e}"
-  }
-  |> Async.StartImmediate
+let navigate (url: string) (router: IRouter<Control>) =
+  router.Navigate (url) CancellationToken.None
+  |> fun task -> task.GetAwaiter().GetResult()
+  |> ignore
 
 let app () =
-
   let router =
     AvaloniaRouter(
       routes,
-      splash = (fun _ -> TextBlock().Text("Loading...")),
+      splash = Func<Control>(fun () -> block "Loading..."),
       logger = logger
     )
+    :> IRouter<Control>
+
+  let outlet = RouterOutlet()
+  outlet.Router <- Some router
 
   Window()
     .Content(
@@ -94,20 +99,21 @@ let app () =
             .OrientationHorizontal()
             .Spacing(8)
             .Children(
-              Button().Content("Books").OnClickHandler(navigate "/books" router),
+              Button()
+                .Content("Books")
+                .OnClickHandler(fun _ _ -> navigate "/books" router),
               Button()
                 .Content("Guid")
-                .OnClickHandler(navigate $"/{Guid.NewGuid()}" router),
+                .OnClickHandler(fun _ _ -> navigate $"/{Guid.NewGuid()}" router),
               Button()
                 .Content("Counter")
-                .OnClickHandler(navigate "/counter" router),
+                .OnClickHandler(fun _ _ -> navigate "/counter" router),
               Button()
                 .Content("Counter with query")
-                .OnClickHandler(navigate "/counter?count=10" router)
+                .OnClickHandler(fun _ _ -> navigate "/counter?count=10" router)
             ),
-          RouterOutlet().router(router).DockTop()
+          outlet.DockTop()
         )
     )
-
 
 NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore

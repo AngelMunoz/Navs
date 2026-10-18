@@ -1,19 +1,35 @@
----
-categoryindex: 0
-index: 4
-title: Navs.Terminal.Gui
-category: Libraries
----
+# Navs.Terminal.Gui
 
-## Navs.Terminal.Gui
+`Navs.Terminal.Gui` binds the core router to Terminal.Gui `Window` values. The adapter targets `net10.0`.
 
-[Terminal.Gui] is a library that allows you to write dynamic terminal interfaces in dotnet.
+## Define routes
 
-We've added support for a quite simple router.
+```fsharp
+open Terminal.Gui.Views
+open Navs
+open Navs.Router
+open Navs.Terminal.Gui
 
-## WIP
+let makeWindow title =
+    let window = new Window()
+    window.Title <- title
+    window
 
-This document is work in progress, please refer to the [samples directory] for a working example.
+let routes = [
+    Route.define<Window>("home", "/", fun _ _ -> makeWindow "Home")
+    Route.define<Window>("about", "/about", fun _ _ -> makeWindow "About")
+]
+```
 
-[Terminal.Gui]: https://gui-cs.github.io/Terminal.GuiV2Docs/index.html
-[samples directory]: https://github.com/AngelMunoz/Navs/tree/vnext/samples/TGUI
+## Create the router and outlet
+
+```fsharp
+let router = TerminalGuiRouter(routes) :> IRouter<Window>
+let outlet = new RouterOutlet(router)
+```
+
+`RouterOutlet` removes the previous window and adds the current one whenever `IRouter.Changed` fires. It starts the initial navigation on construction.
+
+## Breaking change
+
+The adapter no longer exposes an adapter-specific `Route` wrapper or a `Route` interop class. Use the core `Route.define` and pass `RouteDefinition<Window>` values to `TerminalGuiRouter`.

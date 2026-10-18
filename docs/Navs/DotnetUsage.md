@@ -16,7 +16,7 @@ using Navs.Router;
 
 // Namespaces for smooth interop
 // With the library for non-F# languages.
-using Route = Navs.Interop.Route;
+using Route = Navs.CSharp.Route;
 ```
 
 The aliased `Route` is a static class that contains `Route.Define` method and overloads that expect `Func<_>` rather than `FSharpFunc<_>`. which will make the API more idiomatic to the language you are using.

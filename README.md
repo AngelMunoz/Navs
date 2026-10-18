@@ -1,177 +1,145 @@
 # The Navs Family
 
-Welcome to the Navs Family documentation.
+Navs is a router family for .NET applications. The core library is UI-agnostic; the adapters bind it to Avalonia, FuncUI and Terminal.Gui.
 
-This documentation is a work in progress.
+- `Navs` — core router, route table, guards, history and cache.
+- `UrlTemplates` — URL and route-pattern parsing.
+- `Navs.Avalonia` — Avalonia controls.
+- `Navs.FuncUI` — Avalonia.FuncUI components.
+- `Navs.Terminal.Gui` — Terminal.Gui controls.
+- `Navs.CSharp` — C#-friendly facade.
 
-This project contains the following libraries:
-
-- [Navs](#Navs)
-- [UrlTemplates](#UrlTemplates)
-- [Navs.Avalonia](#Navs-Avalonia)
-- [Navs.FuncUI](#Navs-FuncUI)
-
-### Navs
-
-Navs is a router-like abstraction inspired by web routers such as vue-router, angular-router and similar projects.
-
-It is primarily a "core" library which you would usually depend on in your own projects, as it is very generic and while F# can be very intelligent about type inference, it tends to produce quite verbose signatures. For more information visit the Navs section in these docs.
-
-- [Navs](https://angelmunoz.github.io/Navs/Navs.html)
-
-A Compelling Example:
+## Navs (F#)
 
 ```fsharp
+open System
+open System.Threading
+open Navs
+open Navs.Router
 
 let routes = [
-  Route.define<string>("home", "/", (fun _ -> "Home"))
-  Route.define<string>("about", "/about", (fun _ -> "About"))
-  Route.define<string>(
-    "guid",
-    "/:id<guid>",
-    fun context _ -> async {
-      do! Async.Sleep(90)
-      return
-        match context.getParam<Guid> "id" with
-        | ValueSome id -> sprintf "Home %A" id
-        | ValueNone -> "Guid No GUID"
-    }
-  )
-]
-
-let router = Router.build<string>(routes)
-
-router.Content.AddCallback(fun content -> printfn $"%A{content}")
-
-let! result1 = router.navigate("/about")
-let! result2 = router.navigate("/home")
-let! result3 = router.navigate("/123e4567-e89b-12d3-a456-426614174000")
-
-// "About"
-// "Home"
-// "Home 123e4567-e89b-12d3-a456-426614174000"
-
-```
-
-### Navs.Avalonia
-
-This project attempts to hide the generics from call sites and offer a few DSLs to make it easier to use Navs in Avalonia applications. This router was designed to be used with Raw Avalonia Control classes however, it will pair very nicely with the [NXUI](https://github.com/wieslawsoltes/NXUI) project, Feel free to check the C# and F# samples in the [Samples](https://github.com/AngelMunoz/Navs/tree/main/samples) folder in the source code repository.
-
-- [Navs.Avalonia](https://angelmunoz.github.io/Navs/Navs-Avalonia.html)
-
-A Compelling Example:
-
-```fsharp
-
-let routes = [
-  Route.define(
-    "guid",
-    // routes can be typed!
-    "/:id<guid>",
-    fun context _ -> async {
-      // you can pre-load data if you want to
-      do! Async.Sleep(90)
-      return
-        // extract parameters from the URL
-        match context.getParam<guid> "id" with
-        | ValueSome id -> TextBlock().text(sprintf "Home %A" id)
-        | ValueNone -> TextBlock().text("Guid No GUID")
-    }
-  )
-  // Simpler non-async routes are also supported
-  Route.define("books", "/books", (fun _ _ -> TextBlock().text("Books")))
-]
-
-let navigate url (router: IRouter<Control>) _ _ =
-  task {
-    // navigation is asynchronous and returns a result
-    // in order to check if the navigation was successful
-    let! result = router.Navigate(url)
-
-    match result with
-    | Ok _ -> ()
-    | Error e -> printfn $"%A{e}"
-  }
-  |> ignore
-
-let app () =
-
-  let router: IRouter<Control> = AvaloniaRouter(routes, splash = fun _ -> TextBlock().text("Loading..."))
-
-  Window()
-    .content(
-      DockPanel()
-        .lastChildFill(true)
-        .children(
-          StackPanel()
-            .DockTop()
-            .OrientationHorizontal()
-            .spacing(8)
-            .children(
-              Button().content("Books").OnClickHandler(navigate "/books" router),
-              Button()
-                .content("Guid")
-                .OnClickHandler(navigate $"/{Guid.NewGuid()}" router)
-            ),
-          RouterOutlet().router(router)
-        )
+    Route.define<string>("home", "/", fun _ _ -> "Home")
+    Route.define<string>("about", "/about", fun _ _ -> "About")
+    Route.define<string>(
+        "guid",
+        "/:id<guid>",
+        fun context _ -> async {
+            do! Async.Sleep 90
+            return
+                match context.GetParam<Guid>("id") with
+                | ValueSome id -> $"Guid {id}"
+                | ValueNone -> "No GUID"
+        }
     )
-
-
-NXUI.Run(app, "Navs.Avalonia!", Environment.GetCommandLineArgs()) |> ignore
-```
-
-### Navs.FuncUI
-
-In a similar Fashion of Navs.Avalonia, this project attempts to provide a smooth API interface for [Avalonia.FuncUI](https://github.com/fsprojects/Avalonia.FuncUI/), you can find a sample in the [Samples](https://github.com/AngelMunoz/Navs/tree/main/samples) folder in the source code repository.
-
-- [Navs.FuncUI](https://angelmunoz.github.io/Navs/Navs-FuncUI.html)
-
-A Compelling Example:
-
-```fsharp
-
-let routes = [
-  Route.define(
-    "books",
-    "/books",
-    (fun _ _ -> TextBlock.create [ TextBlock.text "Books" ])
-  )
-  Route.define(
-    "guid",
-    "/:id<guid>",
-    fun context _ -> async {
-      return
-        TextBlock.create [
-          match context.getParam<guid> "id" with
-          | ValueSome id -> TextBlock.text $"Visited: {id}"
-          | ValueNone -> TextBlock.text "Guid No GUID"
-        ]
-    }
-  )
 ]
 
-let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
-  Component(fun ctx ->
+let router =
+    match Router.createDefault(routes) with
+    | Ok router -> router
+    | Error errors -> invalidOp $"Invalid routes: %A{errors}"
 
-    let currentView = ctx.useRouter router
+let result =
+    router.Navigate("/about") CancellationToken.None
+    |> fun task -> task.GetAwaiter().GetResult()
 
-    DockPanel.create [
-      DockPanel.lastChildFill true
-      DockPanel.children [ navbar router; currentView.Current ]
-    ]
-  )
+match result with
+| Ok _ -> printfn "Current view: %A" router.Snapshot.Content
+| Error error -> printfn "Navigation failed: %A" error
 ```
 
-### UrlTemplates
+`Navigate` returns a `CancellableTask<Result<...>>`. Pass the token when you invoke it. The router exposes its current state through `router.Snapshot` and publishes changes through `router.Changed`.
 
-This is a library for parsing URL-like strings into structured objects. It is used by Navs to parse navigable URLs and URL templates to find if they match.
+## Navs (C#)
 
-Currently this library is mainly aimed to be used from F# but if there's interest in using it from C# I can add some more friendly APIs.
+```csharp
+using Navs.CSharp;
 
-- [UrlTemplates](https://angelmunoz.github.io/Navs/UrlTemplates.html)
+var routes = new[]
+{
+    Route.Define<string>("home", "/", (context, navigable) => "Home"),
+    Route.Define<string>("about", "/about", (context, navigable) => "About")
+};
 
-A Compelling Example:
+var router = Router.Create(routes);
+var outcome = await router.NavigateAsync("/about");
+
+if (outcome.IsSuccess)
+{
+    Console.WriteLine(router.Snapshot.Content);
+}
+else
+{
+    Console.WriteLine(outcome.Error?.Code);
+}
+```
+
+C# receives `NavigationOutcome`; it does not need to handle F# `Result` or `ValueOption`.
+
+## Navs.Avalonia
+
+```fsharp
+open System.Threading
+open Avalonia.Controls
+open Navs
+open Navs.Router
+open Navs.Avalonia
+
+let block text =
+    let value = TextBlock()
+    value.Text <- text
+    value :> Control
+
+let routes = [
+    Route.define<Control>("home", "/", fun _ _ -> block "Home")
+    Route.define<Control>("about", "/about", fun _ _ -> block "About")
+]
+
+let router = AvaloniaRouter(routes) :> IRouter<Control>
+
+let outlet = RouterOutlet()
+outlet.Router <- Some router
+
+router.Navigate("/") CancellationToken.None |> ignore
+```
+
+## Navs.FuncUI
+
+```fsharp
+open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
+open Navs
+open Navs.Router
+open Navs.FuncUI
+
+let routes = [
+    Route.define<IView>("books", "/books", fun _ _ -> TextBlock.create [])
+    Route.define<IView>("about", "/about", fun _ _ -> TextBlock.create [])
+]
+
+let router = FuncUIRouter(routes) :> IRouter<IView>
+let outlet = RouterOutlet.create(router)
+```
+
+## Navs.Terminal.Gui
+
+```fsharp
+open Terminal.Gui.Views
+open Navs
+open Navs.Router
+open Navs.Terminal.Gui
+
+let routes = [
+    Route.define<Window>("home", "/", fun _ _ -> Window())
+    Route.define<Window>("about", "/about", fun _ _ -> Window())
+]
+
+let router = TerminalGuiRouter(routes) :> IRouter<Window>
+let outlet = RouterOutlet(router)
+```
+
+## UrlTemplates
+
+`UrlTemplates` parses URL templates and URLs. `Navs` compiles route patterns at router creation, so matching does not reparse templates on every navigation.
 
 ```fsharp
 open UrlTemplates.RouteMatcher
@@ -180,33 +148,9 @@ let template = "/api/v1/profiles/:id<int>?optionalKey<guid>&requiredKey!#hash"
 let url = "/api/v1/profiles/2345?requiredKey=2#hash"
 
 match RouteMatcher.matchStrings template url with
-| Ok (urlTemplate, urlInfo, urlMatch) ->
-  let { Segments = foundParams; Query = queryParams; Hash = foundHash } = urlTemplate
-  // foundParams
-  // [ Plain ""; Plain "api"; Plain "v1"; Plain "profiles"; Param ("id", "2345");]
-  // query
-  // [Optional "optionalKeyu", Guid; Required "requiredKey", Int]
-  // hash
-  // "hash"
-
-
-  let { Params = urlParams; Query = query; Hash = hash } = urlInfo
-  // urlParams
-  // [ ""; "api"; "v1"; "profiles"; "2345" ]
-  // query
-  // [ "optionalKey", String ValueNone; "requiredKey", String ValueSome "2"]
-  // hash
-  // ValueSome "hash"
-
-  let { Params = foundParams; QueryParams = queryParams; Hash = foundHash } = urlMatch
-  // foundParams
-  // { { "id", box 2345 } }
-  // queryParams
-  // { { "requiredKey", box "2" } }
-  // foundHash
-  // ValueSome "hash"
-
-| Error errors ->
-  for e in errors do
-    printfn $"%A{e}"
+| Ok (parsedTemplate, urlInfo, urlMatch) ->
+    printfn "%A" parsedTemplate
+    printfn "%A" urlInfo
+    printfn "%A" urlMatch
+| Error errors -> printfn "%A" errors
 ```

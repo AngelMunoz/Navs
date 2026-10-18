@@ -102,7 +102,34 @@ module UrlParser =
 
     $"{uri.PathAndQuery}{uri.Fragment}"
 
+  let decode (value: string) =
+    try
+      Uri.UnescapeDataString value
+    with _ ->
+      value
+
+  let decodeQueryValue =
+    function
+    | String ValueNone -> String ValueNone
+    | String(ValueSome value) ->
+      String(ValueSome(decode(value.Replace("+", " "))))
+    | StringValues values ->
+      StringValues(
+        values |> List.map(fun value -> decode(value.Replace("+", " ")))
+      )
+
   let ofString (url: string) =
     match run parse url with
-    | Success(result, _, _) -> Result.Ok result
+    | Success(result, _, _) ->
+      let query = Dictionary<string, QueryValue>()
+
+      for pair in result.Query do
+        let key = decode(pair.Key.Replace("+", " "))
+        query[key] <- decodeQueryValue pair.Value
+
+      Result.Ok {
+        Segments = result.Segments |> List.map decode
+        Query = query
+        Hash = result.Hash |> ValueOption.map decode
+      }
     | Failure(err, _, _) -> Result.Error(err)
