@@ -164,6 +164,79 @@ public sealed class RouterTests
     }
 
     [Fact]
+    public async Task Links_build_urls_for_named_routes()
+    {
+        var routes = new[]
+        {
+            Route.Define<string>("home", "/", (context, navigable) => "Home"),
+            Route.Define<string>("user", "/users/:id<int>", (context, navigable) => "User")
+        };
+
+        var router = Router.Create(routes);
+
+        Assert.True(
+            router.TryBuildLink(
+                "user",
+                new Dictionary<string, object> { ["id"] = 42 },
+                out var url));
+
+        Assert.Equal("/users/42", url);
+
+        Assert.False(router.TryBuildLink("missing", new Dictionary<string, object>(), out var unknown));
+        Assert.Null(unknown);
+
+        Assert.False(router.TryBuildLink("user", new Dictionary<string, object>(), out _));
+    }
+
+    [Fact]
+    public async Task IsActive_reports_the_current_route()
+    {
+        var routes = new[]
+        {
+            Route.Define<string>("home", "/", (context, navigable) => "Home"),
+            Route.Define<string>("user", "/users/:id<int>", (context, navigable) => "User")
+        };
+
+        var router = Router.Create(routes);
+
+        Assert.True((await router.NavigateAsync("/users/42")).IsSuccess);
+
+        Assert.True(router.IsActive("user", new Dictionary<string, object> { ["id"] = 42 }));
+        Assert.False(router.IsActive("user", new Dictionary<string, object> { ["id"] = 7 }));
+        Assert.False(router.IsActive("home", new Dictionary<string, object>()));
+    }
+
+    [Fact]
+    public async Task Typed_parameters_are_available_on_the_context_and_the_snapshot()
+    {
+        var foundOnContext = false;
+        var contextId = 0;
+
+        var user = Route.Define<string>("user", "/users/:id<int>?status", (context, navigable) =>
+        {
+            foundOnContext = context.TryGetParam<int>("id", out var value);
+            contextId = value;
+            return context.Path;
+        });
+
+        var router = Router.Create(user);
+
+        Assert.True((await router.NavigateAsync("/users/42?status=a&status=b")).IsSuccess);
+
+        Assert.True(foundOnContext);
+        Assert.Equal(42, contextId);
+
+        var route = router.Snapshot.Route;
+
+        Assert.NotNull(route);
+        Assert.True(route!.TryGetParam<int>("id", out var snapshotId));
+        Assert.Equal(42, snapshotId);
+        Assert.True(route.TryGetPathParam<int>("id", out _));
+        Assert.False(route.TryGetQueryParam<string>("id", out _));
+        Assert.Equal(new[] { "b", "a" }, route.GetQueryParamValues<string>("status"));
+    }
+
+    [Fact]
     public void Public_surface_does_not_expose_fsharp_types()
     {
         AssertNoFSharpTypes(typeof(ICSharpRouter<string>));

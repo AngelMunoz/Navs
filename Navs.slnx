@@ -9,6 +9,8 @@
     <Project Path="src/Navs.Terminal.Gui/Navs.Terminal.Gui.fsproj" />
     <Project Path="src/Navs/Navs.fsproj" />
     <Project Path="src/UrlTemplates/UrlTemplates.fsproj" />
+    <Project Path="src/UrlTemplates.CSharp/UrlTemplates.CSharp.csproj" />
+    <Project Path="src/UrlTemplates.CSharp.Tests/UrlTemplates.CSharp.Tests.csproj" />
     <Project Path="src/Navs.Tests/Navs.Tests.fsproj" />
     <Project Path="src/UrlTemplates.Tests/UrlTemplates.Tests.fsproj" />
   </Folder>

@@ -5,6 +5,7 @@ The Navs family is a set of router-like abstractions for F#.
 - **Navs** — core router (inspired by web routers such as vue-router and angular-router), generic and suitable for application-specific adapters.
 - **UrlTemplates** — URL template parsing and matching, used by Navs to parse navigable URLs.
 - **Navs.CSharp** — C# facade for the core router.
+- **UrlTemplates.CSharp** — C# facade for standalone URL template parsing, matching and building.
 - **Navs.Avalonia** — adapter for Avalonia applications.
 - **Navs.FuncUI** — adapter for Avalonia.FuncUI applications.
 - **Navs.Terminal.Gui** — adapter for Terminal.Gui applications.
@@ -16,7 +17,7 @@ General setup and usage instructions can be found in the [README.md](README.md) 
 1. **NEVER PUSH WITHOUT PERMISSION.** Always ask before pushing to the remote.
 2. **NEVER FORCE PUSH.** Tell the user they have to force push instead of you.
 3. **Always run `dotnet fantomas .` before committing code.** Format all F# files before staging.
-4. **Never use `Option.get` or `ValueOption.get`.** Always pattern match (`match`, `function`, `if ... then`) or use safe alternatives (`Option.defaultValue`, `Option.map`, `Array.choose`, etc.) to handle option values. Unchecked `.get` calls crash at runtime on `None`.
+4. **Prefer `Option.*` (or `ValueOption` or `Result`) combinators over nested matches.** When threading optional/result values, chain `Option.map` / `bind` / `filter` / `iter` / `defaultValue` / `orElse` instead of hand-rolling `match ... with | Some x -> ... | None -> ...` ladders. Match only when the two branches carry substantially different logic, not to unwrap and re-wrap.
 5. Pull requests made with the `gh` command should use a markdown file as the PR body, not inline escaped markdown strings.
 
 ## Project Structure
@@ -24,6 +25,7 @@ General setup and usage instructions can be found in the [README.md](README.md) 
 - `src/` contains the main source.
   - Packable libraries:
     - `UrlTemplates`
+    - `UrlTemplates.CSharp`
     - `Navs`
     - `Navs.CSharp`
     - `Navs.Avalonia`
@@ -35,6 +37,7 @@ General setup and usage instructions can be found in the [README.md](README.md) 
     - `Navs.Adapters.Tests`
     - `Navs.FuncUI.Tests`
     - `UrlTemplates.Tests`
+    - `UrlTemplates.CSharp.Tests`
 - `samples/` contains sample applications (not packable):
   - `Routerish`
   - `FuncUI`

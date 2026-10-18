@@ -8,6 +8,7 @@ Navs is a router family for .NET applications. The core library is UI-agnostic; 
 - `Navs.FuncUI` — Avalonia.FuncUI components.
 - `Navs.Terminal.Gui` — Terminal.Gui controls.
 - `Navs.CSharp` — C#-friendly facade.
+- `UrlTemplates.CSharp` — C#-friendly facade for URL templates.
 
 ## Navs (F#)
 
@@ -73,7 +74,7 @@ else
 }
 ```
 
-C# receives `NavigationOutcome`; it does not need to handle F# `Result` or `ValueOption`.
+C# receives `NavigationOutcome`; it does not need to handle F# `Result` or `ValueOption`. `TryBuildLink` and `IsActive` generate links and answer active-route questions, and `TryGetParam<T>`/`GetParamValues<T>` read typed parameters from the route context or the snapshot.
 
 ## Navs.Avalonia
 
@@ -153,4 +154,21 @@ match RouteMatcher.matchStrings template url with
     printfn "%A" urlInfo
     printfn "%A" urlMatch
 | Error errors -> printfn "%A" errors
+```
+
+## UrlTemplates (C#)
+
+`UrlTemplates.CSharp` exposes the same operations through `Try...` methods, typed parameters and structured errors, with no F# types in the signatures.
+
+```csharp
+using UrlTemplates.CSharp;
+
+if (UrlTemplate.TryParse("/api/v1/profiles/:id<int>", out var template, out var templateError))
+{
+    if (RouteMatcher.TryMatch(template!, "/api/v1/profiles/2345", out var match, out var errors))
+    {
+        match!.TryGetPathParam<int>("id", out var id);
+        Console.WriteLine(id); // 2345
+    }
+}
 ```

@@ -82,6 +82,21 @@ public sealed class RouteSnapshot
         Params = context.UrlMatch.Params;
         QueryParams = context.UrlMatch.QueryParams;
     }
+
+    public bool TryGetPathParam<T>(string name, out T value) =>
+        TypedParameters.TryGet(Params, name, out value);
+
+    public bool TryGetQueryParam<T>(string name, out T value) =>
+        TypedParameters.TryGet(QueryParams, name, out value);
+
+    /// <summary>Reads a typed parameter from the path first, then from the query.</summary>
+    public bool TryGetParam<T>(string name, out T value) =>
+        TypedParameters.TryGet(Params, name, out value)
+        || TypedParameters.TryGet(QueryParams, name, out value);
+
+    /// <summary>Reads every value of a repeated query parameter.</summary>
+    public IReadOnlyList<T> GetQueryParamValues<T>(string name) =>
+        TypedParameters.GetMany<T>(QueryParams, name);
 }
 
 public sealed class HistoryEntry
@@ -200,6 +215,15 @@ public interface ICSharpRouter<TView> : IDisposable
     RouterSnapshot<TView> Snapshot { get; }
     void ClearCache();
     event EventHandler<RouterSnapshotChangedEventArgs<TView>>? Changed;
+
+    /// <summary>Builds the URL for a named route. Returns false when the route is unknown or a parameter is missing.</summary>
+    bool TryBuildLink(
+        string routeName,
+        IReadOnlyDictionary<string, object> parameters,
+        out string? url);
+
+    /// <summary>True when the named route is the active route for the supplied parameters.</summary>
+    bool IsActive(string routeName, IReadOnlyDictionary<string, object> parameters);
 }
 
 public sealed class RouteConfigurationException : Exception
@@ -324,6 +348,34 @@ internal sealed class CSharpRouter<TView> : ICSharpRouter<TView>, IDisposable
     {
         var result = await _router.Forward().Invoke(cancellationToken).ConfigureAwait(false);
         return Map(result);
+    }
+
+    public bool TryBuildLink(
+        string routeName,
+        IReadOnlyDictionary<string, object> parameters,
+        out string? url)
+    {
+        ArgumentNullException.ThrowIfNull(routeName);
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        var result = _router.Links.TryBuild(routeName, parameters);
+
+        if (result.IsOk)
+        {
+            url = result.ResultValue;
+            return true;
+        }
+
+        url = null;
+        return false;
+    }
+
+    public bool IsActive(string routeName, IReadOnlyDictionary<string, object> parameters)
+    {
+        ArgumentNullException.ThrowIfNull(routeName);
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        return _router.Links.IsActive(routeName, parameters);
     }
 
     public void Dispose() => _subscription.Dispose();

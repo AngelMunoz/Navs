@@ -4,7 +4,8 @@
 
 ### Added
 
-- **Navs.CSharp:** C# facade with `NavigationOutcome`, `NavigationErrorCode`, `Route.Define` and `Router.Create`; C# callers no longer handle F# `Result`, `Option` or `CancellableTask`. `ICSharpRouter<TView>` is disposable and releases its changed-event subscription. Routes expose `CanActivate`/`CanDeactivate` through `GuardResult` and `Guard`.
+- **UrlTemplates.CSharp:** C# facade with `UrlTemplate.TryParse`, `UrlTemplate.TryBuild`, `RouteMatcher.TryParseUrl` and three `TryMatch` overloads. Parsed templates, URLs and matches are exposed through `Template`, `Url` and `RouteMatch`, with typed parameter access and structured `MatchError` values instead of F# results, options and lists.
+- **Navs.CSharp:** C# facade with `NavigationOutcome`, `NavigationErrorCode`, `Route.Define` and `Router.Create`; C# callers no longer handle F# `Result`, `Option` or `CancellableTask`. `ICSharpRouter<TView>` is disposable and releases its changed-event subscription. Routes expose `CanActivate`/`CanDeactivate` through `GuardResult` and `Guard`. `TryBuildLink` and `IsActive` generate links and answer active-route questions, and `RouteContext`/`RouteSnapshot` offer `TryGetParam<T>` and `GetParamValues<T>` instead of `FSharpValueOption`.
 - **Navs:** Compiled route table with deterministic static/parameter ranking, duplicate and invalid-pattern validation, and ambiguous-pattern rejection at router creation. Declarative redirects resolve through a bounded chain.
 - **Navs:** `IRouteLinks` URL generation with path and query encoding, plus active-route checks.
 - **Navs:** `Snapshot` and `Changed` expose state, active route, content and history as one consistent value.
@@ -23,6 +24,7 @@
 - **Navs (breaking):** `ConcurrencyPolicy` supports `LatestWins`, `Serialize` and `Reject`; the default remains `LatestWins`. A superseded navigation cannot commit history.
 - **Navs (breaking):** URL and query parameter values are encoded; missing optional query parameters are omitted.
 - **UrlTemplates (breaking):** Parsed URLs now percent-decode path, query and hash values and treat `+` as a space in query values.
+- **UrlTemplates (breaking):** Malformed templates and URLs report the offending character and its index instead of the parser's expectation list; the message no longer depends on the parsing engine. The package depends on XParsec instead of FParsec.
 - **Navs.Avalonia (breaking):** `AvaloniaRouter` and `RouterOutlet` are render-only; the `Routes` control and adapter `Route` wrappers are removed.
 - **Navs.FuncUI (breaking):** `FuncUIRouter` and `RouterOutlet.create` use the core `RouteDefinition<IView>`; `useRouter` remains the component hook.
 - **Navs.Terminal.Gui (breaking):** `TerminalGuiRouter` and `RouterOutlet` use the core `RouteDefinition<Window>`.

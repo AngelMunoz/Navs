@@ -1,6 +1,10 @@
 namespace UrlTemplates.UrlTemplate
 
-open FParsec
+open System.Collections.Generic
+open System.Collections.Immutable
+open XParsec
+open XParsec.Parsers
+open XParsec.CharParsers
 open UrlTemplates.Parser
 open FsToolkit.ErrorHandling
 
@@ -39,28 +43,27 @@ type UrlTemplate = {
 
 [<RequireQualifiedAccess>]
 module UrlTemplate =
-  open System.Collections.Generic
 
   module Primitives =
-    let intParam: Parser<TypedParam, unit> =
-      pstringCI "<int>" <|> pstringCI "<integer>" >>= (fun _ -> preturn Int)
+    let intParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<int>" Int <|> stringCIReturn "<integer>" Int
 
-    let floatParam: Parser<TypedParam, unit> =
-      pstringCI "<float>" <|> pstringCI "<number>" >>= (fun _ -> preturn Float)
+    let floatParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<float>" Float <|> stringCIReturn "<number>" Float
 
-    let boolParam: Parser<TypedParam, unit> =
-      pstringCI "<bool>" <|> pstringCI "<boolean>" >>= (fun _ -> preturn Bool)
+    let boolParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<bool>" Bool <|> stringCIReturn "<boolean>" Bool
 
-    let guidParam: Parser<TypedParam, unit> =
-      pstringCI "<guid>" >>= (fun _ -> preturn Guid)
+    let guidParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<guid>" Guid
 
-    let longParam: Parser<TypedParam, unit> =
-      pstringCI "<long>" >>= (fun _ -> preturn Long)
+    let longParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<long>" Long
 
-    let decimalParam: Parser<TypedParam, unit> =
-      pstringCI "<decimal>" >>= (fun _ -> preturn Decimal)
+    let decimalParam: Parser<TypedParam, char, unit, ReadableString> =
+      stringCIReturn "<decimal>" Decimal
 
-  let typed =
+  let typed: Parser<TypedParam, char, unit, ReadableString> =
     choice [
       Primitives.intParam
       Primitives.floatParam
@@ -70,58 +73,89 @@ module UrlTemplate =
       Primitives.decimalParam
     ]
 
-  let required = pchar '!'
-
   // "/segment/" matches "segment"
-  let plainSegment =
-    manyChars(noneOf Common.SegmentDelimiters)
-    >>= (fun value -> Plain value |> preturn)
+  let plainSegment: Parser<TemplateSegment, char, unit, ReadableString> =
+    manyChars(noneOf Common.SegmentDelimiters) |>> Plain
 
   // ":param/segment" matches "param"
   // "segment/:param<int>/segment" matches "param" and sets its type as an int
-  let paramSegment =
-    Common.ParamMarker >>. (manyChars asciiLetter) .>>. opt typed
-    >>= (fun (name, tipe) ->
-      ParamSegment(name, tipe |> Option.defaultValue String) |> preturn
+  let paramSegment: Parser<TemplateSegment, char, unit, ReadableString> =
+    (Common.ParamMarker >>. manyChars asciiLetter) .>>. opt typed
+    |>> (fun (struct (name, tipe)) ->
+      ParamSegment(name, tipe |> ValueOption.defaultValue String)
     )
 
   // "?key&key2!" matches an optional "key" and a required "key2"
+  let queryKey: Parser<QueryKey, char, unit, ReadableString> =
+    (manyChars(asciiLetter <|> anyOf [ '-'; '_' ]) .>>. opt typed)
+    .>>. opt(pchar '!')
+    |>> (fun (struct (struct (name, tipe), required)) ->
+      let tipe = tipe |> ValueOption.defaultValue String
 
-  let queryKey =
-
-    manyChars(asciiLetter <|> anyOf [ '-'; '_' ])
-    .>>. opt typed
-    .>>. opt required
-    >>= (fun ((name, tipe), required) ->
       match required with
-      | Some _ -> Required(name, tipe |> Option.defaultValue String)
-      | None -> Optional(name, tipe |> Option.defaultValue String)
-      |> preturn
+      | ValueSome _ -> Required(name, tipe)
+      | ValueNone -> Optional(name, tipe)
     )
 
-  let parse =
+  let private segmentList
+    : Parser<ImmutableArray<TemplateSegment>, char, unit, ReadableString> =
     sepEndBy (paramSegment <|> plainSegment) Common.SegmentSeparator
-    .>>. opt(Common.QueryMarker >>. sepEndBy queryKey Common.QuerySeparator)
-    .>>. opt(Common.HashMarker >>. manyChars anyChar)
-    .>> eof
-    >>= (fun ((segments, query), hash) ->
-      let query = query |> Option.defaultValue []
+    |>> (fun (struct (segments, _)) -> segments)
 
-      {
-        Segments =
-          match segments with
-          | [ Plain ""; Plain "" ] -> [ Plain "" ]
-          | _ -> segments
-        Query = query
-        Hash = hash |> ValueOption.ofOption
+  let private queryList
+    : Parser<ImmutableArray<QueryKey> voption, char, unit, ReadableString> =
+    opt(
+      Common.QueryMarker
+      >>. (sepEndBy queryKey Common.QuerySeparator
+           |>> (fun (struct (query, _)) -> query))
+    )
+
+  let private hashValue: Parser<string voption, char, unit, ReadableString> =
+    opt(Common.HashMarker >>. manyChars anyChar)
+
+  // Internal shape: XParsec's ImmutableArray survives the whole parser.
+  // The public UrlTemplate holds lists, so conversion happens once in ofString.
+  [<Struct>]
+  type private RawTemplate = {
+    Segments: ImmutableArray<TemplateSegment>
+    Query: ImmutableArray<QueryKey>
+    Hash: string voption
+  }
+
+  let private normalizeSegments (segments: ImmutableArray<TemplateSegment>) =
+    if segments.Length = 2 then
+      match segments[0], segments[1] with
+      | Plain "", Plain "" -> ImmutableArray.Create(Plain "")
+      | _ -> segments
+    else
+      segments
+
+  let private parse: Parser<RawTemplate, char, unit, ReadableString> =
+    segmentList .>>. queryList .>>. hashValue .>> eof
+    |>> (fun (struct (struct (segments, query), hash)) ->
+      let raw: RawTemplate = {
+        Segments = normalizeSegments segments
+        Query =
+          match query with
+          | ValueSome query -> query
+          | ValueNone -> ImmutableArray.Empty
+        Hash = hash
       }
-      |> preturn
+
+      raw
     )
 
   let ofString (template: string) =
-    match run parse template with
-    | Success(result, _, _) -> Result.Ok result
-    | Failure(errorMsg, _, _) -> Result.Error errorMsg
+    match parse(Reader.ofString template ()) with
+    | Ok raw ->
+      let parsed: UrlTemplate = {
+        Segments = List.ofSeq raw.Segments
+        Query = List.ofSeq raw.Query
+        Hash = raw.Hash
+      }
+
+      Result.Ok parsed
+    | Error error -> Result.Error(Report.describe template error)
 
   let toUrl (template: string) (routeParams: IReadOnlyDictionary<string, obj>) = result {
     let routeParams =

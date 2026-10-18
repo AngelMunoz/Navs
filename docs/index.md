@@ -8,6 +8,8 @@ This project contains the following libraries:
 
 - [Navs](#Navs)
 - [UrlTemplates](#UrlTemplates)
+- [Navs.CSharp](#Navs-CSharp)
+- [UrlTemplates.CSharp](#UrlTemplates-CSharp)
 - [Navs.Avalonia](#Navs-Avalonia)
 - [Navs.FuncUI](#Navs-FuncUI)
 
@@ -167,7 +169,7 @@ let appContent (router: IRouter<IView>, navbar: IRouter<IView> -> IView) =
 
 This is a library for parsing URL-like strings into structured objects. It is used by Navs to parse navigable URLs and URL templates to find if they match.
 
-Currently this library is mainly aimed to be used from F# but if there's interest in using it from C# I can add some more friendly APIs.
+C# consumers use the `UrlTemplates.CSharp` facade described below.
 
 - [UrlTemplates](./UrlTemplates.fsx)
 
@@ -209,4 +211,92 @@ match RouteMatcher.matchStrings template url with
 | Error errors ->
   for e in errors do
     printfn $"%A{e}"
+```
+
+### Navs.CSharp
+
+`Navs.CSharp` is the C# facade for the core router. It hides F# `Result`, `Option` and `CancellableTask` behind plain C# types.
+
+```csharp
+using Navs.CSharp;
+
+var routes = new[]
+{
+    Route.Define<string>("home", "/", (context, navigable) => "Home"),
+    Route.Define<string>("user", "/users/:id<int>", (context, navigable) => context.Path)
+};
+
+var router = Router.Create(routes);
+var outcome = await router.NavigateAsync("/users/42");
+
+if (outcome.IsSuccess)
+{
+    Console.WriteLine(outcome.Result!.Route.Path);
+}
+```
+
+`ICSharpRouter` also builds links and reports the active route:
+
+```csharp
+router.TryBuildLink("user", new Dictionary<string, object> { ["id"] = 42 }, out var link);
+var isActive = router.IsActive("user", new Dictionary<string, object> { ["id"] = 42 });
+```
+
+View and guard delegates receive the core `RouteContext`. The extension methods read typed parameters without `FSharpValueOption`:
+
+```csharp
+var user = Route.Define<string>("user", "/users/:id<int>", (context, navigable) =>
+{
+    context.TryGetParam<int>("id", out var id);
+    context.GetParamValues<string>("status");
+    return context.Path;
+});
+```
+
+The same getters are available on `router.Snapshot.Route`.
+
+### UrlTemplates.CSharp
+
+`UrlTemplates.CSharp` exposes parsing, matching and building to C# with `Try...` methods, typed parameters and structured errors. No F# `Result`, `Option` or list appears in its signatures.
+
+```csharp
+using UrlTemplates.CSharp;
+
+if (UrlTemplate.TryParse("/api/v1/profiles/:id<int>?requiredKey!", out var template, out var templateError))
+{
+    if (RouteMatcher.TryMatch(template!, "/api/v1/profiles/2345?requiredKey=2", out var match, out var errors))
+    {
+        match!.TryGetPathParam<int>("id", out var id);                // 2345
+        match.TryGetQueryParam<string>("requiredKey", out var key);   // "2"
+    }
+}
+```
+
+`Template` and `Url` expose the same inspection the F# types offer:
+
+```csharp
+foreach (var segment in template!.Segments)
+{
+    Console.WriteLine(segment.Kind == SegmentKind.Parameter
+        ? $"{segment.Name}: {segment.Type}"
+        : segment.Value);
+}
+```
+
+Build a URL from a template:
+
+```csharp
+if (UrlTemplate.TryBuild("/users/:id<int>", new Dictionary<string, object> { ["id"] = 42 }, out var url, out var buildErrors))
+{
+    Console.WriteLine(url); // /users/42
+}
+```
+
+`RouteMatcher.TryMatch` returns `MatchError` values. Each one carries `Kind` plus the fields that apply, so callers do not parse message text:
+
+```csharp
+foreach (var error in errors)
+{
+    Console.WriteLine($"{error.Kind}: {error.Name} = {error.Value}");
+}
 ```

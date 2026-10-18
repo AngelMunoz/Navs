@@ -46,10 +46,10 @@ module Params =
         | Ok _ -> failtestf "Expected Error, got Ok"
         | Error [ TemplateParsingError e ] ->
 
-          Expect.stringContains
+          Expect.equal
             e
-            "Expecting: Ascii letter"
-            "Error message should contain the expected value"
+            "unexpected '-' at index 10"
+            "The message should point at the offending character and its index"
         | Error e -> failtestf "Unexpected Error, got %A" e
       }
     ]

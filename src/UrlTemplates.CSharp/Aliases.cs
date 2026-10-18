@@ -1,0 +1,13 @@
+global using CoreMatchingError = UrlTemplates.RouteMatcher.MatchingError;
+global using CoreParameterType = UrlTemplates.UrlTemplate.TypedParam;
+global using CoreQueryKey = UrlTemplates.UrlTemplate.QueryKey;
+global using CoreQueryParamError = UrlTemplates.RouteMatcher.QueryParamError;
+global using CoreQueryValue = UrlTemplates.UrlParser.QueryValue;
+global using CoreStringMatchError = UrlTemplates.RouteMatcher.StringMatchError;
+global using CoreTemplate = UrlTemplates.UrlTemplate.UrlTemplate;
+global using CoreTemplateModule = UrlTemplates.UrlTemplate.UrlTemplateModule;
+global using CoreTemplateSegment = UrlTemplates.UrlTemplate.TemplateSegment;
+global using CoreUrlInfo = UrlTemplates.UrlParser.UrlInfo;
+global using CoreUrlMatch = UrlTemplates.RouteMatcher.UrlMatch;
+global using CoreUrlParserModule = UrlTemplates.UrlParser.UrlParser;
+global using CoreRouteMatcherModule = UrlTemplates.RouteMatcher.RouteMatcher;
