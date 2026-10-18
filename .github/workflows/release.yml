@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -76,9 +77,16 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         run: dotnet pack --configuration Release --no-build --output nupkgs
 
+      - name: NuGet login (trusted publishing)
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: NuGet/login@v1
+        id: nuget_login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to NuGet
         if: steps.check_tag.outputs.exists == 'false'
-        run: dotnet nuget push "nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_DEPLOY_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push "nupkgs/*.nupkg" --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Create Release
         if: steps.check_tag.outputs.exists == 'false'
