@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-09
+
+### Added
+
+- **Navs.Goo:** New Goo adapter with `GooRouter` for `Blob` routes and a `RouterOutlet` Cell that renders the active route, marshals change notices to the UI thread with `Window.Post`, and keeps route and navigation error text intact in native builds.
+- **Samples:** New `GooSample` app with Home, Counter, and About routes that follows the system light or dark Goo theme.
+
 ## [2.0.1] - 2026-10-18
 
 ### Fixed

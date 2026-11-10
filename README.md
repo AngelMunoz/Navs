@@ -7,6 +7,7 @@ Navs is a router family for .NET applications. The core library is UI-agnostic; 
 - `Navs.Avalonia` — Avalonia controls.
 - `Navs.FuncUI` — Avalonia.FuncUI components.
 - `Navs.Terminal.Gui` — Terminal.Gui controls.
+- `Navs.Goo` — Goo `Blob` routes and a `Cell` outlet.
 - `Navs.CSharp` — C#-friendly facade.
 - `UrlTemplates.CSharp` — C#-friendly facade for URL templates.
 
@@ -136,6 +137,30 @@ let routes = [
 
 let router = TerminalGuiRouter(routes) :> IRouter<Window>
 let outlet = RouterOutlet(router)
+```
+
+## Navs.Goo
+
+`Navs.Goo` binds the core router to Goo `Blob` values. A route returns a fresh `Blob` tree. A route that needs state returns a `Cell.Mount` blob with a factory and a key, so Goo keeps Cell ownership and disposal.
+
+```fsharp
+open Goo
+open Navs
+open Navs.Router
+open Navs.Goo
+
+let routes = [
+    Route.define<Blob>("home", "/", fun _ _ -> Text(Content = "Home") :> Blob)
+    Route.define<Blob>("about", "/about", fun _ _ -> Text(Content = "About") :> Blob)
+]
+
+let router = GooRouter(routes) :> IRouter<Blob>
+let outlet = new RouterOutlet(initialUri = "/")
+outlet.Router <- Some router
+
+let window = Window(Title = "Navs.Goo", Width = 720, Height = 480, Root = outlet)
+outlet.Window <- Some window
+window.Run()
 ```
 
 ## UrlTemplates

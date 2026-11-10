@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Styles.fs" />
+    <Compile Include="Counter.fs" />
+    <Compile Include="CounterPage.fs" />
+    <Compile Include="Home.fs" />
+    <Compile Include="About.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Goo.Widgets" Version="0.21.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Navs\Navs.fsproj" />
+    <ProjectReference Include="..\..\src\Navs.Goo\Navs.Goo.fsproj" />
+  </ItemGroup>
+
+</Project>

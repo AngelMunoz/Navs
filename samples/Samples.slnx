@@ -8,5 +8,6 @@
   <Project Path="FuncUI/FuncUI.fsproj" />
   <Project Path="NxuiDeclarative/NxuiDeclarative.fsproj" />
   <Project Path="Routerish/Routerish.fsproj" />
+  <Project Path="GooSample/GooSample.fsproj" />
   <Project Path="TGUI/TGUI.fsproj" />
 </Solution>
